@@ -13,21 +13,61 @@ TODO:
    - Check general properties (e.g., non initialized variables) 
 
 
-
--- Prerequisites --
-
-PARCOACH uses CMake. CMake can be downloaded from http://www.cmake.org
-
-This version of PARCOACH is an LLVM pass. It works with LLVM 3.7.1. 
-
-
--- Presentation --
-
 This project contains two directories: Parcoach and tests
 
 
 
--- How to build and use Parcoach --
+----------------------------- Prerequisites ------------------------------
+
+---- Cmake
+
+PARCOACH uses CMake. CMake can be downloaded from http://www.cmake.org
+
+---- LLVM 3.7.1
+
+This version of PARCOACH is an LLVM pass. It works with LLVM 3.7.1. 
+To get LLVM 3.7.1, follow these steps:
+
+-> compiling LLvm requires that you have installed GNU CMAKE (version 3.79, 3.79.1), GCC (>=4.7.0), python (>=2.7), libtool (version 1.5.22) and zlib (>=1.2.3.4)
+
+svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_371/final llvm
+
+cd llvm/tools
+svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_371/final clang
+
+cd clang/tools/
+svn co http://llvm.org/svn/llvm-project/clang-tools-extra/tags/RELEASE_371/final extra
+
+cd ../../../projects/
+svn co http://llvm.org/svn/llvm-project/openmp/tags/RELEASE_371/final openmp
+svn co http://llvm.org/svn/llvm-project/compiler-rt/tags/RELEASE_371/final compiler-rt
+svn co http://llvm.org/svn/llvm-project/libcxx/tags/RELEASE_371/final libcxx
+svn co http://llvm.org/svn/llvm-project/libcxxabi/tags/RELEASE_371/final libcxxabi
+
+cd ../..
+mkdir build
+cd build
+cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=PATH_TO_LLVM/build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ../llvm
+make -j4
+make install
+
+
+---- Berkeley UPC
+
+See http://upc.lbl.gov/download/
+!! Build BUPC with llvm 3.7.1 !!
+
+---- MPI
+
+No particular version of MPI is required. Use a version handling nonblocking collective if you want to check them.
+
+---- OpenMP
+
+TODO
+
+
+
+------------- How to build and use Parcoach ------------
 
 - Build Parcoach library:
 

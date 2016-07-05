@@ -1,7 +1,10 @@
+// Parcoach.cpp - implements LLVM Compile Pass which checks errors caused by MPI collective operations
+//
+// This pass inserts functions
+
 
 
 #define DEBUG_TYPE "hello"
-
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
@@ -48,7 +51,7 @@ using namespace llvm;
 using namespace std;
 
 
-std::vector<char*> v_coll = {(char*)"MPI_Barrier", (char*)"MPI_Bcast", (char*)"MPI_Scatter", (char*)"MPI_Scatterv", 
+std::vector<char*> MPI_v_coll = {(char*)"MPI_Barrier", (char*)"MPI_Bcast", (char*)"MPI_Scatter", (char*)"MPI_Scatterv", 
 			     (char*)"MPI_Gather", (char*)"MPI_Gatherv", (char*)"MPI_Allgather", (char*)"MPI_Allgatherv", 
 			     (char*)"MPI_Alltoall", (char*)"MPI_Alltoallv", (char*)"MPI_Alltoallw", (char*)"MPI_Reduce", 
 			     (char*)"MPI_Allreduce", (char*)"MPI_Reduce_scatter", (char*)"MPI_Scan", (char*)"MPI_Comm_split",
@@ -58,8 +61,16 @@ std::vector<char*> v_coll = {(char*)"MPI_Barrier", (char*)"MPI_Bcast", (char*)"M
 			     (char*)"MPI_Ialltoallw", (char*)"MPI_Ireduce", (char*)"MPI_Iallreduce", (char*)"MPI_Ireduce_scatter_block",
 			     (char*)"MPI_Ireduce_scatter", (char*)"MPI_Iscan", (char*)"MPI_Iexscan",(char*)"MPI_Ibcast"};
 
-namespace {
+std::vector<char*> UPC_v_coll = {(char*)"_upcr_notify"}; // upc_barrier= upc_notify+upc_wait, TODO: add all collectives
+std::vector<char*> OMP_v_coll = {(char*)"todo"}; // TODO
 
+std::vector<char*> v_coll(MPI_v_coll.size() + UPC_v_coll.size()); // TODO: add OMP_v_coll
+
+
+
+
+
+namespace {
 
 
 /*
@@ -83,8 +94,6 @@ vector<BasicBlock * > postdominance_frontier(PostDominatorTree &PDT, BasicBlock 
         vector<BasicBlock * > PDF;
         PDF.clear();
         DomTreeNode *DomNode = PDT.getNode(BB);
-        //SmallVector< BasicBlock *, 8> Result;
-        //SmallVector<BasicBlock *, 8>::iterator itr;
 
         for (auto it = pred_begin(BB), et = pred_end(BB); it != et; ++it){
                 BasicBlock* predecessor = *it;
@@ -99,7 +108,6 @@ vector<BasicBlock * > postdominance_frontier(PostDominatorTree &PDT, BasicBlock 
                 vector<BasicBlock * > ChildDF = postdominance_frontier(PDT, IDominee->getBlock());
                 vector<BasicBlock * >::const_iterator CDFI = ChildDF.begin(), CDFE = ChildDF.end();
                 for (; CDFI != CDFE; ++CDFI) {
-                        //if (!PDT.properlyDominates(DomNode,PDT[*CDFI])){
                         if (PDT[*CDFI]->getIDom() != DomNode && *CDFI!=BB){
                                 PDF.push_back(*CDFI);
                         }
@@ -154,6 +162,7 @@ vector<BasicBlock * > iterated_postdominance_frontier(PostDominatorTree &PDT, Ba
 
 // Check Collective function before a MPI collective
 // --> check_collective_MPI(int OP_color, const char* OP_name, int OP_line, char* OP_warnings, char *FILE_name)
+// add a type to handle MPI, UPC and OMP
 void instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name, int OP_line, StringRef WarningMsg, StringRef File){
         IRBuilder<> builder(I);
 	// Arguments of the new function 
@@ -180,6 +189,9 @@ void instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name, i
 
 // Check Collective function before return statements
 // --> void CC(int color, int line, char* filename)
+// TODO
+
+
 
 
 
@@ -196,49 +208,49 @@ struct ParcoachInstr : public FunctionPass {
 	static char ID;
 	static int STAT_collectives;
 	static StringRef File;
+	vector<char *>::iterator vitr;
+	vector<BasicBlock *>::iterator Bitr;
 
 	ParcoachInstr() : FunctionPass(ID) {}
 
 	virtual bool runOnFunction(Function &F) {
 
-		Module* M = F.getParent();
-		vector<char *>::iterator vitr;
-		vector<BasicBlock *>::iterator Bitr;
 		STAT_collectives=0;
-		int OP_color=0;
+		Module* M = F.getParent();
+		BasicBlock &entry = F.getEntryBlock();
 
+		// Dominance/Postdominance info
 		DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 		PostDominatorTree &PDT=getAnalysis<PostDominatorTree>();
+		// Loop info
 		LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-		/*for (LoopInfo::iterator L = LI->begin(), LE = LI->end(); L != LE; ++L) {
-		  MDNode *LoopID = (*L)->getLoopID();
-		  BasicBlock *Header = (*L)->getHeader();
-		  errs() << "Loop " << Header->getName() << "\n";
-		  (*L)->dump();
-		}*/
-		BasicBlock &entry = F.getEntryBlock();
+		// collective info
+		int OP_color=0;
+		// Warning info
+		StringRef WarningMsg;
+		const char *ProgName="PARCOACH";
+		SMDiagnostic Diag;
+
+		std::sort(MPI_v_coll.begin(), MPI_v_coll.end());
+		std::sort(UPC_v_coll.begin(), UPC_v_coll.end());
+		std::merge(MPI_v_coll.begin(),MPI_v_coll.end(), UPC_v_coll.begin(), UPC_v_coll.end(),v_coll.begin());
 
 		for(Function::iterator bb = F.begin(), e = F.end(); bb!=e; ++bb)
 		{
 			BasicBlock *BB = bb;	
+			// Loop info
 			bool inLoop = LI->getLoopFor(BB);
 			Loop* BBloop = LI->getLoopFor(BB);
-
 			for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i) 
 			{         
 				// Debug info (line in the source code, file)
+				File="";
 				DebugLoc DLoc = i->getDebugLoc();
 				unsigned OP_line = 0;
-				File="";					
 				if(DLoc){
 					OP_line = DLoc.getLine();
 					File=DLoc->getFilename();
 				}
-				// Warning info
-				string coll_line=to_string(OP_line);
-				StringRef WarningMsg;
-				const char *ProgName="PARCOACH";
-				SMDiagnostic Diag;
 
 				/** FOUND A CALL INSTRUCTION **/
 				if(CallInst *CI = dyn_cast<CallInst>(i))
@@ -246,13 +258,17 @@ struct ParcoachInstr : public FunctionPass {
 					Function *f = CI->getCalledFunction();
 					if(!f)	return false;
 
+					// Collective info
 					std::string OP_name = f->getName().str();
+					// Warning info
+					string coll_line=to_string(OP_line);
+
 					// Is it a collective call?
 					for (vitr = v_coll.begin(); vitr != v_coll.end(); vitr++) 
 					{
 						if(f->getName().equals(*vitr)){
 							OP_color=vitr-v_coll.begin();
-							DEBUG(errs() << "-> Found " << OP_name << " line " << OP_line << "OP_color=" << OP_color << "\n") ;
+							DEBUG(errs() << "-> Found " << OP_name << " line " << OP_line << ", OP_color=" << OP_color << "\n") ;
 							STAT_collectives++; // update statistics
 
 							// Check if the collective is in a loop
@@ -274,25 +290,23 @@ struct ParcoachInstr : public FunctionPass {
 								WarningMsg = OP_name + " line " + coll_line + " possibly not called by all processes: iPDF non null!"; 
 								Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
 								Diag.print(ProgName, errs(), 1,1);
-								instrumentCC(M,i,OP_color, OP_name, OP_line, WarningMsg, File);
+								// works only for MPI for now... TODO: add a test to know which collective has been found
+								//instrumentCC(M,i,OP_color, OP_name, OP_line, WarningMsg, File);
 							}
-
-							/*if(blockDominatesEntry(BB, PDT, &entry)){
-								DEBUG(errs() << "BB with a coll postdominates entry BB\n");
-							}else{
-								DEBUG(errs() << "BB with a coll doesn't postdominate entry BB\n");
-							}*/
 						}
 					}
 				} 
 			}
 		}
-		errs() << "\033[0;36m=============================================\033[0;0m\n";
-		errs() << "\033[0;36m============  PARCOACH STATISTICS ===========\033[0;0m\n";
-		errs() << "\033[0;36m FUNCTION " << F.getName() << " FROM " << File << "\033[0;0m\n";
-		errs() << "\033[0;36m=============================================\033[0;0m\n";
-		errs() << "\033[0;36m Number of collectives " << STAT_collectives << "\033[0;0m\n";
-		errs() << "\033[0;36m=============================================\033[0;0m\n";
+
+		if(STAT_collectives>0){
+			errs() << "\033[0;36m=============================================\033[0;0m\n";
+			errs() << "\033[0;36m============  PARCOACH STATISTICS ===========\033[0;0m\n";
+			errs() << "\033[0;36m FUNCTION " << F.getName() << " FROM " << File << "\033[0;0m\n";
+			errs() << "\033[0;36m=============================================\033[0;0m\n";
+			errs() << "\033[0;36m Number of collectives: " << STAT_collectives << "\033[0;0m\n";
+			errs() << "\033[0;36m=============================================\033[0;0m\n";
+		}
 		return true;
 	}
 

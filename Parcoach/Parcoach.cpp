@@ -61,10 +61,13 @@ std::vector<char*> MPI_v_coll = {(char*)"MPI_Barrier", (char*)"MPI_Bcast", (char
 			     (char*)"MPI_Ialltoallw", (char*)"MPI_Ireduce", (char*)"MPI_Iallreduce", (char*)"MPI_Ireduce_scatter_block",
 			     (char*)"MPI_Ireduce_scatter", (char*)"MPI_Iscan", (char*)"MPI_Iexscan",(char*)"MPI_Ibcast"};
 
-std::vector<char*> UPC_v_coll = {(char*)"_upcr_notify"}; // upc_barrier= upc_notify+upc_wait, TODO: add all collectives
+std::vector<char*> UPC_v_coll = {(char*)"_upcr_notify", (char*)"_upcr_all_broadcast", (char*)"_upcr_all_scatter", (char*)"_upcr_all_gather", 
+				(char*)"_upcr_all_gather_all", (char*)"_upcr_all_exchange", (char*)"_upcr_all_permute",
+				(char*)"_upcr_all_reduce", (char*)"_upcr_prefix_reduce", (char*)"_upcr_all_sort"}; // upc_barrier= upc_notify+upc_wait, TODO: add all collectives
 std::vector<char*> OMP_v_coll = {(char*)"todo"}; // TODO
 
 std::vector<char*> v_coll(MPI_v_coll.size() + UPC_v_coll.size()); // TODO: add OMP_v_coll
+
 
 
 
@@ -160,9 +163,10 @@ vector<BasicBlock * > iterated_postdominance_frontier(PostDominatorTree &PDT, Ba
  * INSTRUMENTATION
  */
 
-// Check Collective function before a MPI collective
+// Check Collective function before a collective
+// + Check Collective function before return statements
 // --> check_collective_MPI(int OP_color, const char* OP_name, int OP_line, char* OP_warnings, char *FILE_name)
-// add a type to handle MPI, UPC and OMP
+// --> void check_collective_UPC(int OP_color, const char* OP_name, int OP_line, char* warnings, char *FILE_name)
 void instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name, int OP_line, StringRef WarningMsg, StringRef File){
         IRBuilder<> builder(I);
 	// Arguments of the new function 
@@ -180,33 +184,52 @@ void instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name, i
         // Set new function name, type and arguments
         FunctionType *FTy =FunctionType::get(Type::getVoidTy(M->getContext()),ArrayRef<Type *>((Type**)params.data(),params.size()),false);
         Value * CallArgs[] = {ConstantInt::get(Type::getInt32Ty(M->getContext()), OP_color), strPtr_NAME, ConstantInt::get(Type::getInt32Ty(M->getContext()), OP_line), strPtr_WARNINGS, strPtr_FILENAME};
-        Value * CCFunction = M->getOrInsertFunction("check_collective_MPI", FTy);
+	std::string FunctionName;
+	if(OP_color<MPI_v_coll.size()){
+		FunctionName="check_collective_MPI";
+	}else{
+		FunctionName="check_collective_UPC";
+	}
+
+        Value * CCFunction = M->getOrInsertFunction(FunctionName, FTy);
         // Create new function
         CallInst::Create(CCFunction, ArrayRef<Value*>(CallArgs), "", I);
-        DEBUG(errs() << "=> Insertion of check_collective_MPI(" << OP_color << ", " << OP_name << ", " << OP_line << ", " << WarningMsg << ", " << File <<  ")\n");   
+        DEBUG(errs() << "=> Insertion of " << FunctionName << " (" << OP_color << ", " << OP_name << ", " << OP_line << ", " << WarningMsg << ", " << File <<  ")\n");   
 }
 
 
-// Check Collective function before return statements
-// --> void CC(int color, int line, char* filename)
-// TODO
 
 
 
 
+// get metadata
+static string getWarning(Instruction &inst) {
+        string warning = " ";
+        if (MDNode *node = inst.getMetadata("inst.warning")) {
+                if (Metadata *value = node->getOperand(0)) {
+                        MDString *mdstring = cast<MDString>(value);
+                        warning = mdstring->getString();
+                }
+        }else {
+                //errs() << "Did not find metadata\n";
+        }
+        return warning;
+}
 
 
 /*
  * Function Pass
  *   -> check MPI collective operations  OK
- *   -> if one set of collectives have a PDF+ non null, instrument all collectives + insert a call before return statements NOK
- *   -> get the conditional instruction in the PDF+ 
+ *   -> if one set of collectives have a PDF+ non null, instrument all collectives + insert a call before return statements OK
+ *   -> get the conditional instruction in the PDF+ NOK
  *
+ *  upcri_check_finalbarrier  already checks if all UPC threads will call the same number of barriers 
  */
 
 struct ParcoachInstr : public FunctionPass {
 	static char ID;
 	static int STAT_collectives;
+	static int STAT_warnings;
 	static StringRef File;
 	vector<char *>::iterator vitr;
 	vector<BasicBlock *>::iterator Bitr;
@@ -215,7 +238,8 @@ struct ParcoachInstr : public FunctionPass {
 
 	virtual bool runOnFunction(Function &F) {
 
-		STAT_collectives=0;
+		STAT_warnings=0; // number of warnings
+		STAT_collectives=0;// number of collectives in the function
 		Module* M = F.getParent();
 		BasicBlock &entry = F.getEntryBlock();
 
@@ -226,15 +250,19 @@ struct ParcoachInstr : public FunctionPass {
 		LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 		// collective info
 		int OP_color=0;
+		unsigned OP_line = 0;
 		// Warning info
 		StringRef WarningMsg;
 		const char *ProgName="PARCOACH";
 		SMDiagnostic Diag;
+		std::string OP_name;
 
+		// Each function will do that...
 		std::sort(MPI_v_coll.begin(), MPI_v_coll.end());
 		std::sort(UPC_v_coll.begin(), UPC_v_coll.end());
 		std::merge(MPI_v_coll.begin(),MPI_v_coll.end(), UPC_v_coll.begin(), UPC_v_coll.end(),v_coll.begin());
 
+		// First iteration to find potential deadlocks
 		for(Function::iterator bb = F.begin(), e = F.end(); bb!=e; ++bb)
 		{
 			BasicBlock *BB = bb;	
@@ -242,11 +270,13 @@ struct ParcoachInstr : public FunctionPass {
 			bool inLoop = LI->getLoopFor(BB);
 			Loop* BBloop = LI->getLoopFor(BB);
 			for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i) 
-			{         
+			{        
+				//Instruction *Inst=i;
+				LLVMContext& context = i->getContext();
+				MDNode* mdNode; 
 				// Debug info (line in the source code, file)
-				File="";
 				DebugLoc DLoc = i->getDebugLoc();
-				unsigned OP_line = 0;
+				File=""; OP_line=0;
 				if(DLoc){
 					OP_line = DLoc.getLine();
 					File=DLoc->getFilename();
@@ -259,9 +289,9 @@ struct ParcoachInstr : public FunctionPass {
 					if(!f)	return false;
 
 					// Collective info
-					std::string OP_name = f->getName().str();
+					OP_name = f->getName().str();
 					// Warning info
-					string coll_line=to_string(OP_line);
+					//string coll_line=to_string(OP_line);
 
 					// Is it a collective call?
 					for (vitr = v_coll.begin(); vitr != v_coll.end(); vitr++) 
@@ -274,7 +304,8 @@ struct ParcoachInstr : public FunctionPass {
 							// Check if the collective is in a loop
 							if(inLoop){
 								DEBUG(errs() << "* BB " << BB->getName().str() << " is in a loop. The header is " << (BBloop->getHeader()->getName()).str() << "\n");
-								WarningMsg = OP_name + " line " + coll_line + " is in a loop";
+								STAT_warnings++;
+								WarningMsg = OP_name + " line " + to_string(OP_line) + " is in a loop";
 								Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
 								Diag.print(ProgName, errs(), 1,1);
 							}
@@ -286,19 +317,62 @@ struct ParcoachInstr : public FunctionPass {
 									errs() << "- " << (*Bitr)->getName().str() << " ";
 								}
 								errs() << "}\n";
-
-								WarningMsg = OP_name + " line " + coll_line + " possibly not called by all processes: iPDF non null!"; 
+								// collective that may lead to a deadlock, all collectives must be instrumented for runtime checking
+								STAT_warnings++;
+								// if multiple warning messages? We should keep a warning message associated to a collective
+								// get the line of the conditional responsible
+								WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes: iPDF non null!"; 
+								mdNode = MDNode::get(context,MDString::get(context,WarningMsg));
+								i->setMetadata("inst.warning",mdNode);
 								Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
 								Diag.print(ProgName, errs(), 1,1);
-								// works only for MPI for now... TODO: add a test to know which collective has been found
-								//instrumentCC(M,i,OP_color, OP_name, OP_line, WarningMsg, File);
 							}
 						}
 					}
-				} 
+				}
 			}
 		}
+		// Instrument the code if a potential deadlock has been found
+		if(STAT_warnings>0){
+			for(Function::iterator bb = F.begin(), e = F.end(); bb!=e; ++bb)
+                	{
+                        	BasicBlock *BB = bb;
+				for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i)
+				{
+					Instruction *Inst=i;
+					string Warning = getWarning(*Inst);
+					// Debug info (line in the source code, file)
+					DebugLoc DLoc = i->getDebugLoc();
+					File="o"; OP_line = 0;
+					if(DLoc){
+						OP_line = DLoc.getLine();
+						File=DLoc->getFilename();
+					}
 
+					// call instruction
+					if(CallInst *CI = dyn_cast<CallInst>(i))
+					{
+						Function *f = CI->getCalledFunction();
+						OP_name = f->getName().str();
+						for (vitr = v_coll.begin(); vitr != v_coll.end(); vitr++)
+						{
+							if(f->getName().equals(*vitr)){
+								OP_color=vitr-v_coll.begin();
+								instrumentCC(M,i,OP_color, OP_name, OP_line, Warning, File);
+							}
+						}
+					}
+					// return instruction
+					if(ReturnInst *RI = dyn_cast<ReturnInst>(i)){
+						instrumentCC(M,i,v_coll.size()+1, "Return", OP_line, Warning, File);
+					} 
+				}
+
+			}
+
+		}
+
+		// print statistics about collectives found
 		if(STAT_collectives>0){
 			errs() << "\033[0;36m=============================================\033[0;0m\n";
 			errs() << "\033[0;36m============  PARCOACH STATISTICS ===========\033[0;0m\n";
@@ -341,6 +415,7 @@ struct ParcoachInstr : public FunctionPass {
 
 char ParcoachInstr::ID = 0;
 int ParcoachInstr::STAT_collectives = 0;
+int ParcoachInstr::STAT_warnings = 0;
 StringRef ParcoachInstr::File = "";
 static RegisterPass<ParcoachInstr>
 Z("parcoach", "Function pass");

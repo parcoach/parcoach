@@ -54,6 +54,11 @@ make install
 
 ---- Berkeley UPC
 
+The installation is done in two steps:
+(1) Download and install a UPC-to-C translator or UPC compiler
+(2) Download and build the UPC runtime
+
+
 See http://upc.lbl.gov/download/
 !! Build BUPC with llvm 3.7.1 !!
 
@@ -80,3 +85,16 @@ cmake .. && make
 
 Codes with errors can be found in the tests directory. 
 For runtime checking, PARCOACH needs to be linked to its dynamic library.
+
+Example of the use of Parcoach with test.c:
+
+/* CREATE dynamic library DynamicCheck.o  */
+clang -g  -c $PATH_TO_DYN_LIBRARY/{MPI/UPC/OMP}_DynamicCheck.c
+/* CREATE test bitcode  */
+clang -g -emit-llvm -c -o test.bc test.c
+/* PARCOACH PASS */
+opt -load $PATH_TO_PARCOACH_LIB/LLVMParcoach.dylib -postdomtree -parcoach -debug < test.bc > ./test_optimized.bc
+/* CREATE test_optimized.o  */
+clang -c test_optimized.bc
+/* LINK */
+clang test_optimized.o {MPI/UPC/OMP}_DynamicCheck.o -o test $(LDFLAGS)

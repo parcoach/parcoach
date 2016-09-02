@@ -63,4 +63,7 @@ void check_collective_UPC(int OP_color, const char* OP_name, int OP_line, char* 
 }
 
 
+void check_collective_return(int OP_color, const char* OP_name, int OP_line, char* warnings, char *FILE_name)
+{
 
+}

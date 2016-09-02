@@ -64,7 +64,7 @@ std::vector<char*> MPI_v_coll = {(char*)"MPI_Barrier", (char*)"MPI_Bcast", (char
 std::vector<char*> UPC_v_coll = {(char*)"_upcr_notify", (char*)"_upcr_all_broadcast", (char*)"_upcr_all_scatter", (char*)"_upcr_all_gather", 
 				(char*)"_upcr_all_gather_all", (char*)"_upcr_all_exchange", (char*)"_upcr_all_permute",
 				(char*)"_upcr_all_reduce", (char*)"_upcr_prefix_reduce", (char*)"_upcr_all_sort"}; // upc_barrier= upc_notify+upc_wait, TODO: add all collectives
-std::vector<char*> OMP_v_coll = {(char*)"todo"}; // TODO
+std::vector<char*> OMP_v_coll = {(char*)"todo"}; // TODO: may be more complicated.. Have a look at Polly (it supports OpenMP)
 
 std::vector<char*> v_coll(MPI_v_coll.size() + UPC_v_coll.size()); // TODO: add OMP_v_coll
 
@@ -185,12 +185,17 @@ void instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name, i
         FunctionType *FTy =FunctionType::get(Type::getVoidTy(M->getContext()),ArrayRef<Type *>((Type**)params.data(),params.size()),false);
         Value * CallArgs[] = {ConstantInt::get(Type::getInt32Ty(M->getContext()), OP_color), strPtr_NAME, ConstantInt::get(Type::getInt32Ty(M->getContext()), OP_line), strPtr_WARNINGS, strPtr_FILENAME};
 	std::string FunctionName;
-	if(OP_color<MPI_v_coll.size()){
-		FunctionName="check_collective_MPI";
-	}else{
-		FunctionName="check_collective_UPC";
-	}
 
+
+	if(OP_color == v_coll.size()+1){
+		FunctionName="check_collective_return";
+	}else{
+		if(OP_color<MPI_v_coll.size()){
+			FunctionName="check_collective_MPI";
+		}else{
+			FunctionName="check_collective_UPC";
+		}
+	}
         Value * CCFunction = M->getOrInsertFunction(FunctionName, FTy);
         // Create new function
         CallInst::Create(CCFunction, ArrayRef<Value*>(CallArgs), "", I);
@@ -288,6 +293,7 @@ struct ParcoachInstr : public FunctionPass {
 					Function *f = CI->getCalledFunction();
 					if(!f)	return false;
 
+
 					// Collective info
 					OP_name = f->getName().str();
 					// Warning info
@@ -314,6 +320,16 @@ struct ParcoachInstr : public FunctionPass {
 							if(iPDF.size()!=0){
 								errs() << "* iPDF( " << (BB)->getName().str() << ") = {";
 								for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
+									/*TerminatorInst* TI = BB->getTerminator();
+									BranchInst* BrI = dyn_cast<BranchInst>(BB->getTerminator());
+									if(BrI->isConditional()){
+										//BranchInst BrI = BB->getTerminator();
+										Value* cond = BrI->getCondition();
+										DebugLoc BDLoc = BrI->getDebugLoc();
+										errs() << "- " << (*Bitr)->getName().str() << " (" << cond->getName() <<  ")  ";
+									}else{
+										errs() << "- " << (*Bitr)->getName().str() << " ";
+									}*/
 									errs() << "- " << (*Bitr)->getName().str() << " ";
 								}
 								errs() << "}\n";
@@ -354,6 +370,10 @@ struct ParcoachInstr : public FunctionPass {
 					{
 						Function *f = CI->getCalledFunction();
 						OP_name = f->getName().str();
+						if(f->getName().equals("MPI_Finalize")){
+							instrumentCC(M,i,v_coll.size()+1, "MPI_Finalize", OP_line, Warning, File);
+						}
+
 						for (vitr = v_coll.begin(); vitr != v_coll.end(); vitr++)
 						{
 							if(f->getName().equals(*vitr)){

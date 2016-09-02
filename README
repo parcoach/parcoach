@@ -3,13 +3,15 @@
 -------------------------------------------------------------------------------------
 
 PARCOACH automatically checks MPI applications for correct use of MPI collective calls.
+It uses an intraprocedural analysis and statically instruments codes to verify at runtime 
+if the error will occur or not.
+
 
 TODO: 
    - Interprocedural analysis
    - Dataflow analysis
    - Check MPI+OpenMP codes
    - Check OpenMP collectives
-   - Check UPC collectives
    - Check general properties (e.g., non initialized variables) 
 
 
@@ -28,7 +30,8 @@ PARCOACH uses CMake. CMake can be downloaded from http://www.cmake.org
 This version of PARCOACH is an LLVM pass. It works with LLVM 3.7.1. 
 To get LLVM 3.7.1, follow these steps:
 
--> compiling LLvm requires that you have installed GNU CMAKE (version 3.79, 3.79.1), GCC (>=4.7.0), python (>=2.7), libtool (version 1.5.22) and zlib (>=1.2.3.4)
+-> compiling LLvm requires that you have installed GNU CMAKE (version 3.79, 3.79.1), 
+GCC (>=4.7.0), python (>=2.7), libtool (version 1.5.22) and zlib (>=1.2.3.4)
 
 svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_371/final llvm
 
@@ -61,6 +64,7 @@ The installation is done in two steps:
 
 See http://upc.lbl.gov/download/
 !! Build BUPC with llvm 3.7.1 !!
+
 
 ---- MPI
 

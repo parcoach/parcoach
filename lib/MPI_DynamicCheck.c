@@ -51,6 +51,9 @@ void check_collective_MPI(int OP_color, const char* OP_name, int OP_line, char* 
 		MPI_Reduce(&OP_color,&res,1,MPI_INT,equalsop,0,ini_comm);
 		MPI_Op_free(&equalsop);
 
+#ifdef DEBUG
+		printf("\033[0;36m Proc %d has color %d\033[0;0m\n", rank, OP_color);
+#endif
 		if(rank==0 ){
 #ifdef DEBUG
 			printf("\033[0;36m CHECK CC OK\033[0;0m\n");
@@ -60,8 +63,8 @@ void check_collective_MPI(int OP_color, const char* OP_name, int OP_line, char* 
 				printf("\033[0;36m CHECK CC NOK\033[0;0m\n");
 #endif
 				printf("\033[0;35m PARCOACH DYNAMIC-CHECK : Error detected on rank %d\n"
-						  "PARCOACH DYNAMIC-CHECK : Abort is invoking line %d before calling %s in %s\n"
-						  "PARCOACH DYNAMIC-CHECK : see warnings about conditionals line %s\035[0;0m\n",
+						  " PARCOACH DYNAMIC-CHECK : Abort is invoking line %d before calling %s in %s\n"
+						  " PARCOACH DYNAMIC-CHECK : see warnings about conditionals line %s\033[0;0m\n",
 						   rank, OP_line,OP_name, FILE_name,warnings);
 				MPI_Abort(MPI_COMM_WORLD,0);
 			}
@@ -73,4 +76,54 @@ void check_collective_MPI(int OP_color, const char* OP_name, int OP_line, char* 
 }
 
 
+void check_collective_return(int OP_color, const char* OP_name, int OP_line, char* warnings, char *FILE_name)
+{
+	int rank;
+	int sizeComm;
+
+	// make sure MPI_Init has been called
+	int flag;
+	MPI_Initialized(&flag);
+
+	if(flag)
+	{
+		// Fortran programs are not handled
+		MPI_Comm ini_comm = MPI_COMM_WORLD;
+
+		MPI_Comm_rank(ini_comm, &rank);
+		MPI_Comm_size(ini_comm, &sizeComm);
+
+		int res=0;
+		MPI_Op equalsop;
+		int commutatif=1;
+		MPI_Op_create((void *)areequals,commutatif,&equalsop);
+
+		MPI_Reduce(&OP_color,&res,1,MPI_INT,equalsop,0,ini_comm);
+		MPI_Op_free(&equalsop);
+
+#ifdef DEBUG
+		printf("\033[0;36m Proc %d has color %d\033[0;0m\n", rank, OP_color);
+#endif
+		if(rank==0 ){
+#ifdef DEBUG
+			printf("\033[0;36m CHECK CC OK\033[0;0m\n");
+#endif
+			if(res==~0){
+#ifdef DEBUG
+				printf("\033[0;36m CHECK CC NOK\033[0;0m\n");
+#endif
+				printf("\033[0;35m PARCOACH DYNAMIC-CHECK : Error detected on rank %d\n"
+						  " PARCOACH DYNAMIC-CHECK : Abort is invoking line %d before calling %s in %s\n"
+						  " PARCOACH DYNAMIC-CHECK : see warnings\033[0;0m\n",
+						   rank, OP_line,OP_name, FILE_name,warnings);
+				MPI_Abort(MPI_COMM_WORLD,0);
+			}
+		}
+#ifdef DEBUG
+				printf("\033[0;36m PARCOACH DYNAMIC-CHECK : OK\033[0;0m\n");
+#endif
+	}
+
+
+}
 

@@ -76,7 +76,7 @@ void check_collective_MPI(int OP_color, const char* OP_name, int OP_line, char* 
 }
 
 
-void check_collective_return(int OP_color, const char* OP_name, int OP_line, char* warnings, char *FILE_name)
+void check_collective_return(int OP_color, const char* OP_name, int OP_line, char *warnings, char *FILE_name)
 {
 	int rank;
 	int sizeComm;
@@ -114,8 +114,8 @@ void check_collective_return(int OP_color, const char* OP_name, int OP_line, cha
 #endif
 				printf("\033[0;35m PARCOACH DYNAMIC-CHECK : Error detected on rank %d\n"
 						  " PARCOACH DYNAMIC-CHECK : Abort is invoking line %d before calling %s in %s\n"
-						  " PARCOACH DYNAMIC-CHECK : see warnings\033[0;0m\n",
-						   rank, OP_line,OP_name, FILE_name,warnings);
+						  " PARCOACH DYNAMIC-CHECK : see warnings %s\033[0;0m\n",
+						   rank, OP_line,OP_name, FILE_name, warnings);
 				MPI_Abort(MPI_COMM_WORLD,0);
 			}
 		}

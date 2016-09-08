@@ -226,7 +226,7 @@ static string getWarning(Instruction &inst) {
  * Function Pass
  *   -> check MPI collective operations  OK
  *   -> if one set of collectives have a PDF+ non null, instrument all collectives + insert a call before return statements OK
- *   -> get the conditional instruction in the PDF+ NOK
+ *   -> get the conditional instruction in the PDF+ OK
  *
  *  upcri_check_finalbarrier  already checks if all UPC threads will call the same number of barriers 
  */
@@ -261,6 +261,7 @@ struct ParcoachInstr : public FunctionPass {
 		const char *ProgName="PARCOACH";
 		SMDiagnostic Diag;
 		std::string OP_name;
+		std::string COND_lines;
 
 		// Each function will do that...
 		std::sort(MPI_v_coll.begin(), MPI_v_coll.end());
@@ -318,26 +319,20 @@ struct ParcoachInstr : public FunctionPass {
 							// Check is the PDF is non null
 							vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
 							if(iPDF.size()!=0){
-								errs() << "* iPDF( " << (BB)->getName().str() << ") = {";
+								COND_lines="";
+								//errs() << "* iPDF( " << (BB)->getName().str() << ") = {";
 								for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
-									/*TerminatorInst* TI = BB->getTerminator();
-									BranchInst* BrI = dyn_cast<BranchInst>(BB->getTerminator());
-									if(BrI->isConditional()){
-										//BranchInst BrI = BB->getTerminator();
-										Value* cond = BrI->getCondition();
-										DebugLoc BDLoc = BrI->getDebugLoc();
-										errs() << "- " << (*Bitr)->getName().str() << " (" << cond->getName() <<  ")  ";
-									}else{
-										errs() << "- " << (*Bitr)->getName().str() << " ";
-									}*/
-									errs() << "- " << (*Bitr)->getName().str() << " ";
+									TerminatorInst* TI = (*Bitr)->getTerminator();
+									DebugLoc BDLoc = TI->getDebugLoc();
+									//errs() << "- " << (*Bitr)->getName().str() << " (" << BDLoc.getLine() <<  ")  ";
+									//errs() << OP_name << " line " << OP_line << " possibly not called by all processes because of the conditional line " << BDLoc.getLine() <<  "\n";
+									COND_lines.append(" ").append(to_string(BDLoc.getLine()));
 								}
 								errs() << "}\n";
 								// collective that may lead to a deadlock, all collectives must be instrumented for runtime checking
 								STAT_warnings++;
-								// if multiple warning messages? We should keep a warning message associated to a collective
-								// get the line of the conditional responsible
-								WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes: iPDF non null!"; 
+								// if multiple warning messages? We should keep a warning message associated to a collective for instrumentation
+								WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines; 
 								mdNode = MDNode::get(context,MDString::get(context,WarningMsg));
 								i->setMetadata("inst.warning",mdNode);
 								Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
@@ -350,6 +345,7 @@ struct ParcoachInstr : public FunctionPass {
 		}
 		// Instrument the code if a potential deadlock has been found
 		if(STAT_warnings>0){
+			errs() << "==> Function " << F.getName() << " is instrumented:\n";
 			for(Function::iterator bb = F.begin(), e = F.end(); bb!=e; ++bb)
                 	{
                         	BasicBlock *BB = bb;

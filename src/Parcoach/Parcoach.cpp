@@ -85,9 +85,9 @@ std::vector<char*> MPI_v_coll = {(char*)"MPI_Barrier", (char*)"MPI_Bcast", (char
 std::vector<char*> UPC_v_coll = {(char*)"_upcr_notify", (char*)"_upcr_all_broadcast", (char*)"_upcr_all_scatter", (char*)"_upcr_all_gather", 
 				(char*)"_upcr_all_gather_all", (char*)"_upcr_all_exchange", (char*)"_upcr_all_permute",
 				(char*)"_upcr_all_reduce", (char*)"_upcr_prefix_reduce", (char*)"_upcr_all_sort"}; // upc_barrier= upc_notify+upc_wait, TODO: add all collectives
-std::vector<char*> OMP_v_coll = {(char*)"todo"}; // TODO: may be more complicated.. Have a look at Polly (it supports OpenMP)
+std::vector<char*> OMP_v_coll = {(char*)"__kmpc_cancel_barrier"}; // TODO: may be more complicated..
 
-std::vector<char*> v_coll(MPI_v_coll.size() + UPC_v_coll.size()); // TODO: add OMP_v_coll
+std::vector<char*> v_coll(MPI_v_coll.size() + OMP_v_coll.size()); // TODO: add OMP_v_coll
 
 
 
@@ -189,6 +189,7 @@ vector<BasicBlock * > iterated_postdominance_frontier(PostDominatorTree &PDT, Ba
 // + Check Collective function before return statements
 // --> check_collective_MPI(int OP_color, const char* OP_name, int OP_line, char* OP_warnings, char *FILE_name)
 // --> void check_collective_UPC(int OP_color, const char* OP_name, int OP_line, char* warnings, char *FILE_name)
+// --> void check_collective_OMP(int OP_color, const char* OP_name, int OP_line, char* warnings, char *FILE_name)
 void instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name, int OP_line, StringRef WarningMsg, StringRef File){
         IRBuilder<> builder(I);
 	// Arguments of the new function 
@@ -215,7 +216,7 @@ void instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name, i
 		if(OP_color<MPI_v_coll.size()){
 			FunctionName="check_collective_MPI";
 		}else{
-			FunctionName="check_collective_UPC";
+			FunctionName="check_collective_OMP";
 		}
 	}
         Value * CCFunction = M->getOrInsertFunction(FunctionName, FTy);
@@ -280,8 +281,9 @@ static string getFuncSummary(Function &F){
 	{
 		// Each module will do that...
 		std::sort(MPI_v_coll.begin(), MPI_v_coll.end());
-		std::sort(UPC_v_coll.begin(), UPC_v_coll.end());
-		std::merge(MPI_v_coll.begin(),MPI_v_coll.end(), UPC_v_coll.begin(), UPC_v_coll.end(),v_coll.begin());
+		//std::sort(UPC_v_coll.begin(), UPC_v_coll.end());
+		std::sort(OMP_v_coll.begin(), OMP_v_coll.end());
+		std::merge(MPI_v_coll.begin(),MPI_v_coll.end(), OMP_v_coll.begin(), OMP_v_coll.end(),v_coll.begin());
 
 		CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
 		scc_iterator<CallGraph*> cgSccIter = scc_begin(&CG);
@@ -366,6 +368,8 @@ static string getFuncSummary(Function &F){
 						Function *f = CI->getCalledFunction();
 						if(!f) continue;
 						OP_name = f->getName().str();
+						
+						//errs() << "Function " << OP_name << " found line " << OP_line << "\n";
 
 						// Is it a call set has containing a possible deadlock?
 						if(getFuncSummary(*f) == "1"){
@@ -466,10 +470,10 @@ static string getFuncSummary(Function &F){
 									instrumentCC(M,i,OP_color, OP_name, OP_line, Warning, File);
 								}
 							}
-							// return instruction !!! if MPI_Finalize has been seen ... !!! TO CHANGE
-							if(ReturnInst *RI = dyn_cast<ReturnInst>(i)){
-								instrumentCC(M,i,v_coll.size()+1, "Return", OP_line, Warning, File); 
-							}
+						}
+						// return instruction
+						if(ReturnInst *RI = dyn_cast<ReturnInst>(i)){
+							instrumentCC(M,i,v_coll.size()+1, "Return", OP_line, Warning, File); 
 						}
 					}
 				}

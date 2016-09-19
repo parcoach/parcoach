@@ -82,10 +82,11 @@ void check_collective_return(int OP_color, const char* OP_name, int OP_line, cha
 	int sizeComm;
 
 	// make sure MPI_Init has been called
-	int flag;
-	MPI_Initialized(&flag);
+	int flagend, flagstart;
+	MPI_Initialized(&flagstart);
+	MPI_Finalized(&flagend);
 
-	if(flag)
+	if(!flagend && flagstart)
 	{
 		// Fortran programs are not handled
 		MPI_Comm ini_comm = MPI_COMM_WORLD;

@@ -26,7 +26,8 @@ include_directories(${LLVM_INCLUDE_DIRS} "/Users/emmanuellesaillard/Documents/LL
 link_directories(${LLVM_LIBRARY_DIRS})
 set(LIBS ${LIBS} ${MPI_LIBRARIES})
 
-add_subdirectory(src/Parcoach)
+add_subdirectory(src/Parcoach/)
+add_subdirectory(src/Parcoach/INTRAPROCEDURAL_ANALYSIS/)
 
 #if(NOT DISABLE_UNIT_TESTS)
 #	enable_testing()

@@ -9,6 +9,22 @@
 using namespace llvm;
 using namespace std;
 
+const Argument *
+getFunctionArgument(const Function *F, unsigned idx) {
+  unsigned i = 0;
+
+  for (auto ai = F->arg_begin(), ae = F->arg_end(); ai != ae; ++ai, ++i) {
+    if (i == idx) {
+      const Argument *arg = ai;
+      return arg;
+    }
+  }
+
+  errs() << "returning null, querying arg no " << idx << " on function "
+	 << F->getName() << "\n";
+  return NULL;
+}
+
 bool
 blockDominatesEntry(BasicBlock *BB, PostDominatorTree &PDT, DominatorTree *DT,
 		    BasicBlock *EntryBlock) {

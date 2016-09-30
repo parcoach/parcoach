@@ -13,8 +13,11 @@ endif()
 
 add_llvm_loadable_module( LLVMParcoachIntra
 			  Collectives.cpp
-	Parcoach.intra.cpp
-	Utils.cpp
+			  DependencyGraph.cpp
+			  FunctionSummary.cpp
+			  GlobalGraph.cpp
+			  Parcoach.intra.cpp
+			  Utils.cpp
   )
 
 add_definitions("-Wall -g")

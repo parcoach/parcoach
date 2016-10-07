@@ -1,53 +1,89 @@
-/*
- * This contains the analysis of a function.
- * It stores all memory location dependent of the rank.
- */
-
 #ifndef FUNCTIONSUMMARY_H
 #define FUNCTIONSUMMARY_H
 
-#include "DependencyGraph.h"
-#include "InterDependenceMap.h"
-#include "GlobalGraph.h"
+#include "GlobalDepGraph.h"
+#include "InterDepGraph.h"
+#include "IntraDepGraph.h"
 
-#include <llvm/ADT/SetVector.h>
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
 
+class FunctionSummary;
+
+typedef std::map<llvm::Function *, FunctionSummary *> FuncSummaryMapTy;
+
+
 class FunctionSummary {
-  friend class GlobalGraph;
+  friend class GlobalDepGraph;
 
- public:
+public:
   FunctionSummary(llvm::Function *F,
-		  const char *ProgName,
-		  InterDependenceMap &interDepMap,
+		  FuncSummaryMapTy *funcMap,
+		  InterDepGraph *interDeps,
 		  llvm::Pass *pass);
-
   ~FunctionSummary();
 
-  // Update inter dep map.
-  bool updateInterDep();
+
+  // First pass. It fills listeners map and detects memory locations
+  // depending on MPI_Comm_rank.
+  void firstPass();
+
+  // Update dependencies.
+  bool updateDeps();
 
   // Check collectives and print warning if execution of the collective
   // depends on rank value.
   void checkCollectives();
 
+  llvm::StringRef getFuncName() {
+    return F->getName();
+  }
 
-  void toDot(llvm::StringRef filename);
+  void toDot(llvm::StringRef filename) {
+    intraDeps.toDot(filename);
+  }
 
- private:
-  const char *ProgName;
-  llvm::Pass *pass;
+protected:
+  /* Dependencies */
+
+  InterDepGraph *interDeps;
+  IntraDepGraph intraDeps;
+
+  /* Listeners to notify return value and side effect dependencies. */
+  typedef llvm::DenseMap<llvm::MemoryLocation, FunctionSummary *> ListenerMapTy;
+
+  /* Return value dependencies */
+
+  ListenerMapTy retUserMap; // Memory location of all users of return value
+  // inside calling functions.
+  bool isRetDependent;
+  llvm::MemoryLocation retDepSrc;
+
+
+  /* Side effect dependencies */
+
+  ListenerMapTy *argUserMap; // Memory location of all users of arguments
+  // inside calling functions.
+  bool *isArgDependent;
+  llvm::MemoryLocation *argDepSrc;
+
+private:
+  llvm::Function *F;
+  FuncSummaryMapTy *funcMap;
 
   // Analyses
+  llvm::Pass *pass;
   llvm::Module *MD;
   llvm::DominatorTree *DT;
   llvm::PostDominatorTree *PDT;
@@ -58,26 +94,8 @@ class FunctionSummary {
   // This map allows us to avoid recomputing the IPDF of the same basic block
   // several times.
   llvm::DenseMap<const llvm::BasicBlock *,
-    std::vector<llvm::BasicBlock *>> iPDFMap;
+		 std::vector<llvm::BasicBlock *>> iPDFMap;
   std::vector<llvm::BasicBlock *> getIPDF(llvm::BasicBlock *bb);
-
-  // Map containing dependencies between functions.
-  InterDependenceMap &interDepMap;
-
-  llvm::Function *F;
-
-  // Dependency graph of the function analyzed.
-  DependencyGraph depGraph;
-
-  int STAT_warnings;
-  int STAT_collectives;
-
-  // First pass which is run by the constructor.
-  // It detects all memory locations depending on rank and udpates
-  // the inter dep map accordingly.
-  void firstPass();
-
-  bool updateArgMap();
 
   // For each basic block in the iterated post dominance frontier,
   // check if the condition depends on the rank.
@@ -100,8 +118,16 @@ class FunctionSummary {
   // - Arguments of the function are assumed to be independent of the rank.
   // - Calls to functions other than MPI_comm_rank() are not checked.
   //  void findMemoryDep(const llvm::Function &F);
-  bool findAliasDep(const llvm::Function &F);
-  bool findValueDep(const llvm::Function &F);
+  bool updateAliasDep(const llvm::Function &F);
+  bool updateFlowDep(const llvm::Function &F);
+
+  bool updateArgDep();
+  bool updateRetDep();
+
+  void findMPICommRankRoots();
+  void computeListeners();
+
 };
+
 
 #endif /* FUNCTIONSUMMARY_H */

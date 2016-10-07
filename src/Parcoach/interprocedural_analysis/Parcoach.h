@@ -1,4 +1,4 @@
-//===- Parcoach.intra.h - Parcoach module pass ------------------------*- C++ -*-===//
+//===- Parcoach.h - Parcoach module pass ------------------------*- C++ -*-===//
 //
 // This file defines the ParcoachInstr class.
 //
@@ -7,8 +7,7 @@
 #ifndef PARCOACH_H
 #define PARCOACH_H
 
-#include "DependencyGraph.h"
-#include "InterDependenceMap.h"
+#include "InterDepGraph.h"
 
 #include <llvm/ADT/SetVector.h>
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -44,7 +43,7 @@ namespace {
     const char *ProgName;
 
     // Map containing the dependencies between functions.
-    InterDependenceMap depMap;
+    InterDepGraph interDeps;
   };
 }
 

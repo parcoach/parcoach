@@ -11,12 +11,13 @@ if(WIN32 OR CYGWIN)
 endif()
 
 
-add_llvm_loadable_module( LLVMParcoachIntra
+add_llvm_loadable_module( LLVMParcoachInter
 			  Collectives.cpp
-			  DependencyGraph.cpp
 			  FunctionSummary.cpp
-			  GlobalGraph.cpp
-			  Parcoach.intra.cpp
+			  GlobalDepGraph.cpp
+			  InterDepGraph.cpp
+			  IntraDepGraph.cpp
+			  Parcoach.cpp
 			  Utils.cpp
   )
 

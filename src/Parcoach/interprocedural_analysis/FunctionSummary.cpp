@@ -10,24 +10,27 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SourceMgr.h"
 
-using namespace llvm;
-using namespace std;
+#include <vector>
 
-FunctionSummary::FunctionSummary(Function *F,
-				 const char *ProgName,
-				 InterDependenceMap &interDepMap,
-				 Pass *pass)
-  : ProgName(ProgName), pass(pass), interDepMap(interDepMap), F(F),
-    STAT_warnings(0), STAT_collectives(0) {
+using namespace std;
+using namespace llvm;
+
+#define PROGNAME "Parcoach"
+
+FunctionSummary::FunctionSummary(llvm::Function *F,
+				 FuncSummaryMapTy *funcMap,
+				 InterDepGraph *interDeps,
+				 llvm::Pass *pass)
+  : interDeps(interDeps), isRetDependent(false), F(F), funcMap(funcMap),
+    pass(pass) {
 
   MD = F->getParent();
   AA = &pass->getAnalysis<AliasAnalysis>();
   TLI = &pass->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
-
-  firstPass();
 }
 
 FunctionSummary::~FunctionSummary() {}
+
 
 void
 FunctionSummary::firstPass() {
@@ -35,76 +38,35 @@ FunctionSummary::firstPass() {
   DT = &pass->getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
   PDT = &pass->getAnalysis<PostDominatorTree>(*F);
 
-  // Find memory locations where rank is stored by MPI_Comm_rank() function.
-  for (auto I = inst_begin(*F), E = inst_end(*F); I != E; ++I) {
-    const Instruction *inst = &*I;
-    const CallInst *ci = dyn_cast<CallInst>(inst);
-    if (!ci)
-      continue;
-
-    if (!ci->getCalledFunction()->getName().equals("MPI_Comm_rank"))
-      continue;
-
-    MemoryLocation ML = MemoryLocation::getForArgument(ImmutableCallSite(ci),
-							 1,
-							 *TLI);
-    depGraph.addRoot(ML);
+  findMPICommRankRoots();
+  computeListeners();
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    changed = updateAliasDep(*F) || changed;
+    changed = updateFlowDep(*F) || changed;
   }
+}
 
-  // Add rank dependent arguments as roots of the dep graph.
-  const DepMap *DM = interDepMap.getFunctionDepMap(F);
-  for (auto I = DM->begin(), E = DM->end(); I != E; ++I) {
-    MemoryLocation ML = (*I).second;
-    depGraph.addRoot(ML);
-  }
+bool
+FunctionSummary::updateDeps() {
+  // Get analyses
+  DT = &pass->getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
+  PDT = &pass->getAnalysis<PostDominatorTree>(*F);
 
   // Find all memory locations where value depends on rank until
   // reaching a fixed point.
   bool changed = true;
   while (changed) {
     changed = false;
-    changed = findAliasDep(*F) || changed;
-    changed = findValueDep(*F) || changed;
+    changed = updateAliasDep(*F) || changed;
+    changed = updateFlowDep(*F) || changed;
   }
 
-  // Update rank dependent arguments map.
-  updateArgMap();
-}
+  changed = changed || updateRetDep();
+  changed = changed || updateArgDep();
 
-bool
-FunctionSummary::updateInterDep() {
-  // Get analyses
-  DT = &pass->getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
-  PDT = &pass->getAnalysis<PostDominatorTree>(*F);
-
-  bool changed = false;
-
-  // Add rank dependent arguments as roots.
-  const DepMap *DM = interDepMap.getFunctionDepMap(F);
-
-  for (auto I = DM->begin(), E = DM->end(); I != E; ++I) {
-    MemoryLocation ML = (*I).second;
-    changed = depGraph.addRoot(ML) || changed;
-  }
-
-  if (!changed)
-    return false;
-
-  while (changed) {
-    changed = false;
-    changed = findAliasDep(*F) || changed;
-    changed = findValueDep(*F) || changed;
-  }
-
-  // Update rank dependent arguments map.
-  updateArgMap();
-
-  return true;
-}
-
-void
-FunctionSummary::toDot(StringRef filename) {
-    depGraph.toDot(filename);
+  return changed;
 }
 
 void
@@ -136,7 +98,6 @@ FunctionSummary::checkCollectives() {
 
     DEBUG(errs() << "-> Found " << OP_name << " line " << to_string(OP_line)
 	  << ", OP_color=" << OP_color << "\n");
-    STAT_collectives++;
 
     // Collective found, now check if basic block is rank dependent.
     vector<BasicBlock * > IPDF = //getIPDF((BasicBlock *) inst->getParent());
@@ -144,9 +105,8 @@ FunctionSummary::checkCollectives() {
 
     MemoryLocation src;
     if(is_IPDF_rank_dependent(IPDF, &src)) {
-      STAT_warnings++;
 
-      depGraph.addBarrierEdge(src, ci);
+      intraDeps.addBarrierEdge(src, ci);
 
       // Get condition(s) line(s)
       // TODO: print only the rank dependent conditions.
@@ -165,7 +125,7 @@ FunctionSummary::checkCollectives() {
       ci->setMetadata("inst.warning",mdNode);
       SMDiagnostic Diag = SMDiagnostic(filename,
 				       SourceMgr::DK_Warning,WarningMsg);
-      Diag.print(ProgName, errs(), 1, 1);
+      Diag.print(PROGNAME, errs(), 1, 1);
     } else {
       string WarningMsg = OP_name + " line " + to_string(OP_line) +
 	" is not rank dependent";
@@ -173,174 +133,23 @@ FunctionSummary::checkCollectives() {
       ci->setMetadata("inst.warning",mdNode);
       SMDiagnostic Diag = SMDiagnostic(filename,
 				       SourceMgr::DK_Note,WarningMsg);
-      Diag.print(ProgName, errs(), 1, 1);
+      Diag.print(PROGNAME, errs(), 1, 1);
     }
   }
 }
 
-bool
-FunctionSummary::updateArgMap() {
-  bool changed = false;
+vector<BasicBlock *>
+FunctionSummary::getIPDF(BasicBlock *bb) {
+  DenseMap<const BasicBlock *,
+	   vector<BasicBlock *>>::const_iterator I;
 
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    const Instruction *inst = &*I;
-    const CallInst *ci = dyn_cast<CallInst>(inst);
-    if (ci) {
-      const Function *called = ci->getCalledFunction();
+  I = iPDFMap.find(bb);
+  if (I != iPDFMap.end())
+    return I->getSecond();
+  std::vector<BasicBlock *> iPDF = iterated_postdominance_frontier(*PDT, bb);
+  iPDFMap[bb] = iPDF;
 
-      for (unsigned i=0; i<ci->getNumArgOperands(); ++i) {
-	if (isa<const MetadataAsValue>(ci->getArgOperand(i)))
-	  continue;
-
-	MemoryLocation src;
-	const Value *argValue = ci->getArgOperand(i);
-
-	if (is_value_rank_dependent(argValue, &src)) {
-	  const Value *argument = getFunctionArgument(called, i);
-	  if (!argument) {
-	    errs() << "argument no " << i << " is NULL for function "
-		   << called->getName() << "\n";
-	    continue;
-	  }
-
-	  MemoryLocation dst = MemoryLocation(getFunctionArgument(called, i),
-					      MemoryLocation::UnknownSize);
-
-	  changed = interDepMap.addDependence(called, src, dst) || changed;
-
-	}
-      }
-    }
-
-    // TODO: Add invoke instructions.
-  }
-
-  return changed;
-}
-
-bool
-FunctionSummary::findAliasDep(const Function &F) {
-  // Add aliasing memory locations.
-  for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    const Instruction *inst = &*I;
-
-    if (isa<LoadInst>(inst) || isa<StoreInst>(inst) || isa<VAArgInst>(inst) ||
-	isa<AtomicCmpXchgInst>(inst) || isa<AtomicRMWInst>(inst)) {
-      MemoryLocation ML = MemoryLocation::get(inst);
-
-      for (auto NI = depGraph.nodeBegin(), NE = depGraph.nodeEnd();
-	   NI != NE; ++ NI) {
-	AliasResult res = AA->alias(ML, *NI);
-
-	if (res == NoAlias)
-	  continue;
-
-	bool changed = false;
-
-	switch(res) {
-	case MustAlias:
-	  changed = depGraph.addEdge(*NI, ML, DependencyGraph::MustAlias);
-	  break;
-	case MayAlias:
-	  changed = depGraph.addEdge(*NI, ML, DependencyGraph::MayAlias);
-	  break;
-	case PartialAlias:
-	  changed = depGraph.addEdge(*NI, ML, DependencyGraph::PartialAlias);
-	  break;
-	case NoAlias:
-	  break;
-	};
-
-	if (changed)
-	  return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-bool
-FunctionSummary::findValueDep(const Function &F) {
-  bool changed = false;
-
-  // Add all memory location  whose value is computed using rank.
-  for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    const Instruction *inst = &*I;
-
-    // Store
-    if (isa<StoreInst>(inst)) {
-      const StoreInst *si = cast<StoreInst>(inst);
-
-      MemoryLocation src;
-      if (is_value_rank_dependent(si->getValueOperand(), &src)) {
-	changed = depGraph.addEdge(src, MemoryLocation::get(si),
-				   DependencyGraph::ValueDep) ||
-	  changed;
-      }
-    }
-
-    // Memset
-    if (isa<MemSetInst>(inst)) {
-      const MemSetInst *ms = cast<MemSetInst>(inst);
-      const Value *value = ms->getValue();
-      MemoryLocation src;
-      if (is_value_rank_dependent(value, &src)) {
-	MemoryLocation dst = MemoryLocation::getForDest(ms);
-	changed = depGraph.addEdge(src, dst, DependencyGraph::ValueDep) ||
-	  changed;
-      }
-    }
-
-    // MemTransfer
-    if (isa<MemTransferInst>(inst)) {
-      const MemTransferInst *mi = cast<MemTransferInst>(inst);
-      MemoryLocation src;
-      if (is_value_rank_dependent(mi->getSource(), &src)) {
-	MemoryLocation dst = MemoryLocation::getForDest(mi);
-	changed = depGraph.addEdge(src, dst, DependencyGraph::ValueDep) ||
-	  changed;
-      }
-    }
-  }
-
-  // Add all memory location whose value depends on rank.
-  // That is instructions writing in memory where IPDF is rank dependent.
-  for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    const Instruction *inst = &*I;
-
-    // Store
-    if (isa<StoreInst>(inst)) {
-      const StoreInst *si = cast<StoreInst>(inst);
-      const BasicBlock *bb = si->getParent();
-      vector<BasicBlock * > IPDF = //getIPDF((BasicBlock *) bb);
-	iterated_postdominance_frontier(*PDT, (BasicBlock *) bb);
-
-      MemoryLocation src;
-      if (is_IPDF_rank_dependent(IPDF, &src)) {
-	MemoryLocation dst = MemoryLocation::get(si);
-	changed = depGraph.addEdge(src, dst, DependencyGraph::ValueDep) ||
-	  changed;
-      }
-    }
-
-    // MemIntrinsic (memcpy, memset ..)
-    if (isa<MemIntrinsic>(inst)) {
-      const MemIntrinsic *mi = cast<MemIntrinsic>(inst);
-      const BasicBlock *bb = mi->getParent();
-      vector<BasicBlock * > IPDF = // getIPDF((BasicBlock *) bb);
-	iterated_postdominance_frontier(*PDT, (BasicBlock *) bb);
-
-      MemoryLocation src;
-      if (is_IPDF_rank_dependent(IPDF, &src)) {
-	MemoryLocation dst = MemoryLocation::getForDest(mi);
-	changed = depGraph.addEdge(src, dst, DependencyGraph::ValueDep) ||
-	  changed;
-      }
-    }
-  }
-
-  return changed;
+  return iPDF;
 }
 
 bool
@@ -374,7 +183,7 @@ FunctionSummary::is_value_rank_dependent(const Value *value,
 				       MemoryLocation *src) {
   if (isa<const Argument>(value)) {
     MemoryLocation ML = MemoryLocation(value, MemoryLocation::UnknownSize);
-    for (auto I = depGraph.nodeBegin(), E = depGraph.nodeEnd();
+    for (auto I = intraDeps.nodeBegin(), E = intraDeps.nodeEnd();
 	 I != E; ++I) {
       AliasResult res = AA->alias(ML, *I);
       if (res == MustAlias) {
@@ -437,7 +246,7 @@ FunctionSummary::is_value_rank_dependent(const Value *value,
       const Value *ptr = li->getPointerOperand();
       assert(ptr);
 
-      for (auto I = depGraph.nodeBegin(), E = depGraph.nodeEnd();
+      for (auto I = intraDeps.nodeBegin(), E = intraDeps.nodeEnd();
 	   I != E; ++I) {
 	MemoryLocation ML = MemoryLocation::get(li);
 	AliasResult res = AA->alias(ML, *I);
@@ -455,7 +264,7 @@ FunctionSummary::is_value_rank_dependent(const Value *value,
     {
       const AtomicCmpXchgInst *ai = cast<AtomicCmpXchgInst>(inst);
 
-      for (auto I = depGraph.nodeBegin(), E = depGraph.nodeEnd();
+      for (auto I = intraDeps.nodeBegin(), E = intraDeps.nodeEnd();
 	   I != E; ++I) {
 	MemoryLocation ML = MemoryLocation::get(ai);
 	AliasResult res = AA->alias(ML, *I);
@@ -473,7 +282,7 @@ FunctionSummary::is_value_rank_dependent(const Value *value,
   case Instruction::AtomicRMW:
     {
       const AtomicRMWInst *ai = cast<AtomicRMWInst>(inst);
-      for (auto I = depGraph.nodeBegin(), E = depGraph.nodeEnd();
+      for (auto I = intraDeps.nodeBegin(), E = intraDeps.nodeEnd();
 	   I != E; ++I) {
 	MemoryLocation ML = MemoryLocation::get(ai);
 	AliasResult res = AA->alias(ML, *I);
@@ -490,7 +299,7 @@ FunctionSummary::is_value_rank_dependent(const Value *value,
       return false;
 
   case Instruction::Alloca:
-    for (auto I = depGraph.nodeBegin(), E = depGraph.nodeEnd();
+    for (auto I = intraDeps.nodeBegin(), E = intraDeps.nodeEnd();
 	 I != E; ++I) {
       MemoryLocation ML = MemoryLocation(inst);
       AliasResult res = AA->alias(ML, *I);
@@ -541,8 +350,20 @@ FunctionSummary::is_value_rank_dependent(const Value *value,
     }
 
   case Instruction::Call:
-    // Since there is no interprocedural analysis yet, return false.
+    {
+      MemoryLocation ML = MemoryLocation(user, MemoryLocation::UnknownSize);
+      for (auto I = intraDeps.nodeBegin(), E = intraDeps.nodeEnd();
+	   I != E; ++I) {
+	AliasResult res = AA->alias(ML, *I);
+	if (res == MustAlias) {
+	  if (src)
+	    *src = ML;
+	  return true;
+	}
+      }
+
     return false;
+    }
 
   case Instruction::Select:
     return is_value_rank_dependent(inst->getOperand(0), src) ||
@@ -576,17 +397,253 @@ FunctionSummary::is_value_rank_dependent(const Value *value,
   };
 }
 
-vector<BasicBlock *>
-FunctionSummary::getIPDF(BasicBlock *bb) {
-  DenseMap<const BasicBlock *,
-	   vector<BasicBlock *>>::const_iterator I;
+bool
+FunctionSummary::updateAliasDep(const Function &F) {
+  // Add aliasing memory locations.
+  for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    const Instruction *inst = &*I;
 
-  I = iPDFMap.find(bb);
-  if (I != iPDFMap.end())
-    return I->getSecond();
-  std::vector<BasicBlock *> iPDF = iterated_postdominance_frontier(*PDT, bb);
-  iPDFMap[bb] = iPDF;
+    if (isa<LoadInst>(inst) || isa<StoreInst>(inst) || isa<VAArgInst>(inst) ||
+	isa<AtomicCmpXchgInst>(inst) || isa<AtomicRMWInst>(inst)) {
+      MemoryLocation ML = MemoryLocation::get(inst);
 
-  return iPDF;
+      for (auto NI = intraDeps.nodeBegin(), NE = intraDeps.nodeEnd();
+	   NI != NE; ++ NI) {
+	AliasResult res = AA->alias(ML, *NI);
+
+	if (res == NoAlias)
+	  continue;
+
+	bool changed = false;
+
+	switch(res) {
+	case MustAlias:
+	  changed = intraDeps.addEdge(*NI, ML, IntraDepGraph::MustAlias);
+	  break;
+	case MayAlias:
+	  changed = intraDeps.addEdge(*NI, ML, IntraDepGraph::MayAlias);
+	  break;
+	case PartialAlias:
+	  changed = intraDeps.addEdge(*NI, ML, IntraDepGraph::PartialAlias);
+	  break;
+	case NoAlias:
+	  break;
+	};
+
+	if (changed)
+	  return true;
+      }
+    }
+  }
+
+  return false;
 }
 
+bool
+FunctionSummary::updateFlowDep(const Function &F) {
+  bool changed = false;
+
+  // Add all memory location  whose value is computed using rank.
+  for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    const Instruction *inst = &*I;
+
+    // Store
+    if (isa<StoreInst>(inst)) {
+      const StoreInst *si = cast<StoreInst>(inst);
+
+      MemoryLocation src;
+      if (is_value_rank_dependent(si->getValueOperand(), &src)) {
+	changed = intraDeps.addEdge(src, MemoryLocation::get(si),
+				   IntraDepGraph::Flow) ||
+	  changed;
+      }
+    }
+
+    // Memset
+    if (isa<MemSetInst>(inst)) {
+      const MemSetInst *ms = cast<MemSetInst>(inst);
+      const Value *value = ms->getValue();
+      MemoryLocation src;
+      if (is_value_rank_dependent(value, &src)) {
+	MemoryLocation dst = MemoryLocation::getForDest(ms);
+	changed = intraDeps.addEdge(src, dst, IntraDepGraph::Flow) ||
+	  changed;
+      }
+    }
+
+    // MemTransfer
+    if (isa<MemTransferInst>(inst)) {
+      const MemTransferInst *mi = cast<MemTransferInst>(inst);
+      MemoryLocation src;
+      if (is_value_rank_dependent(mi->getSource(), &src)) {
+	MemoryLocation dst = MemoryLocation::getForDest(mi);
+	changed = intraDeps.addEdge(src, dst, IntraDepGraph::Flow) ||
+	  changed;
+      }
+    }
+  }
+
+  // Add all memory location whose value depends on rank.
+  // That is instructions writing in memory where IPDF is rank dependent.
+  for (const_inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    const Instruction *inst = &*I;
+
+    // Store
+    if (isa<StoreInst>(inst)) {
+      const StoreInst *si = cast<StoreInst>(inst);
+      const BasicBlock *bb = si->getParent();
+      vector<BasicBlock * > IPDF = //getIPDF((BasicBlock *) bb);
+	iterated_postdominance_frontier(*PDT, (BasicBlock *) bb);
+
+      MemoryLocation src;
+      if (is_IPDF_rank_dependent(IPDF, &src)) {
+	MemoryLocation dst = MemoryLocation::get(si);
+	changed = intraDeps.addEdge(src, dst, IntraDepGraph::Flow) ||
+	  changed;
+      }
+    }
+
+    // MemIntrinsic (memcpy, memset ..)
+    if (isa<MemIntrinsic>(inst)) {
+      const MemIntrinsic *mi = cast<MemIntrinsic>(inst);
+      const BasicBlock *bb = mi->getParent();
+      vector<BasicBlock * > IPDF = // getIPDF((BasicBlock *) bb);
+	iterated_postdominance_frontier(*PDT, (BasicBlock *) bb);
+
+      MemoryLocation src;
+      if (is_IPDF_rank_dependent(IPDF, &src)) {
+	MemoryLocation dst = MemoryLocation::getForDest(mi);
+	changed = intraDeps.addEdge(src, dst, IntraDepGraph::Flow) ||
+	  changed;
+      }
+    }
+  }
+
+  return changed;
+}
+
+bool
+FunctionSummary::updateArgDep() {
+  bool changed = false;
+
+  for (auto I = inst_begin(*F), E = inst_end(*F); I != E; ++I) {
+    const Instruction *inst = &*I;
+    const CallInst *ci = dyn_cast<CallInst>(inst);
+    if (!ci)
+      continue;
+
+    Function *called = ci->getCalledFunction();
+    auto FIt = funcMap->find(called);
+    if (FIt == funcMap->end())
+      continue;
+    FunctionSummary *calledSummary = (*FIt).second;
+
+    for (unsigned i=0; i<ci->getNumArgOperands(); ++i) {
+      if (isa<const MetadataAsValue>(ci->getArgOperand(i)))
+	continue;
+
+      MemoryLocation src;
+      const Value *argValue = ci->getArgOperand(i);
+
+      if (is_value_rank_dependent(argValue, &src)) {
+	const Value *argument = getFunctionArgument(called, i);
+	if (!argument) {
+	  errs() << "argument no " << i << " is NULL for function "
+		 << called->getName() << "\n";
+	  continue;
+	}
+
+	MemoryLocation dst = MemoryLocation(getFunctionArgument(called, i),
+					    MemoryLocation::UnknownSize);
+
+	changed = interDeps->addEdge(src, dst, InterDepGraph::Argument) ||
+	  changed;
+	calledSummary->intraDeps.addRoot(dst);
+      }
+    }
+  }
+
+  // TODO: Add invoke instructions
+
+  return changed;
+}
+
+
+bool
+FunctionSummary::updateRetDep() {
+  bool changed = false;
+
+  if (!isRetDependent) {
+    for (auto I = inst_begin(*F), E = inst_end(*F); I != E; ++I) {
+      const Instruction *inst = &*I;
+      const ReturnInst *ri = dyn_cast<ReturnInst>(inst);
+      if (!ri)
+	continue;
+
+      MemoryLocation ML;
+      Value *returnValue = ri->getReturnValue();
+      if (!returnValue)
+	continue;
+
+      if (is_value_rank_dependent(returnValue, &ML)) {
+	retDepSrc = ML;
+	isRetDependent = true;
+	changed = true;
+	break;
+      }
+    }
+  }
+
+  if (isRetDependent) {
+    for (auto I = retUserMap.begin(), E = retUserMap.end(); I != E; ++I) {
+      MemoryLocation retUser = (*I).first;
+      FunctionSummary *callerSummary = (*I).second;
+      changed = interDeps->addEdge(retDepSrc, retUser, InterDepGraph::Return) ||
+	changed;
+      callerSummary->intraDeps.addRoot(retUser);
+    }
+  }
+
+  return changed;
+}
+
+void
+FunctionSummary::findMPICommRankRoots() {
+  // Find memory locations where rank is stored by MPI_Comm_rank() function.
+  for (auto I = inst_begin(*F), E = inst_end(*F); I != E; ++I) {
+    const Instruction *inst = &*I;
+    const CallInst *ci = dyn_cast<CallInst>(inst);
+    if (!ci)
+      continue;
+
+    if (!ci->getCalledFunction()->getName().equals("MPI_Comm_rank"))
+      continue;
+
+    MemoryLocation ML = MemoryLocation::getForArgument(ImmutableCallSite(ci),
+						       1,
+						       *TLI);
+    intraDeps.addRoot(ML);
+  }
+}
+
+void
+FunctionSummary::computeListeners() {
+  for (auto I = inst_begin(*F), E = inst_end(*F); I != E; ++I) {
+    const Instruction *inst = &*I;
+    const CallInst *ci = dyn_cast<CallInst>(inst);
+    if (!ci)
+      continue;
+
+    Function *called = ci->getCalledFunction();
+    auto J = funcMap->find(called);
+    if (J == funcMap->end())
+      continue;
+
+    FunctionSummary *calledSummary = (*J).second;
+
+    MemoryLocation ML = MemoryLocation(ci, MemoryLocation::UnknownSize);
+    calledSummary->retUserMap[ML] = this;
+  }
+
+  // TODO: comptue side effect listeners
+}

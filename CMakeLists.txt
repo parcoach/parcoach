@@ -6,7 +6,7 @@ Find_Package(MPI REQUIRED)
 #Find_Package(OpenMP REQUIRED)
 #Find_Package(Threads)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/opt/local/libexec/llvm-3.7/share/llvm/cmake")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/home/phuchant/mytools/llvm-3.7/share/llvm/cmake/")
 
 if(NOT TARGET LLVMSupport)
 	include(${CMAKE_MODULE_PATH}/LLVMExports.cmake)
@@ -22,12 +22,12 @@ include(AddLLVM)
 
 
 add_definitions(${LLVM_DEFINITIONS} ${MPI_LINK_FLAGS})
-include_directories(${LLVM_INCLUDE_DIRS} "/Users/emmanuellesaillard/Documents/LLVM_371/llvm/include" "/opt/local/libexec/llvm-3.7/include" ${MPI_INCLUDE_PATH})
+include_directories(${LLVM_INCLUDE_DIRS} "/home/phuchant/mytools/llvm-3.7/include" ${MPI_INCLUDE_PATH})
 link_directories(${LLVM_LIBRARY_DIRS})
 set(LIBS ${LIBS} ${MPI_LIBRARIES})
 
 add_subdirectory(src/Parcoach/)
-add_subdirectory(src/Parcoach/INTRAPROCEDURAL_ANALYSIS/)
+add_subdirectory(src/Parcoach/interprocedural_analysis/)
 
 #if(NOT DISABLE_UNIT_TESTS)
 #	enable_testing()

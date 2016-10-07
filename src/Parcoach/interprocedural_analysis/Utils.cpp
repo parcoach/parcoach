@@ -25,6 +25,15 @@ getFunctionArgument(const Function *F, unsigned idx) {
   return NULL;
 }
 
+unsigned getNumArgs(const llvm::Function *F) {
+  int i = 0;
+
+  for (auto ai = F->arg_begin(), ae = F->arg_end(); ai != ae; ++ai)
+    i++;
+
+  return i;
+}
+
 bool
 blockDominatesEntry(BasicBlock *BB, PostDominatorTree &PDT, DominatorTree *DT,
 		    BasicBlock *EntryBlock) {

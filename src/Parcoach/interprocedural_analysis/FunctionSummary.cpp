@@ -27,9 +27,27 @@ FunctionSummary::FunctionSummary(llvm::Function *F,
   MD = F->getParent();
   AA = &pass->getAnalysis<AliasAnalysis>();
   TLI = &pass->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+
+  numArgs = getNumArgs(F);
+  if (numArgs > 0) {
+    argUserMap = new ListenerMapTy[numArgs];
+    isArgDependent = new bool[numArgs];
+    argDepSrc = new MemoryLocation[numArgs];
+  } else {
+    argUserMap = NULL;
+    argDepSrc = NULL;
+  }
+
+  for (unsigned i=0; i<numArgs; ++i) {
+    isArgDependent[i] = false;
+  }
 }
 
-FunctionSummary::~FunctionSummary() {}
+FunctionSummary::~FunctionSummary() {
+  delete[] argUserMap;
+  delete[] isArgDependent;
+  delete[] argDepSrc;
+}
 
 
 void
@@ -63,8 +81,9 @@ FunctionSummary::updateDeps() {
     changed = updateFlowDep(*F) || changed;
   }
 
-  changed = changed || updateRetDep();
-  changed = changed || updateArgDep();
+  changed = updateRetDep() || changed;
+  changed = updateArgDep() || changed;
+  changed = updateSideEffectDep() || changed;
 
   return changed;
 }
@@ -186,7 +205,7 @@ FunctionSummary::is_value_rank_dependent(const Value *value,
     for (auto I = intraDeps.nodeBegin(), E = intraDeps.nodeEnd();
 	 I != E; ++I) {
       AliasResult res = AA->alias(ML, *I);
-      if (res == MustAlias) {
+      if (res != NoAlias) {
 	if (src)
 	  *src = ML;
 	return true;
@@ -607,6 +626,44 @@ FunctionSummary::updateRetDep() {
   return changed;
 }
 
+bool
+FunctionSummary::updateSideEffectDep() {
+  bool changed = false;
+
+  unsigned i = 0;
+  for (auto ai = F->arg_begin(), ae = F->arg_end(); ai != ae; ++ai, ++i) {
+    if (isArgDependent[i])
+      continue;
+
+    Argument *arg = ai;
+    Type *argTy = arg->getType();
+    if (!argTy->isPointerTy())
+      continue;
+
+    MemoryLocation ML;
+    if (is_value_rank_dependent(arg, &ML)) {
+      changed = true;
+      isArgDependent[i] = true;
+      argDepSrc[i] = ML;
+    }
+  }
+
+  for (unsigned i=0; i<numArgs; ++i) {
+    if (!isArgDependent[i])
+      continue;
+
+    for (auto I = argUserMap[i].begin(), E = argUserMap[i].end(); I != E; ++I) {
+      MemoryLocation argUser = (*I).first;
+      FunctionSummary *callerSummary = (*I).second;
+      changed = interDeps->addEdge(argDepSrc[i], argUser,
+				   InterDepGraph::SideEffect) || changed;
+      callerSummary->intraDeps.addRoot(argUser);
+    }
+  }
+
+  return changed;
+}
+
 void
 FunctionSummary::findMPICommRankRoots() {
   // Find memory locations where rank is stored by MPI_Comm_rank() function.
@@ -639,11 +696,26 @@ FunctionSummary::computeListeners() {
     if (J == funcMap->end())
       continue;
 
+    // Ret listeners
     FunctionSummary *calledSummary = (*J).second;
-
     MemoryLocation ML = MemoryLocation(ci, MemoryLocation::UnknownSize);
     calledSummary->retUserMap[ML] = this;
-  }
 
-  // TODO: comptue side effect listeners
+    // Side effect listener
+    for (unsigned i=0; i< ci->getNumOperands()-1; ++i) {
+      Value *operand = ci->getOperand(i);
+      Type *ty = operand->getType();
+      if (!ty->isPointerTy())
+	continue;
+
+      MemoryLocation src = MemoryLocation::getForArgument(ImmutableCallSite(ci),
+							  i,
+							  *TLI);
+      // MemoryLocation dst = MemoryLocation(getFunctionArgument(called, i),
+      // 					  MemoryLocation::UnknownSize);
+
+      calledSummary->argUserMap[i][src] = this;
+
+    }
+  }
 }

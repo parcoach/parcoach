@@ -73,6 +73,7 @@ protected:
 
   /* Side effect dependencies */
 
+  unsigned numArgs;
   ListenerMapTy *argUserMap; // Memory location of all users of arguments
   // inside calling functions.
   bool *isArgDependent;
@@ -123,6 +124,7 @@ private:
 
   bool updateArgDep();
   bool updateRetDep();
+  bool updateSideEffectDep();
 
   void findMPICommRankRoots();
   void computeListeners();

@@ -11,10 +11,14 @@ if(WIN32 OR CYGWIN)
 endif()
 
 
-add_llvm_loadable_module( LLVMParcoachIntra
+add_llvm_loadable_module( LLVMParcoachInter
 			  Collectives.cpp
-	Parcoach.intra.cpp
-	Utils.cpp
+			  FunctionSummary.cpp
+			  GlobalDepGraph.cpp
+			  InterDepGraph.cpp
+			  IntraDepGraph.cpp
+			  Parcoach.cpp
+			  Utils.cpp
   )
 
 add_definitions("-Wall -g")

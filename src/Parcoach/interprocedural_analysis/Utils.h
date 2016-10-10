@@ -8,6 +8,11 @@
 
 #define DEBUG_TYPE "hello"
 
+const llvm::Argument *
+getFunctionArgument(const llvm::Function *F,unsigned idx);
+
+unsigned getNumArgs(const llvm::Function *F);
+
 bool
 blockDominatesEntry(llvm::BasicBlock *BB, llvm::PostDominatorTree &PDT,
 		    llvm::DominatorTree *DT, llvm::BasicBlock *EntryBlock);

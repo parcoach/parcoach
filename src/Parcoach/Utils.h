@@ -40,8 +40,6 @@ instrumentCC(llvm::Module *M, llvm::Instruction *I, int OP_color,
 	     llvm::StringRef File);
 
 
-
-
 /*
  * METADATA INFO
  */

@@ -90,8 +90,9 @@ FunctionSummary::updateDeps() {
 
 void
 FunctionSummary::checkCollectives() {
+  
   // Get analyses
-  DT = &pass->getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
+  //DT = &pass->getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
   PDT = &pass->getAnalysis<PostDominatorTree>(*F);
 
   string filename = getFunctionFilename(*F);

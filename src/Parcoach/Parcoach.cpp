@@ -16,6 +16,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
@@ -125,7 +126,7 @@ namespace {
 		for(Function::iterator bb = F.begin(), e = F.end(); bb!=e; ++bb)  
 		{
 			for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i){
-				Instruction *Inst=i;  
+				Instruction *Inst=&*i;  
 				string Warning = getWarning(*Inst); 
 				// Debug info (line in the source code, file)
 				DebugLoc DLoc = i->getDebugLoc();
@@ -139,17 +140,17 @@ namespace {
 					Function *f = CI->getCalledFunction();
 					string OP_name = f->getName().str();
 					if(f->getName().equals("MPI_Finalize")){
-						instrumentCC(M,i,v_coll.size()+1, "MPI_Finalize", OP_line, Warning, File);
+						instrumentCC(M,Inst,v_coll.size()+1, "MPI_Finalize", OP_line, Warning, File);
 						continue;
 					}
 					int OP_color = isCollectiveFunction(*f);
 					if(OP_color>=0){
-						 instrumentCC(M,i,OP_color, OP_name, OP_line, Warning, File);
+						 instrumentCC(M,Inst,OP_color, OP_name, OP_line, Warning, File);
 					}
  
 					// return instruction
 					if(isa<ReturnInst>(i)){
-						instrumentCC(M,i,v_coll.size()+1, "Return", OP_line, Warning, File); 
+						instrumentCC(M,Inst,v_coll.size()+1, "Return", OP_line, Warning, File); 
 					}
 				}
 			}
@@ -157,114 +158,91 @@ namespace {
 	}
 
 	void checkCollectives(Function &F,StringRef filename, int &STAT_collectives, int &STAT_warnings){
-		std::string OP_name;
-		StringRef File;
-		int OP_color=0;
-		unsigned OP_line = 0;
+		MDNode* mdNode;
 		// Warning info
 		StringRef WarningMsg;
 		const char *ProgName="PARCOACH";
 		SMDiagnostic Diag;
 		std::string COND_lines;
 
+		// Get analyses
 		PostDominatorTree &PDT=getAnalysis<PostDominatorTree>(F);
-		LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-		StringRef FuncSummary;
-		MDNode* mdNode;
 
-		// Process the function by visiting all basic blocks
-		for(Function::iterator bb=F.begin(),E=F.end(); bb!=E; ++bb)
-		{
-			BasicBlock *BB = bb;
-			bool inLoop = LI->getLoopFor(BB); // true if the basic block is in a loop
-			Loop* BBloop = LI->getLoopFor(BB); // loop containing this basic block 
-			for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i)
-			{
-				//context = i->getContext();
-				// Debug info (line in the source code, file)
-				DebugLoc DLoc = i->getDebugLoc();
-				File=""; OP_line=0;
-				if(DLoc){ 
-					OP_line = DLoc.getLine();
-					File=DLoc->getFilename();
+		// Process the function by visiting all instructions
+		for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
+			Instruction *i=&*I;
+			BasicBlock *BB = i->getParent();
+			// Debug info (line in the source code, file)
+			DebugLoc DLoc = i->getDebugLoc();
+			StringRef File=""; unsigned OP_line=0;
+			if(DLoc){ 
+				OP_line = DLoc.getLine();
+				File=DLoc->getFilename();
+			}
+
+			// FOUND A CALL INSTRUCTION
+			CallInst *CI = dyn_cast<CallInst>(i);
+			if(!CI) continue;
+
+			Function *f = CI->getCalledFunction();
+			if(!f) continue;
+
+			string OP_name = f->getName().str();
+
+			// Is it a call set has containing collectives or a possible deadlock (NAVS)?
+			if(getFuncSummary(*f).find("NAVS")!=std::string::npos || getFuncSummary(*f)!=""){
+				// Check is the PDF is non null
+				vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
+				vector<BasicBlock *>::iterator Bitr;
+				if(iPDF.size()!=0){
+					COND_lines="";
+					for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
+						TerminatorInst* TI = (*Bitr)->getTerminator();
+						DebugLoc BDLoc = TI->getDebugLoc();
+						COND_lines.append(" ").append(to_string(BDLoc.getLine()));
+					}
+					STAT_warnings++; // update statistics 
+					STAT_Total_warnings++; // update statistics
+					WarningMsg = OP_name + " (containing colectives:" + getFuncSummary(*f) + ") line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
+					mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
+					i->setMetadata("inst.warning",mdNode);
+					Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
+					Diag.print(ProgName, errs(), 1,1); 
 				}
+			}
+			// Is it a collective call?
+			int OP_color = isCollectiveFunction(*f);
+			if (OP_color < 0)
+				continue;
 
-				// FOUND A CALL INSTRUCTION
-				if(CallInst *CI = dyn_cast<CallInst>(i))
-				{
-					if(!CI) continue;
+			errs() << "--> Found " << OP_name << " line " << OP_line << ", OP_color=" << OP_color << "\n";
+			STAT_collectives++; // update statistics 
+			STAT_Total_collectives++; // update statistics 
 
-					Function *f = CI->getCalledFunction();
-					if(!f) continue;
-
-					OP_name = f->getName().str();
-					//errs() << "Function " << OP_name << " found line " << OP_line << "\n";
-
-					// Is it a call set has containing a collective or a possible deadlock?
-					if(getFuncSummary(*f).find("NAVS")!=std::string::npos || getFuncSummary(*f)!=""){
-						// Check is the PDF is non null
-						vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
-						vector<BasicBlock *>::iterator Bitr;
-						if(iPDF.size()!=0){
-							COND_lines="";
-							for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
-								TerminatorInst* TI = (*Bitr)->getTerminator();
-								DebugLoc BDLoc = TI->getDebugLoc();
-								COND_lines.append(" ").append(to_string(BDLoc.getLine()));
-							}
-							STAT_warnings++; // update statistics 
-							STAT_Total_warnings++; // update statistics
-							WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
-							mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
-							i->setMetadata("inst.warning",mdNode);
-							Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-							Diag.print(ProgName, errs(), 1,1); 
-						}
-					}
-					// Is it a collective call?
-					OP_color = isCollectiveFunction(*f);
-					if (OP_color < 0)
-						continue;
-
-					errs() << "--> Found " << OP_name << " line " << OP_line << ", OP_color=" << OP_color << "\n";
-					STAT_collectives++; // update statistics 
-					STAT_Total_collectives++; // update statistics 
-
-					// Check if the collective is in a loop 
-					if(inLoop){ 
-						DEBUG(errs() << "* BB " << BB->getName().str() << " is in a loop. The header is " << (BBloop->getHeader()->getName()).str() << "\n");
-						STAT_warnings++; // update statistics
-						STAT_Total_warnings++; // update statistics
-						WarningMsg = OP_name + " line " + to_string(OP_line) + " is in a loop";
-						Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-						Diag.print(ProgName, errs(), 1,1);
-					}
-					// Check if the PDF+ is non null
-					vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
-					vector<BasicBlock *>::iterator Bitr;
-					int warning=0;
-					if(iPDF.size()!=0){ 
-						COND_lines="";
-						for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
-							TerminatorInst* TI = (*Bitr)->getTerminator();
-							if(getBBcollSequence(*TI)=="NAVS"){
-								DebugLoc BDLoc = TI->getDebugLoc();
-								COND_lines.append(" ").append(to_string(BDLoc.getLine()));
-								warning=1;
-							}
-						}
-						errs() << "}\n";
-						if(warning==1){
-							STAT_warnings++; // update statistics 
-							STAT_Total_warnings++; // update statistics
-							WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
-							mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
-							i->setMetadata("inst.warning",mdNode);
-							Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-							Diag.print(ProgName, errs(), 1,1);
-						}	
+			// Check if the PDF+ is non null - no need to check if the coll is in a loop (for is considered as a cond)
+			vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
+			vector<BasicBlock *>::iterator Bitr;
+			int warning=0;
+			if(iPDF.size()!=0){ 
+				COND_lines="";
+				for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
+					TerminatorInst* TI = (*Bitr)->getTerminator();
+					if(getBBcollSequence(*TI)=="NAVS"){
+						DebugLoc BDLoc = TI->getDebugLoc();
+						COND_lines.append(" ").append(to_string(BDLoc.getLine()));
+						warning=1;
 					}
 				}
+				errs() << "}\n";
+				if(warning==1){
+					STAT_warnings++; // update statistics 
+					STAT_Total_warnings++; // update statistics
+					WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
+					mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
+					i->setMetadata("inst.warning",mdNode);
+					Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
+					Diag.print(ProgName, errs(), 1,1);
+				}	
 			}
 		}
 	}
@@ -363,7 +341,7 @@ namespace {
 					}
 					StringRef CollSequence_temp=StringRef(seq_temp);
 					// if temp != coll seq -> warning + keep the bb in the PDF+
-					errs() << "  >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
+					//errs() << "  >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
 					if(CollSequence_temp.str() != getBBcollSequence(*TI) || CollSequence_temp.str()=="NAVS" || getBBcollSequence(*TI)=="NAVS"){
 						mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
 						TI->setMetadata("inst.collSequence",mdNode);
@@ -414,8 +392,8 @@ namespace {
 			// Keep a metadata for the summary of the function
 			// Set the summary of a function even if no potential errors detected
 			// Then take into account the summary when setting the sequence of collectives of a BB
-			BasicBlock *entry = F->begin();
-			FuncSummary=getBBcollSequence(*entry->getTerminator());	
+			BasicBlock &entry = F->getEntryBlock();
+			FuncSummary=getBBcollSequence(*entry.getTerminator());	
 			mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
 			F->setMetadata("func.summary",mdNode);  	
 			errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";

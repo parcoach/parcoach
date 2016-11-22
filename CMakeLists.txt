@@ -45,6 +45,7 @@ set(LIBS ${LIBS} ${MPI_LIBRARIES})
 
 add_subdirectory(src/Parcoach/)
 add_subdirectory(src/Parcoach/interprocedural_analysis/)
+add_subdirectory(src/aSSA/)	
 
 #if(NOT DISABLE_UNIT_TESTS)
 #	enable_testing()

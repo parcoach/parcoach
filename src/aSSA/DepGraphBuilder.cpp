@@ -46,6 +46,9 @@ DepGraphBuilder::visitStoreInst(StoreInst &I) {
     const Value *cond = bi->getCondition();
     dg.addEdge(cond, I.getPointerOperand());
   }
+
+  dg.addEdge(dg.getIPDFFuncNode(I.getParent()->getParent()),
+	     I.getPointerOperand());
 }
 
 void
@@ -91,6 +94,25 @@ DepGraphBuilder::visitCallInst(CallInst &I) {
     }
     return;
   }
+
+  // Get call PDF+
+  vector<BasicBlock *> IPDF =
+    iterated_postdominance_frontier(PDT, I.getParent());
+
+  for (unsigned n = 0; n < IPDF.size(); ++n) {
+    const TerminatorInst *ti = IPDF[n]->getTerminator();
+    assert(ti);
+    const BranchInst *bi = dyn_cast<BranchInst>(ti);
+    assert(bi);
+
+    if (bi->isUnconditional())
+      continue;
+
+    const Value *cond = bi->getCondition();
+    dg.addEdge(cond, dg.getIPDFFuncNode(called));
+  }
+  dg.addEdge(dg.getIPDFFuncNode(I.getParent()->getParent()),
+	     dg.getIPDFFuncNode(called));
 
 
   for (unsigned i=0; i<I.getNumArgOperands(); ++i) {

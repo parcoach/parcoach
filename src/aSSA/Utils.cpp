@@ -3,6 +3,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -119,4 +120,24 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   iPDF.insert(iPDF.end(), S.begin(), S.end());
 
   return iPDF;
+}
+
+Function *
+createFunctionWithName(std::string name, Module *m) {
+  std::vector<Type*>FuncTy_args;
+  FunctionType* FuncTy = FunctionType::get(Type::getVoidTy(m->getContext()),
+					   FuncTy_args,
+					   false);
+
+  return Function::Create(FuncTy, GlobalValue::ExternalLinkage, name, m);
+}
+
+std::string getValueLabel(const llvm::Value *v) {
+  string label;
+  raw_string_ostream rso(label);
+  v->print(rso);
+  size_t pos = label.find_first_of('=');
+  if (pos != string::npos)
+    label = label.substr(0, pos);
+  return label;
 }

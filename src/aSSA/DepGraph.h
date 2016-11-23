@@ -13,6 +13,8 @@ class DepGraph {
   ~DepGraph();
 
   void addFunction(const llvm::Function *F);
+  void addIPDFFuncNode(const llvm::Function *F, const llvm::Value *);
+  const llvm::Value *getIPDFFuncNode(const llvm::Function *F);
   void addEdge(const llvm::Value *, const llvm::Value *);
   void addSource(const llvm::Value *src);
   void computeTaintedValues();
@@ -24,7 +26,7 @@ class DepGraph {
   std::set<const llvm::Function *> functions;
   std::set<const llvm::Value *> sources;
   std::set<const llvm::Value *> taintedValues;
-
+  std::map<const llvm::Function *, const llvm::Value *> IPDFFuncNodes;
   void taintRec(const llvm::Value *v);
 };
 

@@ -29,6 +29,7 @@ namespace {
 
   private:
     DepGraph dg;
+    llvm::Module *module;
   };
 }
 

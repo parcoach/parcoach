@@ -1,4 +1,5 @@
 #include "DepGraph.h"
+#include "Utils.h"
 
 #include "llvm/IR/Function.h"
 #include "llvm/Support/FileSystem.h"
@@ -14,6 +15,24 @@ DepGraph::~DepGraph() {}
 void
 DepGraph::addFunction(const llvm::Function *F) {
   functions.insert(F);
+}
+
+void
+DepGraph::addIPDFFuncNode(const llvm::Function *F, const llvm::Value *v) {
+  if (graph.count(v) != 0)
+    return;
+
+  graph[v] = new set<const Value *>();
+
+  IPDFFuncNodes[F] = v;
+}
+
+const llvm::Value *
+DepGraph::getIPDFFuncNode(const llvm::Function *F) {
+  if (IPDFFuncNodes.count(F) == 0)
+    return NULL;
+
+  return IPDFFuncNodes[F];
 }
 
 void
@@ -66,19 +85,22 @@ DepGraph::toDot(StringRef filename) {
     const Function *func = *I;
     stream << "\tsubgraph cluster_" << func->getName() << " {\n";
     stream << "style=filled;\ncolor=lightgrey;\n";
-    stream << "label=\"" << func->getName() << "\";\n";
+    stream << "label=< <B>" << func->getName() << "</B> >;\n";
     stream << "node [style=filled,color=white];\n";
 
     for (auto J = graph.begin(), F = graph.end(); J != F; ++J) {
       const Value *node = (*J).first;
+
       if (isa<Function>(node))
 	continue;
+
+      string label = getValueLabel(node);
 
       const Instruction *inst = dyn_cast<Instruction>(node);
       if (inst) {
 	if (inst->getParent()->getParent() == func) {
 	  stream << "Node" << ((void *) node) << " [label=\""
-		 << *node << "\" ";
+		 << label << "\" ";
 	  if (taintedValues.count(inst) != 0)
 	    stream << "style=filled, color=red";
 	  stream << "];\n";

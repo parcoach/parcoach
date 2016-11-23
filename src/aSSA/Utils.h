@@ -21,5 +21,9 @@ std::vector<llvm::BasicBlock * >
 iterated_postdominance_frontier(llvm::PostDominatorTree &PDT,
 				llvm::BasicBlock *BB);
 
+llvm::Function *createFunctionWithName(std::string name, llvm::Module *m);
+
+std::string getValueLabel(const llvm::Value *v);
+
 
 #endif /* UTILS_H */

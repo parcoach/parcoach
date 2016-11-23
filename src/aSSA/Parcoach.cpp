@@ -27,6 +27,22 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
+  module = &M;
+
+  /* Create IPDF Node for each Function */
+  for (auto I = M.begin(), E = M.end(); I != E; ++I) {
+    const Function &F = *I;
+    if (F.isDeclaration())
+      continue;
+
+    Function *IPDF_func = createFunctionWithName(string(F.getName()) + "_IPDF",
+					       module);
+    dg.addIPDFFuncNode(&F, IPDF_func);
+
+    for (unsigned i=0; i<getNumArgs(&F); ++i)
+      dg.addEdge(IPDF_func, getFunctionArgument(&F, i));
+  }
+
   /* Compute Dep Graph */
   for (auto I = M.begin(), E = M.end(); I != E; ++I) {
     const Function &F = *I;
@@ -50,6 +66,7 @@ ParcoachInstr::runOnFunction(Function &F) {
   PostDominatorTree &PDT = getAnalysis<PostDominatorTree>(F);
 
   dg.addFunction(&F);
+
 
   /* Compute aSSA. */
   ASSA aSSA;

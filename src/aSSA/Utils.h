@@ -25,5 +25,6 @@ llvm::Function *createFunctionWithName(std::string name, llvm::Module *m);
 
 std::string getValueLabel(const llvm::Value *v);
 
+bool isMemoryAlloc(const llvm::Function *F);
 
 #endif /* UTILS_H */

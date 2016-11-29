@@ -141,3 +141,12 @@ std::string getValueLabel(const llvm::Value *v) {
     label = label.substr(0, pos);
   return label;
 }
+
+bool isMemoryAlloc(const llvm::Function *F) {
+  if (F->getName().equals("malloc") ||
+      F->getName().equals("realloc") ||
+      F->getName().equals("calloc"))
+    return true;
+
+  return false;
+}

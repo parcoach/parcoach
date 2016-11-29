@@ -15,22 +15,26 @@ public: DepGraphBuilder(llvm::PostDominatorTree &PDT, ASSA &aSSA, DepGraph &dg)
   void visitLoadInst(llvm::LoadInst &I);
   void visitStoreInst(llvm::StoreInst &I);
   void visitMemSetInst(llvm::MemSetInst &I);
-  void visitMemCpyInst(llvm::MemCpyInst &I);
-  void visitMemMoveInst(llvm::MemMoveInst &I);
   void visitMemTransferInst(llvm::MemTransferInst &I);
-  void visitMemIntrinsic(llvm::MemIntrinsic &I);
   void visitCallInst(llvm::CallInst &I);
   void visitBinaryOperator(llvm::BinaryOperator &I);
   void visitCastInst(llvm::CastInst &I);
   void visitPHINode(llvm::PHINode &I);
+  void visitSelectInst(llvm::SelectInst &I);
   void visitGetElementPtrInst(llvm::GetElementPtrInst &I);
   void visitCmpInst(llvm::CmpInst &I);
   void visitReturnInst(llvm::ReturnInst &I);
+  void visitBranchInst(llvm::BranchInst &I);
+  void visitAllocaInst(llvm::AllocaInst &I);
+  void visitUnreachableInst(llvm::UnreachableInst &I);
+  void visitSwitchInst(llvm::SwitchInst &I);
 
  private:
   llvm::PostDominatorTree &PDT;
   ASSA &aSSA;
   DepGraph &dg;
+
+  void addIPDFDeps(llvm::Instruction &I, const llvm::Value *dest);
 };
 
 #endif /* DEPGRAPHBUILDER_H */

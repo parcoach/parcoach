@@ -2,6 +2,7 @@
 #include "Utils.h"
 
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -54,6 +55,11 @@ DepGraph::addSource(const llvm::Value *src) {
 }
 
 void
+DepGraph::addSink(const llvm::Value *src) {
+  sinks.insert(src);
+}
+
+void
 DepGraph::taintRec(const llvm::Value *v) {
   std::set<const Value *> *children = graph[v];
 
@@ -67,11 +73,64 @@ DepGraph::taintRec(const llvm::Value *v) {
 }
 
 void
-DepGraph::computeTaintedValues() {
+DepGraph::computeTaintedValues(Pass *pass) {
   for (auto I = sources.begin(), E = sources.end(); I != E; ++I) {
     taintedValues.insert(*I);
     taintRec(*I);
   }
+
+  // Compute tainted sinks
+  for (auto I = sinks.begin(), E = sinks.end(); I != E; ++I) {
+    Value *v = (Value *) *I;
+    Instruction *inst = cast<Instruction>(v);
+    Function *F = (Function *) inst->getParent()->getParent();
+    PostDominatorTree &PDT = pass->getAnalysis<PostDominatorTree>(*F);
+
+    // Get PDF+
+    vector<BasicBlock *> IPDF =
+      iterated_postdominance_frontier(PDT, inst->getParent());
+
+    for (unsigned n = 0; n < IPDF.size(); ++n) {
+      const TerminatorInst *ti = IPDF[n]->getTerminator();
+      assert(ti);
+
+      if (isa<BranchInst>(ti)) {
+	const BranchInst *bi = cast<BranchInst>(ti);
+
+	if (bi->isUnconditional())
+	  continue;
+
+	const Value *cond = bi->getCondition();
+	if (taintedValues.count(cond) != 0) {
+	  taintedSinks.insert(v);
+	  break;
+	}
+      } else if (isa<SwitchInst>(ti)) {
+	const SwitchInst *si = cast<SwitchInst>(ti);
+	const Value *cond = si->getCondition();
+	if (taintedValues.count(cond) != 0) {
+	  taintedSinks.insert(v);
+	  break;
+	}
+      } else {
+	assert(false);
+      }
+    }
+  }
+}
+
+std::string
+DepGraph::getNodeStyle(const llvm::Value *v) {
+  if (sinks.count(v) != 0) {
+    if (taintedSinks.count(v) != 0)
+      return "style=filled, color=blue";
+    return "style=filled, color=green";
+  }
+
+  if (taintedValues.count(v) != 0)
+    return "style=filled, color=red";
+
+  return "";
 }
 
 void
@@ -101,8 +160,7 @@ DepGraph::toDot(StringRef filename) {
 	if (inst->getParent()->getParent() == func) {
 	  stream << "Node" << ((void *) node) << " [label=\""
 		 << label << "\" ";
-	  if (taintedValues.count(inst) != 0)
-	    stream << "style=filled, color=red";
+	  stream << getNodeStyle(inst);
 	  stream << "];\n";
 	}
 
@@ -114,8 +172,7 @@ DepGraph::toDot(StringRef filename) {
 	if (argument->getParent() == func) {
 	  stream << "Node" << ((void *) node) << " [label=\""
 		 << node->getName() << "\" ";
-	  if (taintedValues.count(argument) != 0)
-	    stream << " style=filled, color=red";
+	  stream << getNodeStyle(argument);
 	  stream << "];\n";
 	}
 
@@ -131,8 +188,7 @@ DepGraph::toDot(StringRef filename) {
     if (isa<Function>(from)) {
       stream << "Node" << ((void *) from) << " [label=\"" << from->getName()
 	     << "\" ";
-      if (taintedValues.count(from) != 0)
-	stream << " style=filled, color=red";
+      stream << getNodeStyle(from);
       stream << "];\n";
     }
     if (isa<Constant>(from)) {
@@ -140,8 +196,7 @@ DepGraph::toDot(StringRef filename) {
 	continue;
 
       stream << "Node" << ((void *) from) << " [label=\"" << *from << "\" ";
-      if (taintedValues.count(from) != 0)
-	stream << " style=filled, color=red";
+      stream << getNodeStyle(from);
       stream<< "];\n";
     }
   }

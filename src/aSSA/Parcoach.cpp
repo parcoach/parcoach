@@ -53,7 +53,7 @@ ParcoachInstr::runOnModule(Module &M) {
   }
 
   /* Compute tainted values */
-  dg.computeTaintedValues();
+  dg.computeTaintedValues(this);
 
   /* Dot graph */
   dg.toDot("dg.dot");
@@ -90,17 +90,32 @@ ParcoachInstr::runOnFunction(Function &F) {
 	// Push conditions of each BB in the IPDF
 	const TerminatorInst *ti = IPDF[n]->getTerminator();
 	assert(ti);
-	const BranchInst *bi = dyn_cast<BranchInst>(ti);
-	assert(bi);
 
-	if (bi->isUnconditional())
-	  continue;
+	if (isa<BranchInst>(ti)) {
+	  const BranchInst *bi = cast<BranchInst>(ti);
+	  assert(bi);
 
-	const Value *cond = bi->getCondition();
+	  if (bi->isUnconditional())
+	    continue;
 
-	aSSA[phi]->insert(cond);
+	  const Value *cond = bi->getCondition();
+
+	  aSSA[phi]->insert(cond);
+	} else if(isa<SwitchInst>(ti)) {
+	  const SwitchInst *si = cast<SwitchInst>(ti);
+	  assert(si);
+	  const Value *cond = si->getCondition();
+	  aSSA[phi]->insert(cond);
+	}
       }
     }
+
+    errs() << getValueLabel(phi) << " predicates = { ";
+    std::set<const Value *> *predicates = aSSA[phi];
+    for (auto I = predicates->begin(), E = predicates->end(); I != E; ++I)
+      errs() << getValueLabel(*I) << " , ";
+    errs() << " }\n";
+
   }
 
   /* Compute Dep Graph */

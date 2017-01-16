@@ -8,7 +8,13 @@
 #include <map>
 #include <set>
 
+class MemSSA;
+class MuChiBuilder;
+
 class DepGraph {
+  friend class MemSSA;
+  friend class MuChiBuilder;
+
  public:
   DepGraph();
   ~DepGraph();

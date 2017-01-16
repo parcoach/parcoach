@@ -14,7 +14,10 @@ endif()
 add_llvm_loadable_module( LLVMaSSA
         DepGraphBuilder.cpp
         DepGraph.cpp
+	MemSSA.cpp
 	Parcoach.cpp
+	PointGraphBuilder.cpp
+	Region.cpp
 	Utils.cpp
   )
 

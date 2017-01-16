@@ -27,6 +27,8 @@ namespace {
 
     bool runOnFunction(llvm::Function &F);
 
+    void computeMemorySSA(llvm::Module &M);
+
   private:
     DepGraph dg;
     llvm::Module *module;

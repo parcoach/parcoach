@@ -1,11 +1,16 @@
 #include "ASSA.h"
 #include "DepGraphBuilder.h"
+#include "MemSSA.h"
 #include "Parcoach.h"
+#include "PointGraphBuilder.h"
+#include "Region.h"
+#include "RegionBuilder.h"
 #include "Utils.h"
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/DependenceAnalysis.h"
+#include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -22,12 +27,56 @@ ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 void
 ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
+  au.addRequired<DominanceFrontier>();
+  au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTree>();
+}
+
+void
+ParcoachInstr::computeMemorySSA(Module &M) {
+  DepGraph pg;
+
+  // Compute point-to graph.
+  PointGraphBuilder PGB(pg);
+  PGB.visit(M);
+  pg.toDot("pg.dot");
+
+  // Compute regions
+  map<const Function *, vector<Region *> > regions;
+  RegionBuilder RB(regions);
+  RB.visit(M);
+
+  for (auto I : regions) {
+    errs() << "Function " << I.first->getName() << "\n";
+    for (Region *r : I.second)
+      r->print();
+  }
+
+  // Compute MemorySSA
+  for (auto I  = M.begin(), E = M.end(); I != E; ++I) {
+    llvm::Function *F = &*I;
+    if (F->isDeclaration())
+      continue;
+
+    PostDominatorTree &PDT = getAnalysis<PostDominatorTree>(*F);
+    DominanceFrontier &DF = getAnalysis<DominanceFrontier>(*F);
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(*F).getDomTree();
+
+    MemSSA mSSA(F, &pg, PDT, DF, DT, regions[F]);
+
+    // Compute Augmented Memory SSA
+    mSSA.computeASSA();
+
+    // Dump MemorySSA
+    mSSA.dump();
+  }
 }
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
   module = &M;
+
+  computeMemorySSA(M);
 
   /* Create IPDF Node for each Function */
   for (auto I = M.begin(), E = M.end(); I != E; ++I) {

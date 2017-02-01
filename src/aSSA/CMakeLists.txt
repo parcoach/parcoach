@@ -12,13 +12,17 @@ endif()
 
 
 add_llvm_loadable_module( LLVMaSSA
-        DepGraphBuilder.cpp
         DepGraph.cpp
-	MemSSA.cpp
+	MemoryRegion.cpp
+	MemorySSA.cpp
 	Parcoach.cpp
-	PointGraphBuilder.cpp
-	Region.cpp
 	Utils.cpp
+	andersen/Andersen.cpp
+	andersen/ConstraintCollect.cpp
+	andersen/ConstraintOptimize.cpp
+	andersen/ConstraintSolving.cpp
+	andersen/ExternalLibrary.cpp
+	andersen/NodeFactory.cpp
   )
 
 add_definitions("-Wall -g")

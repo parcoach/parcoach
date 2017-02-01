@@ -1,44 +1,80 @@
 #ifndef DEPGRAPH_H
 #define DEPGRAPH_H
 
-#include "llvm/IR/Value.h"
-#include "llvm/Pass.h"
+#include "MSSAMuChi.h"
+#include "MemorySSA.h"
+
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <map>
-#include <set>
+class DepGraph : public llvm::InstVisitor<DepGraph> {
+public:
+  typedef std::set<MSSAVar *> VarSet;
+  typedef std::set<const MSSAVar *> ConstVarSet;
+  typedef std::set<const llvm::Value *> ValueSet;
 
-class MemSSA;
-class MuChiBuilder;
+  DepGraph(MemorySSA *mssa);
+  virtual ~DepGraph();
 
-class DepGraph {
-  friend class MemSSA;
-  friend class MuChiBuilder;
+  void buildFunction(const llvm::Function *F, llvm::PostDominatorTree *PDT);
+  void toDot(std::string filename);
 
- public:
-  DepGraph();
-  ~DepGraph();
+  void visitBasicBlock(llvm::BasicBlock &BB);
+  void visitAllocaInst(llvm::AllocaInst &I);
+  void visitTerminatorInst(llvm::TerminatorInst &I);
+  void visitCmpInst(llvm::CmpInst &I);
+  void visitLoadInst(llvm::LoadInst &I);
+  void visitStoreInst(llvm::StoreInst &I);
+  void visitGetElementPtrInst(llvm::GetElementPtrInst &I);
+  void visitPHINode(llvm::PHINode &I);
+  void visitCastInst(llvm::CastInst &I);
+  void visitSelectInst(llvm::SelectInst &I);
+  void visitBinaryOperator(llvm::BinaryOperator &I);
+  void visitCallInst(llvm::CallInst &I);
+  void visitInstruction(llvm::Instruction &I);
 
-  void addFunction(const llvm::Function *F);
-  void addIPDFFuncNode(const llvm::Function *F, const llvm::Value *);
-  const llvm::Value *getIPDFFuncNode(const llvm::Function *F);
-  void addEdge(const llvm::Value *, const llvm::Value *);
-  void addSource(const llvm::Value *src);
-  void addSink(const llvm::Value *src);
-  void computeTaintedValues(llvm::Pass *pass);
-  void toDot(llvm::StringRef filename);
-  void toDot(llvm::raw_fd_ostream &stream);
+private:
+  MemorySSA *mssa;
 
- private:
-  std::map<const llvm::Value *, std::set<const llvm::Value *> *> graph;
-  std::set<const llvm::Function *> functions;
-  std::set<const llvm::Value *> sources;
-  std::set<const llvm::Value *> taintedValues;
-  std::set<const llvm::Value *> sinks;
-  std::set<const llvm::Value *> taintedSinks;
-  std::map<const llvm::Function *, const llvm::Value *> IPDFFuncNodes;
-  void taintRec(const llvm::Value *v);
+  const llvm::Function *curFunc;
+  llvm::PostDominatorTree *curPDT;
+
+  // SSA
+  llvm::DenseMap<const llvm::Function *, ValueSet> funcToLLVMNodesMap;
+  llvm::DenseMap<const llvm::Function *, VarSet> funcToSSANodesMap;
+  llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMEdges;
+  llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAEdges;
+  llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMEdges;
+  llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAEdges;
+
+  // PDF+ call
+  std::set<const llvm::Function *> funcNodes;
+  llvm::DenseMap<const llvm::Function *, ValueSet> funcToCallNodes;
+  // Calls inside a function
+  llvm::DenseMap<const llvm::Value *, const llvm::Function *> callToFuncEdges;
+  llvm::DenseMap<const llvm::Value *, ValueSet> condToCallEdges;
+
+  ValueSet taintedLLVMNodes;
+  ValueSet taintedCallNodes;
+  std::set<const llvm::Function *> taintedFunctions;
+  ConstVarSet taintedSSANodes;
+  ConstVarSet ssaSources;
+
+  void computeTaintedValues();
+  void computeTaintedValuesRec(const llvm::Value *v);
+  void computeTaintedValuesRec(MSSAVar *v);
+  // void computeTaintedValuesRec(const llvm::Function *F);
+
+  void computeTaintedCalls();
+  void computeTaintedCalls(const llvm::Value *v);
+  void computeTaintedCalls(const llvm::Function *F);
+
+  void dotFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
+  void dotExtFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
   std::string getNodeStyle(const llvm::Value *v);
+  std::string getNodeStyle(const MSSAVar *v);
+  std::string getNodeStyle(const llvm::Function *f);
+  std::string getCallNodeStyle(const llvm::Value *v);
 };
 
 #endif /* DEPGRAPH_H */

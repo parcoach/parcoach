@@ -13,9 +13,9 @@ Find_Package(MPI REQUIRED)
 #Find_Package(Threads)
 
 ## cmake dir - To change 
-set(PIERRE_CMAKE_DIR "/home/phuchant/mytools/llvm-3.7/share/llvm/cmake/")
-#set(EMMA_CMAKE_DIR "/Users/emmanuellesaillard/Documents/LLVM_390/build/lib/cmake/llvm")
-set(EMMA_CMAKE_DIR "/Users/emmanuellesaillard/Documents/LLVM_371/build/share/llvm/cmake")
+set(PIERRE_CMAKE_DIR "/home/phuchant/mytools/llvm-3.9/build/lib/cmake/llvm")
+set(EMMA_CMAKE_DIR "/Users/emmanuellesaillard/Documents/LLVM_390/build/lib/cmake/llvm")
+#set(EMMA_CMAKE_DIR "/Users/emmanuellesaillard/Documents/LLVM_371/build/share/llvm/cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${EMMA_CMAKE_DIR})
 
 if(NOT TARGET LLVMSupport)
@@ -43,8 +43,6 @@ include_directories(${LLVM_INCLUDE_DIRS} ${MPI_INCLUDE_PATH})
 link_directories(${LLVM_LIBRARY_DIRS})
 set(LIBS ${LIBS} ${MPI_LIBRARIES})
 
-add_subdirectory(src/Parcoach/)
-add_subdirectory(src/Parcoach/interprocedural_analysis/)
 add_subdirectory(src/aSSA/)	
 
 #if(NOT DISABLE_UNIT_TESTS)

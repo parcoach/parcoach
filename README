@@ -25,27 +25,27 @@ This project contains two directories: Parcoach and tests
 
 PARCOACH uses CMake. CMake can be downloaded from http://www.cmake.org
 
----- LLVM 3.7.1
+---- LLVM 3.9.1
 
-This version of PARCOACH is an LLVM pass. It works with LLVM 3.7.1. 
-To get LLVM 3.7.1, follow these steps:
+This version of PARCOACH is an LLVM pass. It works with LLVM 3.9.1
+To get LLVM 3.9.1, follow these steps:
 
 -> compiling LLvm requires that you have installed GNU CMAKE (version 3.79, 3.79.1), 
 GCC (>=4.7.0), python (>=2.7), libtool (version 1.5.22) and zlib (>=1.2.3.4)
 
-svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_371/final llvm
+svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_391/final llvm
 
 cd llvm/tools
-svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_371/final clang
+svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_391/final clang
 
 cd clang/tools/
-svn co http://llvm.org/svn/llvm-project/clang-tools-extra/tags/RELEASE_371/final extra
+svn co http://llvm.org/svn/llvm-project/clang-tools-extra/tags/RELEASE_391/final extra
 
 cd ../../../projects/
-svn co http://llvm.org/svn/llvm-project/openmp/tags/RELEASE_371/final openmp
-svn co http://llvm.org/svn/llvm-project/compiler-rt/tags/RELEASE_371/final compiler-rt
-svn co http://llvm.org/svn/llvm-project/libcxx/tags/RELEASE_371/final libcxx
-svn co http://llvm.org/svn/llvm-project/libcxxabi/tags/RELEASE_371/final libcxxabi
+svn co http://llvm.org/svn/llvm-project/openmp/tags/RELEASE_391/final openmp
+svn co http://llvm.org/svn/llvm-project/compiler-rt/tags/RELEASE_391/final compiler-rt
+svn co http://llvm.org/svn/llvm-project/libcxx/tags/RELEASE_391/final libcxx
+svn co http://llvm.org/svn/llvm-project/libcxxabi/tags/RELEASE_391/final libcxxabi
 
 cd ../..
 mkdir build

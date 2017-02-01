@@ -1,46 +1,34 @@
 #include "Utils.h"
 
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace std;
 
-const Argument *
-getFunctionArgument(const Function *F, unsigned idx) {
-  unsigned i = 0;
 
-  for (auto ai = F->arg_begin(), ae = F->arg_end(); ai != ae; ++ai, ++i) {
-    if (i == idx) {
-      const Argument *arg = ai;
-      return arg;
-    }
-  }
-
-  errs() << "returning null, querying arg no " << idx << " on function "
-	 << F->getName() << "\n";
-  return NULL;
+bool isCallSite(const llvm::Instruction *inst) {
+  return llvm::isa<llvm::CallInst>(inst) || llvm::isa<llvm::InvokeInst>(inst);
 }
 
-unsigned getNumArgs(const llvm::Function *F) {
-  int i = 0;
-
-  for (auto ai = F->arg_begin(), ae = F->arg_end(); ai != ae; ++ai)
-    i++;
-
-  return i;
+std::string getValueLabel(const llvm::Value *v) {
+  std::string label;
+  llvm::raw_string_ostream rso(label);
+  v->print(rso);
+  size_t pos = label.find_first_of('=');
+  if (pos != std::string::npos)
+    label = label.substr(0, pos);
+  return label;
 }
 
-bool
-blockDominatesEntry(BasicBlock *BB, PostDominatorTree &PDT, DominatorTree *DT,
-		    BasicBlock *EntryBlock) {
-  if (PDT.dominates(BB, EntryBlock))
-    return true;
-
-  return false;
+std::string getCallValueLabel(const llvm::Value *v) {
+  std::string label;
+  llvm::raw_string_ostream rso(label);
+  v->print(rso);
+  size_t pos = label.find_first_of('=');
+  if (pos != std::string::npos)
+    label = label.substr(pos+2);
+  return label;
 }
 
 // PDF computation
@@ -73,15 +61,6 @@ postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   return PDF;
 }
 
-void
-print_iPDF(vector<BasicBlock * > iPDF, BasicBlock *BB){
-  vector<BasicBlock * >::const_iterator Bitr;
-  errs() << "iPDF(" << BB->getName().str() << ") = {";
-  for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
-    errs() << "- " << (*Bitr)->getName().str() << " ";
-  }
-  errs() << "}\n";
-}
 
 // PDF+ computation
 vector<BasicBlock * >
@@ -122,31 +101,70 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   return iPDF;
 }
 
-Function *
-createFunctionWithName(std::string name, Module *m) {
-  std::vector<Type*>FuncTy_args;
-  FunctionType* FuncTy = FunctionType::get(Type::getVoidTy(m->getContext()),
-					   FuncTy_args,
-					   false);
+const Argument *
+getFunctionArgument(const Function *F, unsigned idx) {
+  unsigned i = 0;
 
-  return Function::Create(FuncTy, GlobalValue::ExternalLinkage, name, m);
+  for (const Argument &arg : F->getArgumentList()) {
+    if (i == idx) {
+      return &arg;
+    }
+
+    i++;
+  }
+
+  errs() << "returning null, querying arg no " << idx << " on function "
+	 << F->getName() << "\n";
+  return NULL;
 }
 
-std::string getValueLabel(const llvm::Value *v) {
-  string label;
-  raw_string_ostream rso(label);
-  v->print(rso);
-  size_t pos = label.find_first_of('=');
-  if (pos != string::npos)
-    label = label.substr(0, pos);
-  return label;
+std::set<const llvm::Value *>
+computeIPDFPredicates(llvm::PostDominatorTree &PDT,
+		      llvm::BasicBlock *BB) {
+  std::set<const llvm::Value *> preds;
+
+  // Get IPDF
+  vector<BasicBlock *> IPDF = iterated_postdominance_frontier(PDT, BB);
+
+  for (unsigned n = 0; n < IPDF.size(); ++n) {
+    // Push conditions of each BB in the IPDF
+    const TerminatorInst *ti = IPDF[n]->getTerminator();
+    assert(ti);
+
+    if (isa<BranchInst>(ti)) {
+      const BranchInst *bi = cast<BranchInst>(ti);
+      assert(bi);
+
+      if (bi->isUnconditional())
+	continue;
+
+      const Value *cond = bi->getCondition();
+      preds.insert(cond);
+    } else if(isa<SwitchInst>(ti)) {
+      const SwitchInst *si = cast<SwitchInst>(ti);
+      assert(si);
+      const Value *cond = si->getCondition();
+      preds.insert(cond);
+    }
+  }
+
+  return preds;
 }
 
-bool isMemoryAlloc(const llvm::Function *F) {
-  if (F->getName().equals("malloc") ||
-      F->getName().equals("realloc") ||
-      F->getName().equals("calloc"))
-    return true;
+const llvm::Value *getReturnValue(const llvm::Function *F) {
+  const Value *ret = NULL;
 
-  return false;
+  for (auto I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    const Instruction *inst = &*I;
+
+    if (const ReturnInst *RI = dyn_cast<ReturnInst>(inst)) {
+      assert(ret == NULL && "There exists more than one return instruction");
+
+      ret = RI->getReturnValue();
+    }
+  }
+
+  assert(ret != NULL && "There is no return instruction");
+
+  return ret;
 }

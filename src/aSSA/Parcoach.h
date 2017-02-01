@@ -7,9 +7,6 @@
 #ifndef PARCOACH_H
 #define PARCOACH_H
 
-#include "DepGraph.h"
-#include "ASSA.h"
-
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -25,13 +22,7 @@ namespace {
 
     virtual bool runOnModule(llvm::Module &M);
 
-    bool runOnFunction(llvm::Function &F);
-
-    void computeMemorySSA(llvm::Module &M);
-
   private:
-    DepGraph dg;
-    llvm::Module *module;
   };
 }
 

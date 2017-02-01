@@ -2,29 +2,26 @@
 #define UTILS_H
 
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/CallSite.h"
 
 #include <vector>
 
-const llvm::Argument *
-getFunctionArgument(const llvm::Function *F,unsigned idx);
+bool isCallSite(const llvm::Instruction *inst);
 
-unsigned getNumArgs(const llvm::Function *F);
-
-bool
-blockDominatesEntry(llvm::BasicBlock *BB, llvm::PostDominatorTree &PDT,
-		    llvm::DominatorTree *DT, llvm::BasicBlock *EntryBlock);
-
-void
-print_iPDF(std::vector<llvm::BasicBlock *> iPDF, llvm::BasicBlock *BB);
+std::string getValueLabel(const llvm::Value *v);
+std::string getCallValueLabel(const llvm::Value *v);
 
 std::vector<llvm::BasicBlock * >
 iterated_postdominance_frontier(llvm::PostDominatorTree &PDT,
 				llvm::BasicBlock *BB);
 
-llvm::Function *createFunctionWithName(std::string name, llvm::Module *m);
+std::set<const llvm::Value *>
+computeIPDFPredicates(llvm::PostDominatorTree &PDT,
+		      llvm::BasicBlock *BB);
 
-std::string getValueLabel(const llvm::Value *v);
+const llvm::Argument *
+getFunctionArgument(const llvm::Function *F,unsigned idx);
 
-bool isMemoryAlloc(const llvm::Function *F);
+const llvm::Value *getReturnValue(const llvm::Function *F);
 
 #endif /* UTILS_H */

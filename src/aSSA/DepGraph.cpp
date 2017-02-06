@@ -19,6 +19,7 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
 
   visit(*const_cast<Function *>(F));
 
+  // Add entry chi to the graph.
   for (MSSAChi *chi : mssa->funToEntryChiMap[F]) {
     funcToSSANodesMap[F].insert(chi->var);
 
@@ -28,6 +29,8 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
     }
   }
 
+  // If the function is MPI_Comm_rank set the address-taken ssa of the
+  // second argument as a contamination source.
   if (F->getName().equals("MPI_Comm_rank")) {
     const Argument *taintedArg = getFunctionArgument(F, 1);
     MemReg *reg = mssa->extArgToRegMap[taintedArg];
@@ -38,6 +41,7 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
 
 void
 DepGraph::visitBasicBlock(llvm::BasicBlock &BB) {
+  // Add MSSA Phi nodes and edges to the graph.
   for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
     funcToSSANodesMap[curFunc].insert(phi->var);
 
@@ -65,6 +69,7 @@ DepGraph::visitTerminatorInst(llvm::TerminatorInst &I) {
 
 void
 DepGraph::visitCmpInst(llvm::CmpInst &I) {
+  // Cmp instruction is a value, connect the result to its operands.
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
@@ -75,6 +80,7 @@ DepGraph::visitCmpInst(llvm::CmpInst &I) {
 
 void
 DepGraph::visitLoadInst(llvm::LoadInst &I) {
+  // Load inst, connect MSSA mus and the pointer loaded.
   funcToLLVMNodesMap[curFunc].insert(&I);
   funcToLLVMNodesMap[curFunc].insert(I.getPointerOperand());
 
@@ -83,12 +89,13 @@ DepGraph::visitLoadInst(llvm::LoadInst &I) {
     ssaToLLVMEdges[mu->var].insert(&I);
   }
 
-  // Keep pointer dependency
   llvmToLLVMEdges[I.getPointerOperand()].insert(&I);
 }
 
 void
 DepGraph::visitStoreInst(llvm::StoreInst &I) {
+  // Store inst
+  // For each chi, connect the pointer, the value stored and the MSSA operand.
   for (MSSAChi *chi : mssa->storeToChiMap[&I]) {
     funcToSSANodesMap[curFunc].insert(chi->var);
     funcToSSANodesMap[curFunc].insert(chi->opVar);
@@ -96,17 +103,14 @@ DepGraph::visitStoreInst(llvm::StoreInst &I) {
     funcToLLVMNodesMap[curFunc].insert(I.getValueOperand());
 
     ssaToSSAEdges[chi->opVar].insert(chi->var);
-
-    // Dependency with value stored
     llvmToSSAEdges[I.getValueOperand()].insert(chi->var);
-
-    // Keep pointer dependency
     llvmToSSAEdges[I.getPointerOperand()].insert(chi->var);
   }
 }
 
 void
 DepGraph::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
+  // GetElementPtr, connect operands.
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
@@ -116,6 +120,7 @@ DepGraph::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
 }
 void
 DepGraph::visitPHINode(llvm::PHINode &I) {
+  // Connect LLVM Phi, connect operands and predicates.
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
@@ -130,6 +135,7 @@ DepGraph::visitPHINode(llvm::PHINode &I) {
 }
 void
 DepGraph::visitCastInst(llvm::CastInst &I) {
+  // Cast inst, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
@@ -139,6 +145,7 @@ DepGraph::visitCastInst(llvm::CastInst &I) {
 }
 void
 DepGraph::visitSelectInst(llvm::SelectInst &I) {
+  // Select inst, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
@@ -148,6 +155,7 @@ DepGraph::visitSelectInst(llvm::SelectInst &I) {
 }
 void
 DepGraph::visitBinaryOperator(llvm::BinaryOperator &I) {
+  // Binary op, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
@@ -158,12 +166,42 @@ DepGraph::visitBinaryOperator(llvm::BinaryOperator &I) {
 
 void
 DepGraph::visitCallInst(llvm::CallInst &I) {
+  /* Building rules for call sites :
+   *
+   * %c = call f (..., %a, ...)
+   * [ mu(oa1) oa2 = chi(oa1) ]
+   * [ oc2 = chi(oc1) ]
+   *
+   * define f (..., %b, ...) {
+   *  [ ob0 = X(ob) ]
+   *
+   *  ...
+   *
+   *  [ mu(obn) ]
+   *  [ mu(orn) ]
+   *  ret %r
+   * }
+   *
+   * Top-level variables
+   *
+   * rule1: %a -----> %b
+   * rule2: %c <----- %r
+   *
+   * Address-taken variables
+   *
+   * rule3: oa1 ------> ob0
+   * rule4: oa1 ------> oa2
+   * rule5: oa2 <------ obn
+   * rule6: oc2 <------ oc1
+   * rule7: oc2 <------ orn
+   */
+
+  // Chi of pointer parameters of the callsite.
   for (MSSAChi *chi : mssa->callSiteToChiMap[CallSite(&I)]) {
     funcToSSANodesMap[curFunc].insert(chi->opVar);
     funcToSSANodesMap[curFunc].insert(chi->var);
-    ssaToSSAEdges[chi->opVar].insert(chi->var);
+    ssaToSSAEdges[chi->opVar].insert(chi->var); // rule4
 
-    // Inter edge return mu to chi
     MSSACallChi *callChi = cast<MSSACallChi>(chi);
     const Function *called = callChi->called;
 
@@ -173,7 +211,7 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
 
       MSSAMu *returnMu = mssa->funRegToReturnMuMap[called][reg];
       funcToSSANodesMap[called].insert(returnMu->var);
-      ssaToSSAEdges[returnMu->var].insert(chi->var);
+      ssaToSSAEdges[returnMu->var].insert(chi->var); // rule5
       continue;
     }
 
@@ -182,14 +220,13 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
       MSSAMu *returnMu = it->second[chi->region];
 
       funcToSSANodesMap[called].insert(returnMu->var);
-      ssaToSSAEdges[returnMu->var].insert(chi->var);
+      ssaToSSAEdges[returnMu->var].insert(chi->var); // rule5
     }
   }
 
+  // Mu of pointer parameters of the call site.
   for (MSSAMu *mu : mssa->callSiteToMuMap[CallSite(&I)]) {
     funcToSSANodesMap[curFunc].insert(mu->var);
-
-    // Inter edge call mu to entry chi
 
     MSSACallMu *callMu = cast<MSSACallMu>(mu);
     const Function *called = callMu->called;
@@ -199,7 +236,7 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
 
       MSSAChi *entryChi = mssa->funRegToEntryChiMap[called][reg];
       funcToSSANodesMap[called].insert(entryChi->var);
-      ssaToSSAEdges[mu->var].insert(entryChi->var);
+      ssaToSSAEdges[mu->var].insert(entryChi->var); // rule3
       continue;
     }
 
@@ -208,39 +245,42 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
       MSSAChi *entryChi = it->second[mu->region];
 
       funcToSSANodesMap[called].insert(entryChi->var);
-      ssaToSSAEdges[callMu->var].insert(entryChi->var);
+      ssaToSSAEdges[callMu->var].insert(entryChi->var); // rule3
     }
   }
 
-  // Inter edge llvm values (not sure if its ok with pointers)
+  // Connect effective parameters to formal parameters.
   const Function *called = I.getCalledFunction();
   unsigned argIdx = 0;
   for (const Argument &arg : called->getArgumentList()) {
     funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
     funcToLLVMNodesMap[called].insert(&arg);
 
-    llvmToLLVMEdges[I.getArgOperand(argIdx)].insert(&arg);
-
-    if (arg.getType()->isPointerTy()) {
-      llvmToLLVMEdges[&arg].insert(I.getArgOperand(argIdx));
-    }
+    llvmToLLVMEdges[I.getArgOperand(argIdx)].insert(&arg); // rule1
 
     argIdx++;
   }
 
-  // If the function called returns a pointer, connect the return value to the
+  // If the function called returns a value, connect the return value to the
   // call value.
-  if (!called->isDeclaration() && I.getType()->isPointerTy()) {
-    llvmToLLVMEdges[getReturnValue(called)].insert(&I);
+  if (!called->isDeclaration() && !I.getType()->isVoidTy()) {
+    funcToLLVMNodesMap[curFunc].insert(&I);
+    llvmToLLVMEdges[getReturnValue(called)].insert(&I); // rule2
   }
 
+  // If the function returns a pointer, connect the return mu the callee to the
+  // return chi of the caller.
   for (MSSAChi *chi : mssa->callSiteToRetChiMap[CallSite(&I)]) {
     // Case where the region is not used by a store/load inside the called
     // function.
     if (mssa->funRegToReturnMuMap[called].count(chi->region) == 0)
       continue;
 
-    ssaToSSAEdges[mssa->funRegToReturnMuMap[called][chi->region]->var].insert(chi->var);
+    ssaToSSAEdges[mssa->funRegToReturnMuMap[called][chi->region]->var]
+      .insert(chi->var); // rule7
+    funcToSSANodesMap[curFunc].insert(chi->var);
+    funcToSSANodesMap[curFunc].insert(chi->opVar);
+    ssaToSSAEdges[chi->opVar].insert(chi->var); // rule6
   }
 
   // Add call node
@@ -285,7 +325,7 @@ DepGraph::toDot(string filename) {
     const Value *s = I.first;
     for (const Value *d : I.second) {
       stream << "Node" << ((void *) s) << " -> "
-  	     << "Node" << ((void *) d) << "\n";
+      	     << "Node" << ((void *) d) << "\n";
     }
   }
 

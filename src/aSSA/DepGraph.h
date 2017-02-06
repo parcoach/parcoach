@@ -39,21 +39,35 @@ private:
   const llvm::Function *curFunc;
   llvm::PostDominatorTree *curPDT;
 
-  // SSA
+  /* Graph nodes */
+
+  // Map from a function to all its top-level variables nodes.
   llvm::DenseMap<const llvm::Function *, ValueSet> funcToLLVMNodesMap;
+  // Map from a function to all its address taken ssa nodes.
   llvm::DenseMap<const llvm::Function *, VarSet> funcToSSANodesMap;
+
+  /* Graph edges */
+
+  // top-level to top-level edges
   llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMEdges;
+  // top-level to address-taken ssa edges
   llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAEdges;
+  // address-taken ssa to top-level edges
   llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMEdges;
+  // address-top ssa to address-taken ssa edges
   llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAEdges;
 
-  // PDF+ call
+  /* PDF+ call nodes and edges */
+
   std::set<const llvm::Function *> funcNodes;
+  // map from a function to all its call instructions
   llvm::DenseMap<const llvm::Function *, ValueSet> funcToCallNodes;
-  // Calls inside a function
+  // map from call instructions to called functions
   llvm::DenseMap<const llvm::Value *, const llvm::Function *> callToFuncEdges;
+  // map from a condition to call instructions depending on that condition.
   llvm::DenseMap<const llvm::Value *, ValueSet> condToCallEdges;
 
+  /* tainted nodes */
   ValueSet taintedLLVMNodes;
   ValueSet taintedCallNodes;
   std::set<const llvm::Function *> taintedFunctions;
@@ -63,8 +77,6 @@ private:
   void computeTaintedValues();
   void computeTaintedValuesRec(const llvm::Value *v);
   void computeTaintedValuesRec(MSSAVar *v);
-  // void computeTaintedValuesRec(const llvm::Function *F);
-
   void computeTaintedCalls();
   void computeTaintedCalls(const llvm::Value *v);
   void computeTaintedCalls(const llvm::Function *F);

@@ -57,11 +57,20 @@ public:
 
 private:
   void computeMuChi(const llvm::Function *F);
+
+  // The three following functions generate SSA from mu/chi by implementing the
+  // algorithm from the paper:
+  // R. Cytron, J. Ferrante, B. K. Rosen, M. N. Wegman, and F. K.
+  // Zadeck, “Efficiently computing static single assignment form and
+  // the control dependence graph,” ACM Trans. Program. Lang. Syst.,
+  // vol. 13, no. 4, pp. 451–490, Oct. 1991.
+  // http://doi.acm.org/10.1145/115372.115320
   void computePhi(const llvm::Function *F);
   void rename(const llvm::Function *F);
   void renameBB(const llvm::Function *F, const llvm::BasicBlock *X,
 		llvm::DenseMap<MemReg *, unsigned> &C,
 		llvm::DenseMap<MemReg *, std::vector<MSSAVar *> > &S);
+
   void computePhiPredicates(const llvm::Function *F);
   void computeLLVMPhiPredicates(const llvm::PHINode *phi);
   void computeMSSAPhiPredicates(MSSAPhi *phi);
@@ -81,15 +90,15 @@ protected:
   MemRegSet usedRegs;
   MemRegToBBMap regDefToBBMap;
 
-  LoadToMuMap loadToMuMap; // OK
-  StoreToChiMap storeToChiMap; // OK
-  CallSiteToMuMap callSiteToMuMap; // OK
-  CallSiteToChiMap callSiteToChiMap; // OK
-  CallSiteToChiMap callSiteToRetChiMap; // OK
-  BBToPhiMap bbToPhiMap; // OK
-  FunToEntryChiMap funToEntryChiMap; // OK
-  FunToReturnMuMap funToReturnMuMap; // OK
-  LLVMPhiToPredMap llvmPhiToPredMap; // OK
+  LoadToMuMap loadToMuMap;
+  StoreToChiMap storeToChiMap;
+  CallSiteToMuMap callSiteToMuMap;
+  CallSiteToChiMap callSiteToChiMap;
+  CallSiteToChiMap callSiteToRetChiMap;
+  BBToPhiMap bbToPhiMap;
+  FunToEntryChiMap funToEntryChiMap;
+  FunToReturnMuMap funToReturnMuMap;
+  LLVMPhiToPredMap llvmPhiToPredMap;
 
   FunRegToEntryChiMap funRegToEntryChiMap;
   FunRegToReturnMuMap funRegToReturnMuMap;

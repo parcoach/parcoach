@@ -42,8 +42,6 @@ MemorySSA::computeMuChi(const Function *F) {
      * We insert a Mu and a Chi function for each pointer parameter which
      * correspond to the memory value before/after entering/returning the
      * function.
-     *
-     * TODO: What if the called function returns a pointer ?
      */
     if (isCallSite(inst)) {
       CallSite cs(const_cast<Instruction *>(inst));
@@ -191,150 +189,6 @@ MemorySSA::computePhi(const Function *F) {
   }
 }
 
-// void
-// MemorySSA::rename(const Function *F) {
-//   DenseMap<MemReg *, unsigned> C;
-//   DenseMap<MemReg *, vector<unsigned> > S;
-
-//   // Initialization:
-//   for (MSSAChi *chi : funToEntryChiMap[F]) {
-//     chi->version = 1;
-//     chi->var = new MSSAVar(chi, 1, &F->getEntryBlock());
-//     chi->opVersion = 0;
-//   }
-
-//   // C(*) <- 1
-//   // Versions start with 1 because 0 is reserved for entry CHI
-//   for (MemReg *r : usedRegs) {
-//     C[r] = 1;
-//   }
-
-//   // Compute LHS version for each region.
-//   for (MemReg *r : usedRegs) {
-//     S[r].push_back(C[r]);
-//     C[r]++;
-//   }
-
-//   renameBB(&F->getEntryBlock(), C, S);
-
-//   // Version for return mu
-//   for (MSSAMu *mu : funToReturnMuMap[F]) {
-//     mu->version = C[mu->region]-1;
-//   }
-// }
-
-// void
-// MemorySSA::renameBB(const llvm::BasicBlock *X,
-// 		 DenseMap<MemReg *, unsigned> &C,
-// 		 DenseMap<MemReg *, vector<unsigned> > &S) {
-//   // Compute LHS for PHI
-//   for (MSSAPhi *phi : bbToPhiMap[X]) {
-//     MemReg *V = phi->region;
-//     unsigned i = C[V];
-//     phi->version = i;
-//     phi->var = new MSSAVar(phi, phi->version, X);
-//     S[V].push_back(i);
-//     C[V]++;
-//   }
-
-//   // For each ordinary assignment A do
-//   //   For each variable V in RHS(A)
-//   //     Replace use of V by use of Vi where i = Top(S(V))
-//   //   Let V be LHS(A)
-//   //   i <- C(V)
-//   //   replace V by Vi
-//   //   push i onto S(V)
-//   //   C(V) <- i + 1
-//   for (auto I = X->begin(), E = X->end(); I != E; ++I) {
-//     const Instruction *inst = &*I;
-
-
-//     if (isCallSite(inst)) {
-//       CallSite cs(const_cast<Instruction *>(inst));
-
-//       for (MSSAMu *mu : callSiteToMuMap[cs])
-// 	mu->version = S[mu->region].back();
-
-//       for (MSSAChi *chi : callSiteToChiMap[cs]) {
-// 	MemReg *V = chi->region;
-// 	unsigned i = C[V];
-// 	chi->version = i;
-// 	chi->var = new MSSAVar(chi, chi->version, inst->getParent());
-// 	chi->opVersion = S[V].back();
-// 	S[V].push_back(i);
-// 	C[V]++;
-
-// 	continue;
-//       }
-//     }
-
-//     if (isa<StoreInst>(inst)) {
-//       const StoreInst *SI = cast<StoreInst>(inst);
-//       for (MSSAChi *chi : storeToChiMap[SI]) {
-// 	MemReg *V = chi->region;
-// 	unsigned i = C[V];
-// 	chi->version = i;
-// 	chi->var = new MSSAVar(chi, chi->version, inst->getParent());
-// 	chi->opVersion = S[V].back();
-// 	S[V].push_back(i);
-// 	C[V]++;
-//       }
-//     }
-
-//     if (isa<LoadInst>(inst)) {
-//       const LoadInst *LI = cast<LoadInst>(inst);
-//       for (MSSAMu *mu : loadToMuMap[LI])
-// 	mu->version = S[mu->region].back();
-//     }
-//   }
-
-//   // For each successor Y of X
-//   //   For each Phi function F in Y
-//   //     Replace operands V by Vi  where i = Top(S(V))
-//   for (auto I = succ_begin(X), E= succ_end(X); I != E; ++I) {
-//     const BasicBlock *Y = *I;
-//     for (MSSAPhi *phi : bbToPhiMap[Y]) {
-//       unsigned index = whichPred(X, Y);
-//       phi->opsVersion[index] = S[phi->region].back();
-//     }
-//   }
-
-//   // For each successor of X in the dominator tree
-//   DomTreeNode *DTnode = curDT->getNode(const_cast<BasicBlock *>(X));
-//   assert(DTnode);
-//   for (auto I = DTnode->begin(), E = DTnode->end(); I != E; ++I) {
-//     const BasicBlock *Y = (*I)->getBlock();
-//     renameBB(Y, C, S);
-//   }
-
-//   // For each assignment of A in X
-//   //   pop(S(A))
-//   for (MSSAPhi *phi : bbToPhiMap[X]) {
-//     MemReg *V = phi->region;
-//     S[V].pop_back();
-//   }
-//   for (auto I = X->begin(), E = X->end(); I != E; ++I) {
-//     const Instruction *inst = &*I;
-
-//     if (isa<CallInst>(inst)) {
-//       CallSite cs(const_cast<Instruction *>(inst));
-
-//       for (MSSAChi *chi : callSiteToChiMap[cs]) {
-// 	MemReg *V = chi->region;
-// 	S[V].pop_back();
-//       }
-//     }
-
-//     if (isa<StoreInst>(inst)) {
-//       const StoreInst *SI = cast<StoreInst>(inst);
-//       for (MSSAChi *chi : storeToChiMap[SI]) {
-// 	MemReg *V = chi->region;
-// 	S[V].pop_back();
-//       }
-//     }
-//   }
-// }
-
 void
 MemorySSA::rename(const Function *F) {
   DenseMap<MemReg *, unsigned> C;
@@ -342,8 +196,7 @@ MemorySSA::rename(const Function *F) {
 
   // Initialization:
 
-  // C(*) <- 1
-  // Versions start with 1 because 0 is reserved for entry CHI
+  // C(*) <- 0
   for (MemReg *r : usedRegs) {
     C[r] = 0;
   }
@@ -351,7 +204,6 @@ MemorySSA::rename(const Function *F) {
   // Compute LHS version for each region.
   for (MSSAChi *chi : funToEntryChiMap[F]) {
     chi->var = new MSSAVar(chi, 0, &F->getEntryBlock());
-    // chi->opVersion = new MSSAVar(NULL, 0, &F->getEntryBlock());;
 
     S[chi->region].push_back(chi->var);
     C[chi->region]++;

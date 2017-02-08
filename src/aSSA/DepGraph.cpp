@@ -4,31 +4,36 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <queue>
+
 using namespace llvm;
 using namespace std;
 
-DepGraph::DepGraph(MemorySSA *mssa) : mssa(mssa) {}
+DepGraph::DepGraph(MemorySSA *mssa) : mssa(mssa), buildGraphTime(0),
+				      floodDepTime(0), floodCallTime(0),
+				      dotTime(0) {}
 DepGraph::~DepGraph() {}
 
 void
 DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
+  double t1 = gettime();
+
   curFunc = F;
   curPDT = PDT;
 
-  funcNodes.insert(F);
-
   visit(*const_cast<Function *>(F));
 
-  // Add entry chi to the graph.
+  // Add entry chi nodes to the graph.
   for (MSSAChi *chi : mssa->funToEntryChiMap[F]) {
+    assert(chi && chi->var);
     funcToSSANodesMap[F].insert(chi->var);
-
     if (chi->opVar) {
       funcToSSANodesMap[F].insert(chi->opVar);
       ssaToSSAEdges[chi->opVar].insert(chi->var);
     }
   }
 
+<<<<<<< HEAD
   // If the function is MPI_Comm_rank or MPI_Group_rank set the address-taken ssa of the
   // second argument as a contamination source.
   if (F->getName().equals("MPI_Comm_rank") || F->getName().equals("MPI_Group_rank")) {
@@ -36,16 +41,75 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
     MemReg *reg = mssa->extArgToRegMap[taintedArg];
     MSSAMu *mu = mssa->funRegToReturnMuMap[F][reg];
     ssaSources.insert(mu->var);
+=======
+  // External functions
+  if (F->isDeclaration()) {
+    // Add var arg entry and exit chi nodes.
+    if (F->isVarArg()) {
+      MSSAChi *entryChi = mssa->extVarArgEntryChi[F];
+      assert(entryChi && entryChi->var);
+      funcToSSANodesMap[F].insert(entryChi->var);
+      MSSAChi *exitChi =  mssa->extVarArgExitChi[F];
+      assert(exitChi && exitChi->var);
+      funcToSSANodesMap[F].insert(exitChi->var);
+      ssaToSSAEdges[exitChi->opVar].insert(exitChi->var);
+    }
+
+    // Add args entry and exit chi nodes for external functions.
+    unsigned argNo = 0;
+    for (const Argument &arg : F->getArgumentList()) {
+      if (!arg.getType()->isPointerTy()) {
+	argNo++;
+	continue;
+      }
+
+      MSSAChi *entryChi = mssa->extArgEntryChi[F][argNo];
+      assert(entryChi && entryChi->var);
+      funcToSSANodesMap[F].insert(entryChi->var);
+      MSSAChi *exitChi =  mssa->extArgExitChi[F][argNo];
+      assert(exitChi && exitChi->var);
+      funcToSSANodesMap[F].insert(exitChi->var);
+      ssaToSSAEdges[exitChi->opVar].insert(exitChi->var);
+
+      argNo++;
+    }
+
+    // Add retval chi node for external functions
+    if (F->getReturnType()->isPointerTy()) {
+      MSSAChi *retChi = mssa->extRetChi[F];
+      assert(retChi && retChi->var);
+      funcToSSANodesMap[F].insert(retChi->var);
+    }
+
+    // If the function is MPI_Comm_rank set the address-taken ssa of the
+    // second argument as a contamination source.
+    if (F->getName().equals("MPI_Comm_rank")) {
+      assert(mssa->extArgExitChi[F][1]);
+      ssaSources.insert(mssa->extArgExitChi[F][1]->var);
+    }
+
+    // If the function is MPI_Group_rank set the address-taken ssa of the
+    // second argument as a contamination source.
+    if (F->getName().equals("MPI_Group_rank")) {
+      assert(mssa->extArgExitChi[F][1]);
+      ssaSources.insert(mssa->extArgExitChi[F][1]->var);
+    }
+>>>>>>> 6867ecd364064354e63ff0a9ce342c3ed28747ef
   }
+
+  double t2 = gettime();
+
+  buildGraphTime += t2 - t1;
 }
 
 void
 DepGraph::visitBasicBlock(llvm::BasicBlock &BB) {
   // Add MSSA Phi nodes and edges to the graph.
   for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
+    assert(phi && phi->var);
     funcToSSANodesMap[curFunc].insert(phi->var);
-
     for (auto I : phi->opsVar) {
+      assert(I.second);
       funcToSSANodesMap[curFunc].insert(I.second);
       ssaToSSAEdges[I.second].insert(phi->var);
     }
@@ -85,6 +149,7 @@ DepGraph::visitLoadInst(llvm::LoadInst &I) {
   funcToLLVMNodesMap[curFunc].insert(I.getPointerOperand());
 
   for (MSSAMu *mu : mssa->loadToMuMap[&I]) {
+    assert(mu && mu->var);
     funcToSSANodesMap[curFunc].insert(mu->var);
     ssaToLLVMEdges[mu->var].insert(&I);
   }
@@ -97,6 +162,7 @@ DepGraph::visitStoreInst(llvm::StoreInst &I) {
   // Store inst
   // For each chi, connect the pointer, the value stored and the MSSA operand.
   for (MSSAChi *chi : mssa->storeToChiMap[&I]) {
+    assert(chi && chi->var && chi->opVar);
     funcToSSANodesMap[curFunc].insert(chi->var);
     funcToSSANodesMap[curFunc].insert(chi->opVar);
     funcToLLVMNodesMap[curFunc].insert(I.getPointerOperand());
@@ -169,16 +235,19 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
   /* Building rules for call sites :
    *
    * %c = call f (..., %a, ...)
-   * [ mu(oa1) oa2 = chi(oa1) ]
-   * [ oc2 = chi(oc1) ]
+   * [ mu(..., o1, ...) ]
+   * [ ...
+   *  o2 = chi(o1)
+   *  ... ]
    *
    * define f (..., %b, ...) {
-   *  [ ob0 = X(ob) ]
+   *  [ ..., o0 = X(o), ... ]
    *
    *  ...
    *
-   *  [ mu(obn) ]
-   *  [ mu(orn) ]
+   *  [ ...
+   *    mu(on)
+   *    ... ]
    *  ret %r
    * }
    *
@@ -189,15 +258,14 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
    *
    * Address-taken variables
    *
-   * rule3: oa1 ------> ob0
-   * rule4: oa1 ------> oa2
-   * rule5: oa2 <------ obn
-   * rule6: oc2 <------ oc1
-   * rule7: oc2 <------ orn
+   * rule3: o1 ------> o0 in f
+   * rule4: o1 ------> o2
+   * rule5: o2 <------ on in f
    */
 
-  // Chi of pointer parameters of the callsite.
+  // Chi of the callsite.
   for (MSSAChi *chi : mssa->callSiteToChiMap[CallSite(&I)]) {
+    assert(chi && chi->var && chi->opVar);
     funcToSSANodesMap[curFunc].insert(chi->opVar);
     funcToSSANodesMap[curFunc].insert(chi->var);
     ssaToSSAEdges[chi->opVar].insert(chi->var); // rule4
@@ -205,45 +273,78 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
     MSSACallChi *callChi = cast<MSSACallChi>(chi);
     const Function *called = callChi->called;
 
+    // External Function, we connect call chi to artifical chi of the external
+    // function for each argument.
     if (called->isDeclaration()) {
-      const Argument *arg = getFunctionArgument(called, callChi->argNo);
-      MemReg *reg = mssa->extArgToRegMap[arg];
+      MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(callChi);
+      unsigned argNo = extCallChi->argNo;
 
-      MSSAMu *returnMu = mssa->funRegToReturnMuMap[called][reg];
-      funcToSSANodesMap[called].insert(returnMu->var);
-      ssaToSSAEdges[returnMu->var].insert(chi->var); // rule5
+      // Case where this is a var arg parameter.
+      if (argNo >= called->arg_size()) {
+	assert(called->isVarArg());
+
+	assert(mssa->extVarArgExitChi[called]);
+	MSSAVar *var = mssa->extVarArgExitChi[called]->var;
+	assert(var);
+	funcToSSANodesMap[called].insert(var);
+	ssaToSSAEdges[var].insert(chi->var); // rule5
+      }
+
+      else {
+	// rule5
+	assert(mssa->extArgExitChi[called][argNo]);
+	ssaToSSAEdges[mssa->extArgExitChi[called][argNo]->var].insert(chi->var);
+      }
+
       continue;
     }
 
     auto it = mssa->funRegToReturnMuMap.find(called);
     if (it != mssa->funRegToReturnMuMap.end()) {
       MSSAMu *returnMu = it->second[chi->region];
-
+      assert(returnMu && returnMu->var);
       funcToSSANodesMap[called].insert(returnMu->var);
       ssaToSSAEdges[returnMu->var].insert(chi->var); // rule5
     }
   }
 
-  // Mu of pointer parameters of the call site.
+  // Mu of the call site.
   for (MSSAMu *mu : mssa->callSiteToMuMap[CallSite(&I)]) {
+    assert(mu && mu->var);
     funcToSSANodesMap[curFunc].insert(mu->var);
-
     MSSACallMu *callMu = cast<MSSACallMu>(mu);
     const Function *called = callMu->called;
-    if (called->isDeclaration()) {
-      const Argument *arg = getFunctionArgument(called, callMu->argNo);
-      MemReg *reg = mssa->extArgToRegMap[arg];
 
-      MSSAChi *entryChi = mssa->funRegToEntryChiMap[called][reg];
-      funcToSSANodesMap[called].insert(entryChi->var);
-      ssaToSSAEdges[mu->var].insert(entryChi->var); // rule3
+    // External Function, we connect call mu to artifical chi of the external
+    // function for each argument.
+    if (called->isDeclaration()) {
+      MSSAExtCallMu *extCallMu = cast<MSSAExtCallMu>(callMu);
+      unsigned argNo = extCallMu->argNo;
+
+      // Case where this is a var arg parameter
+      if (argNo >= called->arg_size()) {
+	assert(called->isVarArg());
+
+	assert(mssa->extVarArgEntryChi[called]);
+	MSSAVar *var = mssa->extVarArgEntryChi[called]->var;
+	assert(var);
+	funcToSSANodesMap[called].insert(var);
+	ssaToSSAEdges[mu->var].insert(var); // rule3
+      }
+
+      else {
+	// rule3
+	assert(mssa->extArgEntryChi[called][argNo]);
+	ssaToSSAEdges[mu->var].insert(mssa->extArgEntryChi[called][argNo]->var);
+      }
+
       continue;
     }
 
     auto it = mssa->funRegToEntryChiMap.find(called);
     if (it != mssa->funRegToEntryChiMap.end()) {
       MSSAChi *entryChi = it->second[mu->region];
-
+      assert(entryChi && entryChi->var);
       funcToSSANodesMap[called].insert(entryChi->var);
       ssaToSSAEdges[callMu->var].insert(entryChi->var); // rule3
     }
@@ -268,19 +369,18 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
     llvmToLLVMEdges[getReturnValue(called)].insert(&I); // rule2
   }
 
-  // If the function returns a pointer, connect the return mu the callee to the
+  // External function, if the function called returns a pointer, connect the
+  // artifical ret chi to the retcallchi
   // return chi of the caller.
-  for (MSSAChi *chi : mssa->callSiteToRetChiMap[CallSite(&I)]) {
-    // Case where the region is not used by a store/load inside the called
-    // function.
-    if (mssa->funRegToReturnMuMap[called].count(chi->region) == 0)
-      continue;
+  if (called->isDeclaration() && called->getReturnType()->isPointerTy()) {
+    for (MSSAChi *chi : mssa->extCallSiteToRetChiMap[CallSite(&I)]) {
+      assert(chi && chi->var && chi->opVar);
+      funcToSSANodesMap[curFunc].insert(chi->var);
+      funcToSSANodesMap[curFunc].insert(chi->opVar);
 
-    ssaToSSAEdges[mssa->funRegToReturnMuMap[called][chi->region]->var]
-      .insert(chi->var); // rule7
-    funcToSSANodesMap[curFunc].insert(chi->var);
-    funcToSSANodesMap[curFunc].insert(chi->opVar);
-    ssaToSSAEdges[chi->opVar].insert(chi->var); // rule6
+      ssaToSSAEdges[chi->opVar].insert(chi->var);
+      ssaToSSAEdges[mssa->extRetChi[called]->var].insert(chi->var);
+    }
   }
 
   // Add call node
@@ -302,8 +402,15 @@ DepGraph::visitInstruction(llvm::Instruction &I) {
 
 void
 DepGraph::toDot(string filename) {
+  double t1 = gettime();
+
   computeTaintedValues();
+
+  double t2 = gettime();
+
   computeTaintedCalls();
+
+  double t3 = gettime();
 
   error_code EC;
   raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
@@ -311,6 +418,19 @@ DepGraph::toDot(string filename) {
   stream << "digraph F {\n";
   stream << "compound=true;\n";
   stream << "rankdir=LR;\n";
+
+
+  // dot global LLVM values in a separate cluster
+  stream << "\tsubgraph cluster_globalsvar {\n";
+  stream << "style=filled;\ncolor=lightgrey;\n";
+  stream << "label=< <B>  Global Values </B> >;\n";
+  stream << "node [style=filled,color=white];\n";
+  for (const Value &g : mssa->m->globals()) {
+    stream << "Node" << ((void *) &g) << " [label=\""
+	   << getValueLabel(&g) << "\" "
+	   << getNodeStyle(&g) << "];\n";
+  }
+  stream << "}\n;";
 
   for (auto I = mssa->m->begin(), E = mssa->m->end(); I != E; ++I) {
     const Function *F = &*I;
@@ -358,7 +478,7 @@ DepGraph::toDot(string filename) {
     const Function *f = I.second;
     stream << "NodeCall" << ((void *) call) << " -> "
 	   << "Node" << ((void *) f)
-      	   << " [lhead=cluster_" << f->getName()
+      	   << " [lhead=cluster_" << ((void *) f)
 	   <<"]\n";
   }
 
@@ -371,11 +491,17 @@ DepGraph::toDot(string filename) {
   }
 
   stream << "}\n";
+
+  double t4 = gettime();
+
+  floodDepTime += t2 - t1;
+  floodCallTime += t3 - t2;
+  dotTime += t4 - t3;
 }
 
 void
 DepGraph::dotFunction(raw_fd_ostream &stream, const Function *F) {
-  stream << "\tsubgraph cluster_" << F->getName() << " {\n";
+  stream << "\tsubgraph cluster_" << ((void *) F) << " {\n";
   stream << "style=filled;\ncolor=lightgrey;\n";
   stream << "label=< <B>" << F->getName() << "</B> >;\n";
   stream << "node [style=filled,color=white];\n";
@@ -383,6 +509,8 @@ DepGraph::dotFunction(raw_fd_ostream &stream, const Function *F) {
 
   // Nodes with label
   for (const Value *v : funcToLLVMNodesMap[F]) {
+    if (isa<GlobalValue>(v))
+      continue;
     stream << "Node" << ((void *) v) << " [label=\""
 	   << getValueLabel(v) << "\" "
 	   << getNodeStyle(v) << "];\n";
@@ -391,7 +519,7 @@ DepGraph::dotFunction(raw_fd_ostream &stream, const Function *F) {
 
   for (const MSSAVar *v : funcToSSANodesMap[F]) {
     stream << "Node" << ((void *) v) << " [label=\""
-	   << v->def->region->getName() << v->version
+	   << v->getName()
 	   <<  "\" shape=diamond "
 	   << getNodeStyle(v) << "];\n";
   }
@@ -410,7 +538,7 @@ DepGraph::dotFunction(raw_fd_ostream &stream, const Function *F) {
 
 void
 DepGraph::dotExtFunction(raw_fd_ostream &stream, const Function *F) {
-  stream << "\tsubgraph cluster_" << F->getName() << " {\n";
+  stream << "\tsubgraph cluster_" << ((void *)F) << " {\n";
   stream << "style=filled;\ncolor=lightgrey;\n";
   stream << "label=< <B>" << F->getName() << "</B> >;\n";
   stream << "node [style=filled,color=white];\n";
@@ -425,7 +553,7 @@ DepGraph::dotExtFunction(raw_fd_ostream &stream, const Function *F) {
 
   for (const MSSAVar *v : funcToSSANodesMap[F]) {
     stream << "Node" << ((void *) v) << " [label=\""
-	   << v->def->region->getName() << v->version
+	   << v->getName()
 	   <<  "\" shape=diamond "
 	   << getNodeStyle(v) << "];\n";
   }
@@ -466,49 +594,62 @@ DepGraph::getCallNodeStyle(const llvm::Value *v) {
 
 void
 DepGraph::computeTaintedValues() {
+  std::queue<MSSAVar *> varToVisit;
+  std::queue<const Value *> valueToVisit;
+
   for(const MSSAVar *src : ssaSources) {
     taintedSSANodes.insert(src);
-    computeTaintedValuesRec(const_cast<MSSAVar *>(src));
-  }
-}
-
-void
-DepGraph::computeTaintedValuesRec(MSSAVar *v) {
-  for (MSSAVar *c : ssaToSSAEdges[v]) {
-    if (taintedSSANodes.count(c) != 0)
-      continue;
-    taintedSSANodes.insert(c);
-    computeTaintedValuesRec(c);
+    varToVisit.push(const_cast<MSSAVar *>(src));
   }
 
-  for (const Value *c : ssaToLLVMEdges[v]) {
-    if (taintedLLVMNodes.count(c) != 0)
-      continue;
-    taintedLLVMNodes.insert(c);
-    computeTaintedValuesRec(c);
-  }
-}
+  while (varToVisit.size() > 0 || valueToVisit.size() > 0) {
+    if (varToVisit.size() > 0) {
+      MSSAVar *s = varToVisit.front();
+      varToVisit.pop();
 
-void
-DepGraph::computeTaintedValuesRec(const Value *v) {
-  for (MSSAVar *c : llvmToSSAEdges[v]) {
-    if (taintedSSANodes.count(c) != 0)
-      continue;
-    taintedSSANodes.insert(c);
-    computeTaintedValuesRec(c);
-  }
+      for (MSSAVar *d : ssaToSSAEdges[s]) {
+	if (taintedSSANodes.count(d) != 0)
+	  continue;
 
-  for (const Value *c : llvmToLLVMEdges[v]) {
-    if (taintedLLVMNodes.count(c) != 0)
-      continue;
-    assert(taintedLLVMNodes.count(v) != 0);
-    taintedLLVMNodes.insert(c);
-    computeTaintedValuesRec(c);
+	taintedSSANodes.insert(d);
+	varToVisit.push(d);
+      }
+
+      for (const Value *d : ssaToLLVMEdges[s]) {
+	if (taintedLLVMNodes.count(d) != 0)
+	  continue;
+
+	taintedLLVMNodes.insert(d);
+	valueToVisit.push(d);
+      }
+    }
+
+    if (valueToVisit.size() > 0) {
+      const Value *s = valueToVisit.front();
+      valueToVisit.pop();
+
+      for (const Value *d : llvmToLLVMEdges[s]) {
+	if (taintedLLVMNodes.count(d) != 0)
+	  continue;
+
+	taintedLLVMNodes.insert(d);
+	valueToVisit.push(d);
+      }
+
+      for (MSSAVar *d : llvmToSSAEdges[s]) {
+	if (taintedSSANodes.count(d) != 0)
+	  continue;
+	taintedSSANodes.insert(d);
+	varToVisit.push(d);
+      }
+    }
   }
 }
 
 void
 DepGraph::computeTaintedCalls() {
+  queue<const Function *> funcToVisit;
+
   for (auto I : condToCallEdges) {
     const Value *cond = I.first;
     if (taintedLLVMNodes.count(cond) == 0)
@@ -516,19 +657,29 @@ DepGraph::computeTaintedCalls() {
 
     for (const Value *call : I.second) {
       taintedCallNodes.insert(call);
-      computeTaintedCalls(callToFuncEdges[call]);
+      funcToVisit.push(callToFuncEdges[call]);
     }
   }
+
+ while (funcToVisit.size() > 0) {
+   const Function *s = funcToVisit.front();
+   funcToVisit.pop();
+
+   for (const Value *d : funcToCallNodes[s]) {
+     if (taintedCallNodes.count(d) != 0)
+       continue;
+     taintedCallNodes.insert(d);
+     funcToVisit.push(callToFuncEdges[d]);
+   }
+ }
 }
 
 void
-DepGraph::computeTaintedCalls(const Function *f) {
-  for (const Value *v : funcToCallNodes[f]) {
-    if (taintedCallNodes.count(v) != 0)
-      continue;
-    taintedCallNodes.insert(v);
-    computeTaintedCalls(callToFuncEdges[v]);
-  }
+DepGraph::printTimers() const {
+  errs() << "Build graph time : " << buildGraphTime*1.0e3 << " ms\n";
+  errs() << "Flood dependencies time : " << floodDepTime*1.0e3 << " ms\n";
+  errs() << "Flood calls PDF+ time : " << floodCallTime*1.0e3 << " ms\n";
+  errs() << "Dot graph time : " << dotTime*1.0e3 << " ms\n";
 }
 
 void

@@ -11,6 +11,7 @@
 #include <map>
 
 class DepGraph;
+class ModRefAnalysis;
 
 class MemorySSA {
   friend class DepGraph;
@@ -45,16 +46,21 @@ class MemorySSA {
 			 llvm::DenseMap<MemReg *, MSSAMu *> >
   FunRegToReturnMuMap;
 
-  typedef llvm::DenseMap<const llvm::Argument *, MemReg *> argToRegMap;
+  typedef llvm::DenseMap<const llvm::Function *, MSSAChi *> FuncToChiMap;
+  typedef llvm::DenseMap<const llvm::Function *,
+			 llvm::DenseMap<unsigned, MSSAChi *> > FuncToArgChiMap;
 
 public:
-  MemorySSA(llvm::Module *m, Andersen *PTA);
+  MemorySSA(llvm::Module *m, Andersen *PTA, ModRefAnalysis *MRA);
   virtual ~MemorySSA();
 
   void buildSSA(const llvm::Function *F, llvm::DominatorTree &DT,
 		llvm::DominanceFrontier &DF, llvm::PostDominatorTree &PDT);
   void buildExtSSA(const llvm::Function *F);
 
+  void dumpMSSA(const llvm::Function *F);
+
+  void printTimers() const;
 
 private:
   void computeMuChi(const llvm::Function *F);
@@ -76,14 +82,18 @@ private:
   void computeLLVMPhiPredicates(const llvm::PHINode *phi);
   void computeMSSAPhiPredicates(MSSAPhi *phi);
 
-  void dumpMSSA(const llvm::Function *F);
-
   unsigned whichPred(const llvm::BasicBlock *pred,
 		     const llvm::BasicBlock *succ) const;
+
+  double computeMuChiTime;
+  double computePhiTime;
+  double renameTime;
+  double computePhiPredicatesTime;
 
 protected:
   llvm::Module *m;
   Andersen *PTA;
+  ModRefAnalysis *MRA;
 
   llvm::DominanceFrontier *curDF;
   llvm::DominatorTree *curDT;
@@ -95,7 +105,6 @@ protected:
   StoreToChiMap storeToChiMap;
   CallSiteToMuMap callSiteToMuMap;
   CallSiteToChiMap callSiteToChiMap;
-  CallSiteToChiMap callSiteToRetChiMap;
   BBToPhiMap bbToPhiMap;
   FunToEntryChiMap funToEntryChiMap;
   FunToReturnMuMap funToReturnMuMap;
@@ -104,7 +113,13 @@ protected:
   FunRegToEntryChiMap funRegToEntryChiMap;
   FunRegToReturnMuMap funRegToReturnMuMap;
 
-  argToRegMap extArgToRegMap;
+  // External function artifical chis.
+  CallSiteToChiMap extCallSiteToRetChiMap;
+  FuncToChiMap extVarArgEntryChi;
+  FuncToChiMap extVarArgExitChi;
+  FuncToArgChiMap extArgEntryChi;
+  FuncToArgChiMap extArgExitChi;
+  FuncToChiMap extRetChi;
 };
 
 #endif /* MEMORYSSA_H */

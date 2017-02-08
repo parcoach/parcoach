@@ -15,6 +15,7 @@ add_llvm_loadable_module( LLVMaSSA
         DepGraph.cpp
 	MemoryRegion.cpp
 	MemorySSA.cpp
+	ModRefAnalysis.cpp
 	Parcoach.cpp
 	Utils.cpp
 	andersen/Andersen.cpp

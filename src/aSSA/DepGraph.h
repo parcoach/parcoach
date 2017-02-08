@@ -35,6 +35,7 @@ public:
 
   void isTaintedCalls(const llvm::Function *F);
   bool isTainted(const llvm::Value *v);
+  void printTimers() const;
 
 private:
   MemorySSA *mssa;
@@ -48,6 +49,7 @@ private:
   llvm::DenseMap<const llvm::Function *, ValueSet> funcToLLVMNodesMap;
   // Map from a function to all its address taken ssa nodes.
   llvm::DenseMap<const llvm::Function *, VarSet> funcToSSANodesMap;
+  std::set<const llvm::Function *> varArgNodes;
 
   /* Graph edges */
 
@@ -62,7 +64,6 @@ private:
 
   /* PDF+ call nodes and edges */
 
-  std::set<const llvm::Function *> funcNodes;
   // map from a function to all its call instructions
   llvm::DenseMap<const llvm::Function *, ValueSet> funcToCallNodes;
   // map from call instructions to called functions
@@ -78,11 +79,7 @@ private:
   ConstVarSet ssaSources;
 
   void computeTaintedValues();
-  void computeTaintedValuesRec(const llvm::Value *v);
-  void computeTaintedValuesRec(MSSAVar *v);
   void computeTaintedCalls();
-  void computeTaintedCalls(const llvm::Value *v);
-  void computeTaintedCalls(const llvm::Function *F);
 
   void dotFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
   void dotExtFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
@@ -90,6 +87,12 @@ private:
   std::string getNodeStyle(const MSSAVar *v);
   std::string getNodeStyle(const llvm::Function *f);
   std::string getCallNodeStyle(const llvm::Value *v);
+
+  /* stats */
+  double buildGraphTime;
+  double floodDepTime;
+  double floodCallTime;
+  double dotTime;
 };
 
 #endif /* DEPGRAPH_H */

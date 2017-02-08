@@ -1,5 +1,7 @@
 #include "Utils.h"
 
+#include <sys/time.h>
+
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -185,4 +187,11 @@ const llvm::Value *getReturnValue(const llvm::Function *F) {
   assert(ret != NULL && "There is no return instruction");
 
   return ret;
+}
+
+double gettime()
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return tv.tv_sec + tv.tv_usec*1.0e-6;
 }

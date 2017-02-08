@@ -6,6 +6,10 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Value.h"
 
+class MemReg;
+
+typedef std::set<MemReg *> MemRegSet;
+
 class MemReg {
   std::string name;
 

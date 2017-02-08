@@ -1,4 +1,5 @@
 #include "MemorySSA.h"
+#include "ModRefAnalysis.h"
 #include "Utils.h"
 
 #include "llvm/IR/InstIterator.h"
@@ -6,8 +7,10 @@
 using namespace std;
 using namespace llvm;
 
-MemorySSA::MemorySSA(Module *m, Andersen *PTA)
-  : m(m), PTA(PTA), curDF(NULL), curDT(NULL) {}
+MemorySSA::MemorySSA(Module *m, Andersen *PTA, ModRefAnalysis *MRA)
+  : computeMuChiTime(0), computePhiTime(0), renameTime(0),
+    computePhiPredicatesTime(0),
+    m(m), PTA(PTA), MRA(MRA), curDF(NULL), curDT(NULL) {}
 MemorySSA::~MemorySSA() {}
 
 void
@@ -20,69 +23,99 @@ MemorySSA::buildSSA(const Function *F, DominatorTree &DT,
   usedRegs.clear();
   regDefToBBMap.clear();
 
+  double t1, t2, t3, t4, t5;
+
+  t1 = gettime();
+
   computeMuChi(F);
+
+  t2 = gettime();
 
   computePhi(F);
 
+  t3 = gettime();
+
   rename(F);
+
+  t4 = gettime();
 
   computePhiPredicates(F);
 
-  dumpMSSA(F);
+  t5 = gettime();
+
+  computeMuChiTime += t2 - t1;
+  computePhiTime += t3 - t2;
+  renameTime += t4 - t3;
+  computePhiPredicatesTime += t5 - t4;
 }
 
 void
 MemorySSA::computeMuChi(const Function *F) {
-  // TODO: assert there is a single exit node.
-
   for (auto I = inst_begin(F), E = inst_end(F); I != E; ++I) {
     const Instruction *inst = &*I;
 
-    /* Call Site
-     * We insert a Mu and a Chi function for each pointer parameter which
-     * correspond to the memory value before/after entering/returning the
-     * function.
-     */
+    /* Call Site */
     if (isCallSite(inst)) {
       CallSite cs(const_cast<Instruction *>(inst));
       Function *called = cs.getCalledFunction();
       assert(called);
 
-      assert(isa<CallInst>(inst)); // InvokeInst are not handled yet
-      const CallInst *CI = cast<CallInst>(inst);
+      // If the callee is a declaration (external function), we create a Mu and
+      // a Chi for each pointer argument.
+      if (called->isDeclaration()) {
+	assert(isa<CallInst>(inst)); // InvokeInst are not handled yet
+	const CallInst *CI = cast<CallInst>(inst);
 
+	// Mu and Chi for parameters
+	for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
+	  const Value *arg = CI->getArgOperand(i);
+	  if (arg->getType()->isPointerTy() == false)
+	    continue;
 
-      // Mu and Chi for parameters
-      for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
-	const Value *arg = CI->getArgOperand(i);
-	if (arg->getType()->isPointerTy() == false)
-	  continue;
+	  vector<const Value *> ptsSet;
+	  vector<const Value *> argPtsSet;
+	  assert(PTA->getPointsToSet(arg, argPtsSet));
+	  ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
 
-	vector<const Value *> ptsSet;
-	vector<const Value *> argPtsSet;
-	assert(PTA->getPointsToSet(arg, argPtsSet));
-	ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
+	  vector<MemReg *> regs;
+	  MemReg::getValuesRegion(ptsSet, regs);
 
-	vector<MemReg *> regs;
-	MemReg::getValuesRegion(ptsSet, regs);
+	  for (MemReg * r : regs) {
+	    callSiteToMuMap[cs].insert(new MSSAExtCallMu(r, called, i));
+	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, called, i));
+	    regDefToBBMap[r].insert(inst->getParent());
+	    usedRegs.insert(r);
+	  }
+	}
 
-	for (MemReg * r : regs) {
-	  callSiteToMuMap[cs].insert(new MSSACallMu(r, called, i));
-	  callSiteToChiMap[cs].insert(new MSSACallChi(r, called, i));
-	  regDefToBBMap[r].insert(inst->getParent());
-	  usedRegs.insert(r);
+	// Chi for return value if it is a pointer
+	if (CI->getType()->isPointerTy()) {
+	  vector<const Value *> ptsSet;
+	  assert(PTA->getPointsToSet(CI, ptsSet));
+	  vector<MemReg *> regs;
+	  MemReg::getValuesRegion(ptsSet, regs);
+
+	  for (MemReg *r : regs) {
+	    extCallSiteToRetChiMap[cs].insert(new MSSAExtRetCallChi(r, called));
+	    regDefToBBMap[r].insert(inst->getParent());
+	    usedRegs.insert(r);
+	  }
 	}
       }
 
-      // Chi for return value if it is a pointer
-      if (!called->isDeclaration() && CI->getType()->isPointerTy()) {
-	vector<const Value *> ptsSet;
-	assert(PTA->getPointsToSet(CI, ptsSet));
-	vector<MemReg *> regs;
-	MemReg::getValuesRegion(ptsSet, regs);
+      // If the callee is not a declaration we create a Mu(Chi) for each region
+      // in Ref(Mod) callee.
+      else {
+	// Create Mu for each region \in ref(callee)
+	for (MemReg *r : MRA->getFuncRef(called)) {
+	  callSiteToMuMap[cs].insert(new MSSACallMu(r, called));
+	  regDefToBBMap[r].insert(inst->getParent());
+	  usedRegs.insert(r);
+	}
 
-	for (MemReg *r : regs) {
-	  callSiteToRetChiMap[cs].insert(new MSSARetCallChi(r, called));
+	// Create Chi for each region \in mod(callee)
+	for (MemReg *r : MRA->getFuncMod(called)) {
+	  callSiteToChiMap[cs].insert(new MSSACallChi(r, called));
 	  regDefToBBMap[r].insert(inst->getParent());
 	  usedRegs.insert(r);
 	}
@@ -135,8 +168,6 @@ MemorySSA::computeMuChi(const Function *F) {
    * function.
    */
   for (MemReg *r : usedRegs) {
-    errs() << "function : " << F->getName() << " used regs :\n";
-    errs() << r->getName() << "\n";
     funToEntryChiMap[F].insert(new MSSAEntryChi(r, F));
     funToReturnMuMap[F].insert(new MSSARetMu(r, F));
   }
@@ -236,7 +267,6 @@ MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
   for (auto I = X->begin(), E = X->end(); I != E; ++I) {
     const Instruction *inst = &*I;
 
-
     if (isCallSite(inst)) {
       CallSite cs(const_cast<Instruction *>(inst));
 
@@ -252,13 +282,13 @@ MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
 	C[V]++;
       }
 
-      for (MSSAChi *chi : callSiteToRetChiMap[cs]) {
-	MemReg *V = chi->region;
-	unsigned i = C[V];
-	chi->var = new MSSAVar(chi, i, inst->getParent());
-	chi->opVar = S[V].back();
-	S[V].push_back(chi->var);
-	C[V]++;
+      for (MSSAChi *chi : extCallSiteToRetChiMap[cs]) {
+      	MemReg *V = chi->region;
+      	unsigned i = C[V];
+      	chi->var = new MSSAVar(chi, i, inst->getParent());
+      	chi->opVar = S[V].back();
+      	S[V].push_back(chi->var);
+      	C[V]++;
       }
     }
 
@@ -323,9 +353,9 @@ MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
 	S[V].pop_back();
       }
 
-      for (MSSAChi *chi : callSiteToRetChiMap[cs]) {
-	MemReg *V = chi->region;
-	S[V].pop_back();
+      for (MSSAChi *chi : extCallSiteToRetChiMap[cs]) {
+      	MemReg *V = chi->region;
+      	S[V].pop_back();
       }
     }
 
@@ -519,7 +549,7 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 		 << "  X(" << chi->region->getName() << chi->opVar->version
 		 << ")\n";
 
-	for (MSSAChi *chi : callSiteToRetChiMap[cs])
+	for (MSSAChi *chi : extCallSiteToRetChiMap[cs])
 	  errs() << chi->region->getName() << chi->var->version << " = "
 		 << "  X(" << chi->region->getName() << chi->opVar->version
 		 << ")\n";
@@ -532,39 +562,61 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 
   // Dump return mu
   for (MSSAMu *mu : funToReturnMuMap[F])
-    errs() << mu->region->getName() << "OUT = u("
-	   << mu->region->getName() << mu->var->version << ")\n";
+    errs() << mu->region->getName() << mu->var->version << ")\n";
 
   errs() << "}\n";
 }
 
 void
 MemorySSA::buildExtSSA(const llvm::Function *F) {
-  for (const Argument &arg : F->getArgumentList()) {
-    if (!arg.getType()->isPointerTy())
-      continue;
-
-    MemReg::createRegion(&arg);
-    MemReg *reg = MemReg::getValueRegion(&arg);
-    extArgToRegMap[&arg] = reg;
-
-    errs() << "region created for ext function : "  << reg->getName() << "\n";
-
-    MSSAChi *entryChi = new MSSAEntryChi(reg, F);
-    funToEntryChiMap[F].insert(entryChi);
-    funRegToEntryChiMap[F][reg] = entryChi;
-    //    entryChi->opVersion = new MSSAVar(NULL, 0, NULL);
+  // If it is a var arg function, create artificial entry and exit chi for the
+  // var arg.
+  if (F->isVarArg()) {
+    MSSAChi *entryChi = new MSSAExtVarArgChi(F);
+    extVarArgEntryChi[F] = entryChi;
     entryChi->var = new MSSAVar(entryChi, 0, NULL);
 
-    MSSAChi *outChi = new MSSAEntryChi(reg, NULL);
-    outChi->var = new MSSAVar(outChi, 1, NULL);
+    MSSAChi *outChi = new MSSAExtVarArgChi(F);
+    outChi->var = new MSSAVar(entryChi, 1, NULL);
     outChi->opVar = entryChi->var;
-
-    funToEntryChiMap[F].insert(outChi);
-
-    MSSAMu *returnMu = new MSSARetMu(reg, F);
-    funToReturnMuMap[F].insert(returnMu);
-    funRegToReturnMuMap[F][reg] = returnMu;
-    returnMu->var = outChi->var;
+    extVarArgExitChi[F] = outChi;
   }
+
+
+  // Create artifical entry and exit chi for each pointer argument.
+  unsigned argId = 0;
+  for (const Argument &arg : F->getArgumentList()) {
+    if (!arg.getType()->isPointerTy()) {
+      argId++;
+      continue;
+    }
+
+    MSSAChi *entryChi = new MSSAExtArgChi(F, argId);
+    extArgEntryChi[F][argId] = entryChi;
+    entryChi->var = new MSSAVar(entryChi, 0, NULL);
+
+    MSSAChi *exitChi = new MSSAExtArgChi(F, argId);
+    exitChi->var = new MSSAVar(exitChi, 1, NULL);
+    exitChi->opVar = entryChi->var;
+    extArgExitChi[F][argId] = exitChi;
+
+    argId++;
+  }
+
+  // Create artifical chi for return value if it is a pointer.
+  if (F->getReturnType()->isPointerTy()) {
+    MSSAChi *retChi = new MSSAExtRetChi(F);
+    retChi->var = new MSSAVar(retChi, 0, NULL);
+    extRetChi[F] = retChi;
+  }
+}
+
+void
+MemorySSA::printTimers() const {
+  errs() << "compute Mu/Chi time : " << computeMuChiTime*1.0e3 << " ms\n";
+  errs() << "compute Phi time : " << computePhiTime*1.0e3 << " ms\n";
+  errs() << "compute Rename Chi time : " << renameTime*1.0e3 << " ms\n";
+  errs() << "compute Phi Predicates time : " << computePhiPredicatesTime*1.0e3
+	 << " ms\n";
+
 }

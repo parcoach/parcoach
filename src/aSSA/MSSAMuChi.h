@@ -8,7 +8,37 @@
 #include <vector>
 #include <set>
 
-class MSSADef;
+class MSSAVar;
+
+class MSSADef {
+ public:
+  enum TYPE {
+    PHI,
+    CALL,
+    STORE,
+    CHI,
+    ENTRY,
+
+    // External functions
+    EXTVARARG,
+    EXTARG,
+    EXTRET,
+    EXTCALL,
+    EXTRETCALL
+  };
+
+  MSSADef(MemReg *region, TYPE type)
+    : region(region), var(NULL), type(type) {}
+
+  virtual ~MSSADef() {}
+  virtual std::string getName() const {
+    return region->getName();
+  }
+
+  MemReg *region;
+  MSSAVar *var;
+  TYPE type;
+};
 
 class MSSAVar {
 public:
@@ -19,28 +49,11 @@ public:
   MSSADef *def;
   unsigned version;
   const llvm::BasicBlock *bb;
+  std::string getName() const {
+    return def->getName() + std::to_string(version);
+  }
 };
 
-class MSSADef {
- public:
-  enum TYPE {
-    PHI,
-    CALL,
-    RETCALL,
-    STORE,
-    CHI,
-    ENTRY
-  };
-
-  MSSADef(MemReg *region, TYPE type)
-    : region(region), var(NULL), type(type) {}
-
-  virtual ~MSSADef() {}
-  MemReg *region;
-  //  unsigned version;
-  MSSAVar *var;
-  TYPE type;
-};
 
 class MSSAPhi : public MSSADef {
 public:
@@ -56,10 +69,14 @@ public:
   static inline bool classof(const MSSADef *m) {
     return m->type == PHI ||
       m->type == CALL ||
-      m->type == RETCALL ||
       m->type == STORE ||
       m->type == CHI ||
-      m->type == ENTRY;
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
   }
 };
 
@@ -76,10 +93,102 @@ public:
   static inline bool classof(const MSSADef *m) {
     return m->type == PHI ||
       m->type == CALL ||
-      m->type == RETCALL ||
       m->type == STORE ||
       m->type == CHI ||
-      m->type == ENTRY;
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
+  }
+};
+
+class MSSAExtVarArgChi : public MSSAChi {
+public:
+  MSSAExtVarArgChi(const llvm::Function *func)
+    : MSSAChi(NULL, EXTVARARG), func(func) {}
+
+  const llvm::Function *func;
+
+  virtual std::string getName() const {
+    return "VarArg";
+  }
+
+  static inline bool classeof(const MSSAExtVarArgChi *m) {
+    return true;
+  }
+
+  static inline bool classof(const MSSADef *m) {
+    return m->type == PHI ||
+      m->type == CALL ||
+      m->type == STORE ||
+      m->type == CHI ||
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
+  }
+};
+
+class MSSAExtArgChi : public MSSAChi {
+public:
+  MSSAExtArgChi(const llvm::Function *func, unsigned argNo)
+    : MSSAChi(NULL, EXTARG), func(func), argNo(argNo) {}
+
+  const llvm::Function *func;
+  unsigned argNo;
+
+  virtual std::string getName() const {
+    return "arg" + std::to_string(argNo) + "_";
+  }
+
+  static inline bool classeof(const MSSAExtArgChi *m) {
+    return true;
+  }
+
+  static inline bool classof(const MSSADef *m) {
+    return m->type == PHI ||
+      m->type == CALL ||
+      m->type == STORE ||
+      m->type == CHI ||
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
+  }
+};
+
+class MSSAExtRetChi : public MSSAChi {
+public:
+  MSSAExtRetChi(const llvm::Function *func)
+    : MSSAChi(NULL, EXTRET), func(func) {}
+
+  const llvm::Function *func;
+
+  virtual std::string getName() const {
+    return "retval";
+  }
+
+  static inline bool classeof(const MSSAExtRetChi *m) {
+    return true;
+  }
+
+  static inline bool classof(const MSSADef *m) {
+    return m->type == PHI ||
+      m->type == CALL ||
+      m->type == STORE ||
+      m->type == CHI ||
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
   }
 };
 
@@ -96,10 +205,14 @@ public:
   static inline bool classof(const MSSADef *m) {
     return m->type == PHI ||
       m->type == CALL ||
-      m->type == RETCALL ||
       m->type == STORE ||
       m->type == CHI ||
-      m->type == ENTRY;
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
   }
 };
 
@@ -116,20 +229,23 @@ public:
   static inline bool classof(const MSSADef *m) {
     return m->type == PHI ||
       m->type == CALL ||
-      m->type == RETCALL ||
       m->type == STORE ||
       m->type == CHI ||
-      m->type == ENTRY;
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
   }
 };
 
 class MSSACallChi : public MSSAChi {
 public:
-  MSSACallChi(MemReg *region, const llvm::Function *called, unsigned argNo)
-    : MSSAChi(region, CALL), called(called), argNo(argNo) {}
+  MSSACallChi(MemReg *region, const llvm::Function *called)
+    : MSSAChi(region, CALL), called(called) {}
   const llvm::Function *called;
 
-  unsigned argNo;
   static inline bool classof(const MSSACallChi *m) {
     return true;
   }
@@ -137,30 +253,64 @@ public:
   static inline bool classof(const MSSADef *m) {
     return m->type == PHI ||
       m->type == CALL ||
-      m->type == RETCALL ||
       m->type == STORE ||
       m->type == CHI ||
-      m->type == ENTRY;
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
   }
 };
 
-class MSSARetCallChi : public MSSAChi {
+class MSSAExtCallChi : public MSSAChi {
 public:
-  MSSARetCallChi(MemReg *region, const llvm::Function *called)
-    : MSSAChi(region, RETCALL), called(called) {}
+  MSSAExtCallChi(MemReg *region, const llvm::Function *called,
+		 unsigned argNo)
+    : MSSAChi(region, EXTCALL), called(called), argNo(argNo) {}
   const llvm::Function *called;
+  unsigned argNo;
 
-  static inline bool classof(const MSSARetCallChi *m) {
+  static inline bool classof(const MSSAExtCallChi *m) {
     return true;
   }
 
   static inline bool classof(const MSSADef *m) {
     return m->type == PHI ||
       m->type == CALL ||
-      m->type == RETCALL ||
       m->type == STORE ||
       m->type == CHI ||
-      m->type == ENTRY;
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
+  }
+};
+
+class MSSAExtRetCallChi : public MSSAChi {
+public:
+  MSSAExtRetCallChi(MemReg *region, const llvm::Function *called)
+    : MSSAChi(region, EXTRETCALL), called(called) {}
+  const llvm::Function *called;
+
+  static inline bool classof(const MSSAExtRetCallChi *m) {
+    return true;
+  }
+
+  static inline bool classof(const MSSADef *m) {
+    return m->type == PHI ||
+      m->type == CALL ||
+      m->type == STORE ||
+      m->type == CHI ||
+      m->type == ENTRY ||
+      m->type == EXTVARARG ||
+      m->type == EXTARG ||
+      m->type == EXTRET ||
+      m->type == EXTCALL ||
+      m->type == EXTRETCALL;
   }
 };
 
@@ -169,7 +319,8 @@ public:
   enum TYPE {
     LOAD,
     CALL,
-    RET
+    RET,
+    EXTCALL
   };
 
   MSSAMu(MemReg *region, TYPE type) : region(region), var(NULL), type(type) {}
@@ -192,17 +343,16 @@ class MSSALoadMu : public MSSAMu {
   static inline bool classof(const MSSAMu *m) {
     return m->type == LOAD ||
       m->type == CALL ||
-      m->type == RET;
+      m->type == RET ||
+      m->type == EXTCALL;
   }
 };
 
 class MSSACallMu : public MSSAMu {
  public:
-  MSSACallMu(MemReg *region, const llvm::Function *called, unsigned argNo)
-    : MSSAMu(region, CALL), called(called), argNo(argNo) {}
+  MSSACallMu(MemReg *region, const llvm::Function *called)
+    : MSSAMu(region, CALL), called(called) {}
   const llvm::Function *called;
-
-  unsigned argNo;
 
   static inline bool classof(const MSSACallMu *m) {
     return true;
@@ -211,7 +361,28 @@ class MSSACallMu : public MSSAMu {
   static inline bool classof(const MSSAMu *m) {
     return m->type == LOAD ||
       m->type == CALL ||
-      m->type == RET;
+      m->type == RET ||
+      m->type == EXTCALL;
+  }
+};
+
+class MSSAExtCallMu : public MSSAMu {
+ public:
+  MSSAExtCallMu(MemReg *region, const llvm::Function *called, unsigned argNo)
+    : MSSAMu(region, CALL), called(called), argNo(argNo) {}
+  const llvm::Function *called;
+
+  unsigned argNo;
+
+  static inline bool classof(const MSSAExtCallMu *m) {
+    return true;
+  }
+
+  static inline bool classof(const MSSAMu *m) {
+    return m->type == LOAD ||
+      m->type == CALL ||
+      m->type == RET ||
+      m->type == EXTCALL;
   }
 };
 
@@ -229,7 +400,8 @@ class MSSARetMu : public MSSAMu {
   static inline bool classof(const MSSAMu *m) {
     return m->type == LOAD ||
       m->type == CALL ||
-      m->type == RET;
+      m->type == RET ||
+      m->type == EXTCALL;
   }
 };
 

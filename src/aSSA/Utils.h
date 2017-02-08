@@ -24,4 +24,6 @@ getFunctionArgument(const llvm::Function *F,unsigned idx);
 
 const llvm::Value *getReturnValue(const llvm::Function *F);
 
+double gettime();
+
 #endif /* UTILS_H */

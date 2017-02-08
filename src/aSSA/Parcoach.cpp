@@ -2,6 +2,7 @@
 #include "DepGraph.h"
 #include "MemoryRegion.h"
 #include "MemorySSA.h"
+#include "ModRefAnalysis.h"
 #include "Parcoach.h"
 
 #include "llvm/Analysis/CallGraph.h"
@@ -19,6 +20,16 @@
 using namespace llvm;
 using namespace std;
 
+static cl::opt<bool> optDumpSSA("dump-ssa",
+				cl::desc("Dump the all-inclusive SSA"));
+static cl::opt<bool> optDumpRegions("dump-regions",
+				cl::desc("Dump the regions found by the "\
+					 "Andersen PTA"));
+static cl::opt<bool> optDumpModRef("dump-modref",
+				cl::desc("Dump the mod/ref analysis"));
+static cl::opt<bool> optTimeStats("timer",
+				cl::desc("Print timers"));
+
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
 void
@@ -27,25 +38,38 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.addRequired<DominanceFrontierWrapperPass>();
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();
+  au.addRequired<CallGraphWrapperPass>();
 }
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
   // Run Andersen alias analysis.
+  double startPTA = gettime();
   Andersen AA(M);
+  double endPTA = gettime();
 
   // Create regions from allocation sites.
+  double startCreateReg = gettime();
   vector<const Value *> regions;
   AA.getAllAllocationSites(regions);
 
   for (const Value *r : regions)
     MemReg::createRegion(r);
-  MemReg::dumpRegions();
+  double endCreateReg = gettime();
 
-  MemorySSA MSSA(&M, &AA);
+  if (optDumpRegions)
+    MemReg::dumpRegions();
 
+  // Compute MOD/REF analysis
+  double startModRef = gettime();
+  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+  ModRefAnalysis MRA(CG, &AA);
+  double endModRef = gettime();
+  if (optDumpModRef)
+    MRA.dump();
 
   // Compute all-inclusive SSA.
+  MemorySSA MSSA(&M, &AA, &MRA);
   for (Function &F : M) {
     if (F.isDeclaration()) {
       MSSA.buildExtSSA(&F);
@@ -59,6 +83,8 @@ ParcoachInstr::runOnModule(Module &M) {
       getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
 
     MSSA.buildSSA(&F, DT, DF, PDT);
+    if (optDumpSSA)
+      MSSA.dumpMSSA(&F);
   }
 
   // Compute dep graph.
@@ -73,6 +99,16 @@ ParcoachInstr::runOnModule(Module &M) {
 
   // Dot dep graph.
   DG->toDot("dg.dot");
+
+  if (optTimeStats) {
+    errs() << "Andersen PTA time : " << (endPTA - startPTA)*1.0e3 << " ms\n";
+    errs() << "Create regions time : " << (endCreateReg - startCreateReg)*1.0e3
+	   << " ms\n";
+    errs() << "Mod/Ref analysis time : " << (endModRef - startModRef)*1.0e3
+	   << " ms\n";
+    MSSA.printTimers();
+    DG->printTimers();
+  }
 
   return false;
 }

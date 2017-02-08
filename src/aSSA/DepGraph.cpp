@@ -33,15 +33,6 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
     }
   }
 
-<<<<<<< HEAD
-  // If the function is MPI_Comm_rank or MPI_Group_rank set the address-taken ssa of the
-  // second argument as a contamination source.
-  if (F->getName().equals("MPI_Comm_rank") || F->getName().equals("MPI_Group_rank")) {
-    const Argument *taintedArg = getFunctionArgument(F, 1);
-    MemReg *reg = mssa->extArgToRegMap[taintedArg];
-    MSSAMu *mu = mssa->funRegToReturnMuMap[F][reg];
-    ssaSources.insert(mu->var);
-=======
   // External functions
   if (F->isDeclaration()) {
     // Add var arg entry and exit chi nodes.
@@ -94,7 +85,6 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
       assert(mssa->extArgExitChi[F][1]);
       ssaSources.insert(mssa->extArgExitChi[F][1]->var);
     }
->>>>>>> 6867ecd364064354e63ff0a9ce342c3ed28747ef
   }
 
   double t2 = gettime();

@@ -85,6 +85,49 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
       assert(mssa->extArgExitChi[F][1]);
       ssaSources.insert(mssa->extArgExitChi[F][1]->var);
     }
+
+    // memcpy
+    if (F->getName().find("memcpy") != StringRef::npos) {
+      MSSAChi *srcEntryChi = mssa->extArgEntryChi[F][1];
+      MSSAChi *dstExitChi = mssa->extArgExitChi[F][0];
+
+      ssaToSSAEdges[srcEntryChi->var].insert(dstExitChi->var);
+
+      // llvm.mempcy instrinsic returns void whereas memcpy returns dst
+      if (F->getReturnType()->isPointerTy()) {
+	MSSAChi *retChi = mssa->extRetChi[F];
+	ssaToSSAEdges[dstExitChi->var].insert(retChi->var);
+      }
+    }
+
+    // memmove
+    if (F->getName().find("memmove") != StringRef::npos) {
+      MSSAChi *srcEntryChi = mssa->extArgEntryChi[F][1];
+      MSSAChi *dstExitChi = mssa->extArgExitChi[F][0];
+
+      ssaToSSAEdges[srcEntryChi->var].insert(dstExitChi->var);
+
+      // llvm.memmove instrinsic returns void whereas memmove returns dst
+      if (F->getReturnType()->isPointerTy()) {
+	MSSAChi *retChi = mssa->extRetChi[F];
+	ssaToSSAEdges[dstExitChi->var].insert(retChi->var);
+      }
+    }
+
+    // memset
+    if (F->getName().find("memset") != StringRef::npos) {
+      MSSAChi *argExitChi = mssa->extArgExitChi[F][0];
+      const Argument *cArg = getFunctionArgument(F, 1);
+      assert(cArg);
+
+      llvmToSSAEdges[cArg].insert(argExitChi->var);
+
+      // llvm.memset instrinsic returns void whereas memset returns dst
+      if (F->getReturnType()->isPointerTy()) {
+	MSSAChi *retChi = mssa->extRetChi[F];
+	ssaToSSAEdges[argExitChi->var].insert(retChi->var);
+      }
+    }
   }
 
   double t2 = gettime();

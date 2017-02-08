@@ -33,6 +33,9 @@ public:
   void visitCallInst(llvm::CallInst &I);
   void visitInstruction(llvm::Instruction &I);
 
+  void isTaintedCalls(const llvm::Function *F);
+  bool isTainted(const llvm::Value *v);
+
 private:
   MemorySSA *mssa;
 

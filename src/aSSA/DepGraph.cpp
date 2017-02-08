@@ -29,9 +29,9 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
     }
   }
 
-  // If the function is MPI_Comm_rank set the address-taken ssa of the
+  // If the function is MPI_Comm_rank or MPI_Group_rank set the address-taken ssa of the
   // second argument as a contamination source.
-  if (F->getName().equals("MPI_Comm_rank")) {
+  if (F->getName().equals("MPI_Comm_rank") || F->getName().equals("MPI_Group_rank")) {
     const Argument *taintedArg = getFunctionArgument(F, 1);
     MemReg *reg = mssa->extArgToRegMap[taintedArg];
     MSSAMu *mu = mssa->funRegToReturnMuMap[F][reg];
@@ -530,3 +530,19 @@ DepGraph::computeTaintedCalls(const Function *f) {
     computeTaintedCalls(callToFuncEdges[v]);
   }
 }
+
+void
+DepGraph::isTaintedCalls(const Function *F) {
+  for(const Value *v : funcToCallNodes[F]){
+	if (taintedCallNodes.count(v) != 0)
+		errs() << getCallValueLabel(v) << " called in " << F->getName() << " IS tainted\n";
+  }
+}
+
+bool
+DepGraph::isTainted(const Value *v){
+	if (taintedCallNodes.count(v) != 0)
+		return true;
+	return false;
+}
+

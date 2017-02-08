@@ -13,7 +13,7 @@ Find_Package(MPI REQUIRED)
 #Find_Package(Threads)
 
 ## cmake dir - To change 
-set(PIERRE_CMAKE_DIR "/home/phuchant/mytools/llvm-3.9/build/lib/cmake/llvm")
+#set(PIERRE_CMAKE_DIR "/home/phuchant/mytools/llvm-3.9/build/lib/cmake/llvm")
 set(EMMA_CMAKE_DIR "/Users/emmanuellesaillard/Documents/LLVM_390/build/lib/cmake/llvm")
 #set(EMMA_CMAKE_DIR "/Users/emmanuellesaillard/Documents/LLVM_371/build/share/llvm/cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${EMMA_CMAKE_DIR})

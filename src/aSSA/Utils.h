@@ -8,12 +8,16 @@
 
 bool isCallSite(const llvm::Instruction *inst);
 
+
 std::string getValueLabel(const llvm::Value *v);
 std::string getCallValueLabel(const llvm::Value *v);
 
 std::vector<llvm::BasicBlock * >
 iterated_postdominance_frontier(llvm::PostDominatorTree &PDT,
 				llvm::BasicBlock *BB);
+
+void
+print_iPDF(std::vector<llvm::BasicBlock *> iPDF, llvm::BasicBlock *BB);
 
 std::set<const llvm::Value *>
 computeIPDFPredicates(llvm::PostDominatorTree &PDT,

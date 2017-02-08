@@ -11,6 +11,8 @@ bool isCallSite(const llvm::Instruction *inst) {
   return llvm::isa<llvm::CallInst>(inst) || llvm::isa<llvm::InvokeInst>(inst);
 }
 
+
+
 std::string getValueLabel(const llvm::Value *v) {
   std::string label;
   llvm::raw_string_ostream rso(label);
@@ -30,6 +32,10 @@ std::string getCallValueLabel(const llvm::Value *v) {
     label = label.substr(pos+2);
   return label;
 }
+
+/*
+ * POSTDOMINANCE
+ */
 
 // PDF computation
 vector<BasicBlock * >
@@ -100,6 +106,18 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
 
   return iPDF;
 }
+
+void
+print_iPDF(vector<BasicBlock * > iPDF, BasicBlock *BB){
+  vector<BasicBlock * >::const_iterator Bitr;
+  errs() << "iPDF(" << BB->getName().str() << ") = {";
+  for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
+    errs() << "- " << (*Bitr)->getName().str() << " ";
+  }
+  errs() << "}\n";
+}
+
+
 
 const Argument *
 getFunctionArgument(const Function *F, unsigned idx) {

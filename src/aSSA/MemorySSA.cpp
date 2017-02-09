@@ -56,6 +56,9 @@ MemorySSA::computeMuChi(const Function *F) {
 
     /* Call Site */
     if (isCallSite(inst)) {
+      if (isIntrinsicDbgInst(inst))
+	continue;
+
       CallSite cs(const_cast<Instruction *>(inst));
       Function *called = cs.getCalledFunction();
       assert(called);
@@ -538,6 +541,9 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 
       // Call inst
       if (const CallInst *CI = dyn_cast<CallInst>(inst)) {
+	if (isIntrinsicDbgInst(CI))
+	  continue;
+
 	CallSite cs(const_cast<CallInst *>(CI));
 	errs() << *CI << "\n";
 	for (MSSAMu *mu : callSiteToMuMap[cs])

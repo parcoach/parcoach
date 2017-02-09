@@ -77,7 +77,7 @@ ModRefAnalysis::analyze() {
     // For each function in the SCC add mod/ref from load/store.
     for (auto I = curSCC.begin(), E = curSCC.end(); I != E; ++I) {
       Function *F = (*I)->getFunction();
-      if (F == NULL)
+      if (F == NULL || isIntrinsicDbgFunction(F))
 	continue;
       curFunc = F;
       visit(F);
@@ -137,7 +137,7 @@ ModRefAnalysis::dump() {
 
     for (auto I = curSCC.begin(), E = curSCC.end(); I != E; ++I) {
       Function *F = (*I)->getFunction();
-      if (F == NULL)
+      if (F == NULL || isIntrinsicDbgFunction(F))
 	continue;
 
       errs() << "Mod/Ref for function " << F->getName() << ":\n";

@@ -30,4 +30,8 @@ const llvm::Value *getReturnValue(const llvm::Function *F);
 
 double gettime();
 
+bool isIntrinsicDbgFunction(const llvm::Function *F);
+
+bool isIntrinsicDbgInst(const llvm::Instruction *I);
+
 #endif /* UTILS_H */

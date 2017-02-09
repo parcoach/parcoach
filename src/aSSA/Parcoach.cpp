@@ -87,6 +87,9 @@ ParcoachInstr::runOnModule(Module &M) {
   // Compute all-inclusive SSA.
   MemorySSA MSSA(&M, &AA, &MRA);
   for (Function &F : M) {
+    if (isIntrinsicDbgFunction(&F))
+      continue;
+
     if (F.isDeclaration()) {
       MSSA.buildExtSSA(&F);
       continue;
@@ -107,6 +110,9 @@ ParcoachInstr::runOnModule(Module &M) {
   DepGraph *DG = new DepGraph(&MSSA);
 
   for (Function &F : M) {
+    if (isIntrinsicDbgFunction(&F))
+      continue;
+
     PostDominatorTree *PDT = F.isDeclaration() ? NULL :
       &getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
 

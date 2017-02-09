@@ -3,6 +3,7 @@
 #include <sys/time.h>
 
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -194,4 +195,12 @@ double gettime()
   struct timeval tv;
   gettimeofday(&tv, NULL);
   return tv.tv_sec + tv.tv_usec*1.0e-6;
+}
+
+bool isIntrinsicDbgFunction(const llvm::Function *F) {
+  return F != NULL && F->getName().startswith("llvm.dbg");
+}
+
+bool isIntrinsicDbgInst(const llvm::Instruction *I) {
+  return isa<DbgInfoIntrinsic>(I);
 }

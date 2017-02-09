@@ -296,6 +296,9 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
    * rule5: o2 <------ on in f
    */
 
+  if (isIntrinsicDbgInst(&I))
+    return;
+
   // Chi of the callsite.
   for (MSSAChi *chi : mssa->callSiteToChiMap[CallSite(&I)]) {
     assert(chi && chi->var && chi->opVar);
@@ -467,6 +470,9 @@ DepGraph::toDot(string filename) {
 
   for (auto I = mssa->m->begin(), E = mssa->m->end(); I != E; ++I) {
     const Function *F = &*I;
+    if (isIntrinsicDbgFunction(F))
+      continue;
+
     if (F->isDeclaration())
       dotExtFunction(stream, F);
     else

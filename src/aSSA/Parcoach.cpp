@@ -169,9 +169,8 @@ ParcoachInstr::runOnModule(Module &M) {
 		// Is it a tainted collective call?
 		for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
                 	if (funcName.equals(*vI) && DG->isTainted(&*CI) == true){
-				errs() << OP_name + " line " + to_string(OP_line) + " is tainted! it is  possibly not called by all processes\n";
 
-				// TODO: get iPDF+ for a set of collectives and in inter-procedural
+				// TODO: get iPDF+ for a set of collectives and in inter-procedural and only tainted nodes in iPDF
 				// Use the DG to get the nodes?
 				vector<BasicBlock * > iPDF = iterated_postdominance_frontier(*PDT, BB);
 				vector<BasicBlock *>::iterator Bitr;
@@ -182,7 +181,7 @@ ParcoachInstr::runOnModule(Module &M) {
 						DebugLoc BDLoc = TI->getDebugLoc();
                                         	COND_lines.append(" ").append(to_string(BDLoc.getLine()));
 					}
-					WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
+					WarningMsg = OP_name + " line " + to_string(OP_line) + " is tainted because of conditional(s) line(s) " + COND_lines;
                                         mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
                                         i->setMetadata("inst.warning",mdNode);
                                         Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);

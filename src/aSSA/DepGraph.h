@@ -33,8 +33,10 @@ public:
   void visitCallInst(llvm::CallInst &I);
   void visitInstruction(llvm::Instruction &I);
 
-  void isTaintedCalls(const llvm::Function *F);
-  bool isTainted(const llvm::Value *v);
+  bool isTaintedCall(const llvm::CallInst *CI);
+  bool isTaintedValue(const llvm::Value *v);
+  void getTaintedCallConditions(const llvm::CallInst *call,
+				std::set<const llvm::Value *> &conditions);
   void printTimers() const;
 
 private:
@@ -70,6 +72,11 @@ private:
   llvm::DenseMap<const llvm::Value *, const llvm::Function *> callToFuncEdges;
   // map from a condition to call instructions depending on that condition.
   llvm::DenseMap<const llvm::Value *, ValueSet> condToCallEdges;
+
+  // map from a function to all the call sites calling this function.
+  llvm::DenseMap<const llvm::Function *, ValueSet> funcToCallSites;
+  // map from a callsite to all its conditions.
+  llvm::DenseMap<const llvm::Value *, ValueSet> callsiteToConds;
 
   /* tainted nodes */
   ValueSet taintedLLVMNodes;

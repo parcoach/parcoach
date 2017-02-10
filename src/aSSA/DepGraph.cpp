@@ -424,11 +424,15 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
 
   // Add pred to call edges
   set<const Value *> preds = computeIPDFPredicates(*curPDT, I.getParent());
-  for (const Value *pred : preds)
+  for (const Value *pred : preds) {
     condToCallEdges[pred].insert(&I);
+    callsiteToConds[&I].insert(pred);
+  }
 
   // Add call to func edge
   callToFuncEdges[&I] = I.getCalledFunction();
+
+  funcToCallSites[called].insert(&I);
 }
 
 void
@@ -721,18 +725,39 @@ DepGraph::printTimers() const {
   errs() << "Dot graph time : " << dotTime*1.0e3 << " ms\n";
 }
 
-void
-DepGraph::isTaintedCalls(const Function *F) {
-  for(const Value *v : funcToCallNodes[F]){
-	if (taintedCallNodes.count(v) != 0)
-		errs() << getCallValueLabel(v) << " called in " << F->getName() << " IS tainted\n";
-  }
+bool
+DepGraph::isTaintedCall(const CallInst *CI) {
+  return taintedCallNodes.count(CI) != 0;
 }
 
 bool
-DepGraph::isTainted(const Value *v){
-	if (taintedCallNodes.count(v) != 0)
+DepGraph::isTaintedValue(const Value *v){
+	if (taintedLLVMNodes.count(v) != 0)
 		return true;
 	return false;
 }
 
+void
+DepGraph::getTaintedCallConditions(const llvm::CallInst *call,
+				   std::set<const llvm::Value *> &conditions) {
+  std::set<const llvm::CallInst *> visitedCallSites;
+  queue<const CallInst *> callsitesToVisit;
+  callsitesToVisit.push(call);
+
+  while (callsitesToVisit.size() > 0) {
+    const CallInst *CS = callsitesToVisit.front();
+    const Function *F = CS->getParent()->getParent();
+    callsitesToVisit.pop();
+    visitedCallSites.insert(CS);
+
+    for (const Value *cond : callsiteToConds[CS])
+      conditions.insert(cond);
+
+    for (const Value *v : funcToCallSites[F]) {
+      const CallInst *CS2 = cast<CallInst>(v);
+      if (visitedCallSites.count(CS2) != 0)
+	continue;
+      callsitesToVisit.push(CS2);
+    }
+  }
+}

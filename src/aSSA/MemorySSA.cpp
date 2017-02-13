@@ -112,7 +112,6 @@ MemorySSA::computeMuChi(const Function *F) {
 	// Create Mu for each region \in ref(callee)
 	for (MemReg *r : MRA->getFuncRef(called)) {
 	  callSiteToMuMap[cs].insert(new MSSACallMu(r, called));
-	  regDefToBBMap[r].insert(inst->getParent());
 	  usedRegs.insert(r);
 	}
 
@@ -172,6 +171,7 @@ MemorySSA::computeMuChi(const Function *F) {
    */
   for (MemReg *r : usedRegs) {
     funToEntryChiMap[F].insert(new MSSAEntryChi(r, F));
+    regDefToBBMap[r].insert(&F->getEntryBlock());
     funToReturnMuMap[F].insert(new MSSARetMu(r, F));
   }
 
@@ -202,6 +202,7 @@ MemorySSA::computePhi(const Function *F) {
       auto it = curDF->find(const_cast<BasicBlock *>(X));
       if (it == curDF->end()) {
 	errs() << "Error: basic block not in the dom frontier !\n";
+	exit(EXIT_FAILURE);
 	continue;
       }
 
@@ -213,7 +214,7 @@ MemorySSA::computePhi(const Function *F) {
 	bbToPhiMap[Y].insert(new MSSAPhi(r));
 	domFronPlus.insert(Y);
 
-	if (work.find(Y) == work.end())
+	if (work.find(Y) != work.end())
 	  continue;
 
 	work.insert(Y);

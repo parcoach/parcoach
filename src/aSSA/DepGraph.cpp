@@ -10,8 +10,8 @@ using namespace llvm;
 using namespace std;
 
 DepGraph::DepGraph(MemorySSA *mssa) : mssa(mssa), buildGraphTime(0),
-				      floodDepTime(0), floodCallTime(0),
-				      dotTime(0) {}
+				      phiElimTime(0), floodDepTime(0),
+				      floodCallTime(0), dotTime(0) {}
 DepGraph::~DepGraph() {}
 
 void
@@ -442,15 +442,9 @@ DepGraph::visitInstruction(llvm::Instruction &I) {
 
 void
 DepGraph::toDot(string filename) {
+  errs() << "Writing '" << filename << "' ...\n";
+
   double t1 = gettime();
-
-  computeTaintedValues();
-
-  double t2 = gettime();
-
-  computeTaintedCalls();
-
-  double t3 = gettime();
 
   error_code EC;
   raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
@@ -535,11 +529,9 @@ DepGraph::toDot(string filename) {
 
   stream << "}\n";
 
-  double t4 = gettime();
+  double t2 = gettime();
 
-  floodDepTime += t2 - t1;
-  floodCallTime += t3 - t2;
-  dotTime += t4 - t3;
+  dotTime += t2 - t1;
 }
 
 void
@@ -637,6 +629,8 @@ DepGraph::getCallNodeStyle(const llvm::Value *v) {
 
 void
 DepGraph::computeTaintedValues() {
+  double t1 = gettime();
+
   std::queue<MSSAVar *> varToVisit;
   std::queue<const Value *> valueToVisit;
 
@@ -687,10 +681,16 @@ DepGraph::computeTaintedValues() {
       }
     }
   }
+
+  double t2 = gettime();
+
+  floodDepTime += t2 - t1;
 }
 
 void
 DepGraph::computeTaintedCalls() {
+  double t1 = gettime();
+
   queue<const Function *> funcToVisit;
 
   for (auto I : condToCallEdges) {
@@ -715,11 +715,16 @@ DepGraph::computeTaintedCalls() {
      funcToVisit.push(callToFuncEdges[d]);
    }
  }
+
+ double t2 = gettime();
+
+ floodCallTime += t2 - t1;
 }
 
 void
 DepGraph::printTimers() const {
   errs() << "Build graph time : " << buildGraphTime*1.0e3 << " ms\n";
+  errs() << "Phi elimination time : " << phiElimTime*1.0e3 << " ms\n";
   errs() << "Flood dependencies time : " << floodDepTime*1.0e3 << " ms\n";
   errs() << "Flood calls PDF+ time : " << floodCallTime*1.0e3 << " ms\n";
   errs() << "Dot graph time : " << dotTime*1.0e3 << " ms\n";
@@ -760,4 +765,189 @@ DepGraph::getTaintedCallConditions(const llvm::CallInst *call,
       callsitesToVisit.push(CS2);
     }
   }
+}
+
+bool
+DepGraph::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
+  assert(var1);
+  assert(var2);
+
+  if (var1->def->type == MSSADef::PHI || var2->def->type == MSSADef::PHI)
+    return false;
+
+  VarSet incomingSSAsVar1;
+  VarSet incomingSSAsVar2;
+
+  ValueSet incomingValuesVar1;
+  ValueSet incomingValuesVar2;
+
+  // Check whether outgoing edges are the same for both nodes.
+  if (ssaToSSAEdges[var1].size() != ssaToSSAEdges[var2].size())
+    return false;
+
+  if (ssaToLLVMEdges[var1].size() != ssaToLLVMEdges[var2].size())
+    return false;
+
+  for (MSSAVar *v : ssaToSSAEdges[var1]) {
+    if (ssaToSSAEdges[var2].find(v) == ssaToSSAEdges[var2].end())
+      return false;
+  }
+  for (const Value *v : ssaToLLVMEdges[var1]) {
+    if (ssaToLLVMEdges[var2].find(v) == ssaToLLVMEdges[var2].end())
+      return false;
+  }
+
+  // Check whether incoming edges are the same for both nodes.
+  for (auto I : ssaToSSAEdges) {
+    auto it1 = I.second.find(var1);
+    auto it2 = I.second.find(var2);
+
+    if ((it1 == I.second.end() && it2 != I.second.end()) ||
+	(it1 != I.second.end() && it2 == I.second.end()))
+      return false;
+  }
+  for (auto I : llvmToSSAEdges) {
+    auto it1 = I.second.find(var1);
+    auto it2 = I.second.find(var2);
+
+    if ((it1 == I.second.end() && it2 != I.second.end()) ||
+	(it1 != I.second.end() && it2 == I.second.end()))
+      return false;
+  }
+
+  return true;
+}
+
+void
+DepGraph::eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2) {
+  // Remove links from predicates to PHI
+  for (const Value *v : phi->preds) {
+    auto it = llvmToSSAEdges[v].find(phi->var);
+    assert(it != llvmToSSAEdges[v].end());
+    llvmToSSAEdges[v].erase(it);
+  }
+
+  // Remove links from op1,op2 to PHI
+  auto it1 = ssaToSSAEdges[op1].find(phi->var);
+  assert(it1 != ssaToSSAEdges[op1].end());
+  ssaToSSAEdges[op1].erase(it1);
+  auto it2 = ssaToSSAEdges[op2].find(phi->var);
+  assert(it2 != ssaToSSAEdges[op2].end());
+  ssaToSSAEdges[op2].erase(it2);
+
+  // For each outgoing edge from PHI to a SSA node N, connect
+  // op1 to N and remove the link from PHI to N.
+  for (MSSAVar *v : ssaToSSAEdges[phi->var]) {
+    ssaToSSAEdges[op1].insert(v);
+
+    // If N is a phi replace the phi operand of N with
+    // PHI operand 0
+    if (v->def->type == MSSADef::PHI) {
+      MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
+
+      bool found = false;
+      for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end(); I != E;
+	   ++I) {
+	if (I->second == phi->var) {
+	  found = true;
+	  I->second = op1;
+	  break;
+	}
+      }
+      assert(found);
+    }
+
+    auto it = ssaToSSAEdges[phi->var].find(v);
+    assert(it != ssaToSSAEdges[phi->var].end());
+    ssaToSSAEdges[phi->var].erase(it);
+  }
+
+  // For each outgoing edge from PHI to a LLVM node N, connect
+  // connect PHI operand 0 to N and remove the link from PHI to N.
+  for (const Value *v : ssaToLLVMEdges[phi->var]) {
+    ssaToLLVMEdges[op1].insert(v);
+    // ssaToLLVMEdges[op2].insert(v);
+
+    auto it = ssaToLLVMEdges[phi->var].find(v);
+    assert(it != ssaToLLVMEdges[phi->var].end());
+    ssaToLLVMEdges[phi->var].erase(it);
+  }
+
+  // Remove PHI Node
+  const Function *F = phi->var->bb->getParent();
+  assert(F);
+  auto it3 = funcToSSANodesMap[F].find(phi->var);
+  assert(it3 != funcToSSANodesMap[F].end());
+  funcToSSANodesMap[F].erase(it3);
+
+  // Remove edges connected to PHI operand 1
+  for (auto I = ssaToSSAEdges.begin(), E = ssaToSSAEdges.end(); I != E;
+       ++I) {
+    set<MSSAVar *>::iterator J = I->second.find(op2);
+    if (J != I->second.end()) {
+      I->second.erase(J);
+      assert(I->second.find(op2) == I->second.end());
+    }
+  }
+  for (auto I : ssaToSSAEdges) {
+    set<MSSAVar *>::iterator J = I.second.find(op2);
+    assert (J == I.second.end());
+  }
+  for (auto I = llvmToSSAEdges.begin(), E = llvmToSSAEdges.end(); I != E;
+       ++I) {
+    auto J = I->second.find(op2);
+    if (J != I->second.end()) {
+      I->second.erase(J);
+      assert(I->second.find(op2) == I->second.end());
+    }
+  }
+
+  // Remove PHI operand 1
+  auto it4 = funcToSSANodesMap[F].find(op2);
+  assert(it4 != funcToSSANodesMap[F].end());
+  funcToSSANodesMap[F].erase(it4);
+}
+
+
+void
+DepGraph::phiElimination() {
+  double t1 = gettime();
+
+  // For each function, iterate through its basic block and try to eliminate phi
+  // function until reaching a fixed point.
+  for (const Function &F : *mssa->m) {
+    bool changed = true;
+
+    while (changed) {
+      changed = false;
+
+      for (const BasicBlock &BB : F) {
+	for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
+	  if (funcToSSANodesMap[&F].count(phi->var) == 0)
+	    continue;
+
+	  // For each phi we test if its operands (chi) are not PHI and
+	  // are equivalent
+	  vector<MSSAVar *> phiOperands;
+	  for (auto J : phi->opsVar)
+	    phiOperands.push_back(J.second);
+
+	  if (phiOperands.size() != 2)
+	    continue;
+
+	  assert(phiOperands[0] != phiOperands[1]);
+
+	  if (!areSSANodesEquivalent(phiOperands[0], phiOperands[1]))
+	    continue;
+
+	  // PHI Node can be eliminated !
+	  changed = true;
+	  eliminatePhi(phi, phiOperands[0], phiOperands[1]);
+	}
+      }
+    }
+  }
+
+  double t2 = gettime();
+  phiElimTime += t2 - t1;
 }

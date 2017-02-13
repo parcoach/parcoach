@@ -33,6 +33,20 @@ public:
   void visitCallInst(llvm::CallInst &I);
   void visitInstruction(llvm::Instruction &I);
 
+  // Phi elimination pass.
+  // A ssa Phi function can be eliminated if its operands are equivalent.
+  // In this case operands are merged into a single node and the phi is replaced
+  // with this single node. The phi elimination pass allows us to break the
+  // dependency with phi predicates when its operands are the same, e.g.:
+  // if (rank)
+  //   a = 0;
+  // else
+  //   a = 0;
+  void phiElimination();
+
+  void computeTaintedValues();
+  void computeTaintedCalls();
+
   bool isTaintedCall(const llvm::CallInst *CI);
   bool isTaintedValue(const llvm::Value *v);
   void getTaintedCallConditions(const llvm::CallInst *call,
@@ -85,8 +99,12 @@ private:
   ConstVarSet taintedSSANodes;
   ConstVarSet ssaSources;
 
-  void computeTaintedValues();
-  void computeTaintedCalls();
+  // Two nodes are equivalent if they have exactly the same incoming and
+  // outgoing edges and if none of them are phi nodes.
+  bool areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2);
+
+  // This function replaces phi with op1 and removes op2.
+  void eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2);
 
   void dotFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
   void dotExtFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
@@ -97,6 +115,7 @@ private:
 
   /* stats */
   double buildGraphTime;
+  double phiElimTime;
   double floodDepTime;
   double floodCallTime;
   double dotTime;

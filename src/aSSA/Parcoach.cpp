@@ -38,6 +38,8 @@ using namespace std;
 
 static cl::opt<bool> optDumpSSA("dump-ssa",
 				cl::desc("Dump the all-inclusive SSA"));
+static cl::opt<bool> optDotGraph("dot-depgraph",
+				cl::desc("Dot the dependency graph to dg.dot"));
 static cl::opt<bool> optDumpRegions("dump-regions",
 				cl::desc("Dump the regions found by the "\
 					 "Andersen PTA"));
@@ -119,8 +121,16 @@ ParcoachInstr::runOnModule(Module &M) {
     DG->buildFunction(&F, PDT);
   }
 
+  // Phi elimination pass.
+  DG->phiElimination();
+
+  // Compute tainted values
+  DG->computeTaintedValues();
+  DG->computeTaintedCalls();
+
   // Dot dep graph.
-  DG->toDot("dg.dot");
+  if (optDotGraph)
+    DG->toDot("dg.dot");
 
   if (optTimeStats) {
     errs() << "Andersen PTA time : " << (endPTA - startPTA)*1.0e3 << " ms\n";

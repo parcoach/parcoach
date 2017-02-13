@@ -132,6 +132,27 @@ ParcoachInstr::runOnModule(Module &M) {
     DG->printTimers();
   }
 
+ 
+  // Compute inter-procedural iPDF for all collectives in the code
+/* for (Function &F : M) {
+    	PostDominatorTree *PDT = F.isDeclaration() ? NULL :
+      		&getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
+	// Compute iPDF inside the function
+	for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
+		Instruction *i=&*I;
+                CallInst *CI = dyn_cast<CallInst>(i);
+		if(!CI) continue;
+		
+		//if(CI->getCalledFunction()->getName().find("MPI_") ==0){
+		errs() << "get pdf of " << CI->getCalledFunction()->getName() << "\n";
+		vector<BasicBlock * > iPDF = iterated_postdominance_frontier(*PDT, i->getParent());
+			
+		//}
+
+	}
+
+	// If a function call is found, update the iPDF  !! if multiple calls
+ }*/ 
 
 
 
@@ -174,10 +195,17 @@ ParcoachInstr::runOnModule(Module &M) {
 
 		// Is it a tainted collective call?
 		for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
-                	if (funcName.equals(*vI) && DG->isTainted(&*CI) == true){
-
+                	if (funcName.equals(*vI)){ 
+			 if(DG->isTaintedCall(&*CI) == true || DG->isTaintedFunc(f) ==true ){
+				// Issue a warning
+				WarningMsg = OP_name + " line " + to_string(OP_line) + " is tainted\n";
+                                mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
+                                i->setMetadata("inst.warning",mdNode);
+                                Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
+                                Diag.print(ProgName, errs(), 1,1);
+				
 				// TODO: get iPDF+ for a set of collectives and in inter-procedural and only tainted nodes in iPDF
-				// Use the DG to get the nodes?
+				// Use the DG to get the tainted cond nodes?
 				vector<BasicBlock * > iPDF = iterated_postdominance_frontier(*PDT, BB);
 				vector<BasicBlock *>::iterator Bitr;
 				if(iPDF.size()!=0){
@@ -187,14 +215,19 @@ ParcoachInstr::runOnModule(Module &M) {
 						DebugLoc BDLoc = TI->getDebugLoc();
                                         	COND_lines.append(" ").append(to_string(BDLoc.getLine()));
 					}
-					WarningMsg = OP_name + " line " + to_string(OP_line) + " is tainted because of conditional(s) line(s) " + COND_lines;
+					WarningMsg = OP_name + " line " + to_string(OP_line) + " is tainted BECAUSE OF conditional(s) line(s) " + COND_lines;
                                         mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
                                         i->setMetadata("inst.warning",mdNode);
                                         Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-                                        Diag.print(ProgName, errs(), 1,1);
+                                        //Diag.print(ProgName, errs(), 1,1);
 				}
+			   }
 			}
 		}
+		// Get tainted conditionals
+		// for the function F for now
+		// We would like the conditionals in DG from the collective call
+		//DG->getCondLines(&F);
 	}
   }
 

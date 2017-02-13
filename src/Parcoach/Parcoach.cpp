@@ -8,6 +8,7 @@
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
+#include "llvm/PassSupport.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/User.h"
 #include "llvm/ADT/StringExtras.h"
@@ -109,7 +110,8 @@ namespace {
 
 		CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
 		scc_iterator<CallGraph*> cgSccIter = scc_begin(&CG);
-		CallGraphSCC curSCC(&cgSccIter);
+		//CallGraphSCC curSCC(&cgSccIter);
+		const std::vector<CallGraphNode*> &curSCC = *cgSccIter;
 		while(!cgSccIter.isAtEnd()){
 			const vector<CallGraphNode*> &nodeVec = *cgSccIter;
 			curSCC.initialize(nodeVec.data(), nodeVec.data() + nodeVec.size());
@@ -166,7 +168,10 @@ namespace {
 		std::string COND_lines;
 
 		// Get analyses
-		PostDominatorTree &PDT=getAnalysis<PostDominatorTree>(F);
+		PostDominatorTree *PDT = F.isDeclaration() ? NULL :
+      &getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
+
+		//PostDominatorTree &PDT=getAnalysis<PostDominatorTree>(F);
 
 		// Process the function by visiting all instructions
 		for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
@@ -192,7 +197,7 @@ namespace {
 			// Is it a call set has containing collectives or a possible deadlock (NAVS)?
 			if(getFuncSummary(*f).find("NAVS")!=std::string::npos || getFuncSummary(*f)!=""){
 				// Check is the PDF is non null
-				vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
+				vector<BasicBlock * > iPDF = iterated_postdominance_frontier(*PDT, BB);
 				vector<BasicBlock *>::iterator Bitr;
 				if(iPDF.size()!=0){
 					COND_lines="";
@@ -220,7 +225,7 @@ namespace {
 			STAT_Total_collectives++; // update statistics 
 
 			// Check if the PDF+ is non null - no need to check if the coll is in a loop (for is considered as a cond)
-			vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
+			vector<BasicBlock * > iPDF = iterated_postdominance_frontier(*PDT, BB);
 			vector<BasicBlock *>::iterator Bitr;
 			int warning=0;
 			if(iPDF.size()!=0){ 
@@ -415,10 +420,10 @@ namespace {
 	
 	virtual void getAnalysisUsage(AnalysisUsage &AU) const {
 		AU.setPreservesAll();
-		AU.addRequired<CallGraphWrapperPass>();
+		AU.addRequired<DominanceFrontierWrapperPass>();
 		AU.addRequired<DominatorTreeWrapperPass>();
-		AU.addRequired<PostDominatorTree>();
-		AU.addRequired<LoopInfoWrapperPass>();
+		AU.addRequired<PostDominatorTreeWrapperPass>();
+		AU.addRequired<CallGraphWrapperPass>();
 	};
 
 	virtual bool doFinalization(Module &M) {

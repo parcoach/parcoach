@@ -34,7 +34,9 @@ public:
   void visitInstruction(llvm::Instruction &I);
 
   void isTaintedCalls(const llvm::Function *F);
-  bool isTainted(const llvm::Value *v);
+  bool isTaintedCall(const llvm::Value *v);
+  bool isTaintedFunc(const llvm::Function *F);
+  void getCondLines(const llvm::Function *F);
   void printTimers() const;
 
 private:

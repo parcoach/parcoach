@@ -57,6 +57,8 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.addRequired<CallGraphWrapperPass>();
 }
 
+
+
 bool
 ParcoachInstr::runOnModule(Module &M) {
   // Run Andersen alias analysis.
@@ -133,99 +135,83 @@ ParcoachInstr::runOnModule(Module &M) {
   }
 
  
-  // Compute inter-procedural iPDF for all collectives in the code
-/* for (Function &F : M) {
-    	PostDominatorTree *PDT = F.isDeclaration() ? NULL :
-      		&getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
-	// Compute iPDF inside the function
-	for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
-		Instruction *i=&*I;
-                CallInst *CI = dyn_cast<CallInst>(i);
-		if(!CI) continue;
-		
-		//if(CI->getCalledFunction()->getName().find("MPI_") ==0){
-		errs() << "get pdf of " << CI->getCalledFunction()->getName() << "\n";
-		vector<BasicBlock * > iPDF = iterated_postdominance_frontier(*PDT, i->getParent());
-			
-		//}
-
-	}
-
-	// If a function call is found, update the iPDF  !! if multiple calls
- }*/ 
-
-
-
   // Parcoach analysis: use DG to find postdominance frontier and tainted nodes
-
-  for (Function &F : M) {
-
-    PostDominatorTree *PDT = F.isDeclaration() ? NULL :
-      &getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
-
-	for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
-		Instruction *i=&*I;
-                // Debug info (line in the source code, file)
-                DebugLoc DLoc = i->getDebugLoc();
-                StringRef File=""; unsigned OP_line=0;
-                if(DLoc){
-                	OP_line = DLoc.getLine();
-                        File=DLoc->getFilename();
-                }
-		MDNode* mdNode;
-                // Warning info
-                string WarningMsg;
-                const char *ProgName="PARCOACH";
-                SMDiagnostic Diag;
-                std::string COND_lines;
-
-
-		// FOUND A CALL INSTRUCTION
-                CallInst *CI = dyn_cast<CallInst>(i);
-                if(!CI) continue;
-
-                Function *f = CI->getCalledFunction();
-                if(!f) continue;
-
-                string OP_name = f->getName().str();
-		StringRef funcName = f->getName();
-
-		//DG->isTaintedCalls(f);
-
-		// Is it a tainted collective call?
-		for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
-                	if (funcName.equals(*vI) && DG->isTaintedCall(&*CI) == true){
-				errs() << OP_name + " line " + to_string(OP_line) + " is tainted! it is  possibly not called by all processes\n";
-
-				set<const Value *> conds;
-				DG->getTaintedCallConditions(CI, conds);
-
-				for (const Value *cond : conds) {
-				  if (!DG->isTaintedValue(cond))
-				    continue;
-				  const Instruction *inst = cast<Instruction>(cond);
-				  DebugLoc loc = inst->getDebugLoc();
-				  COND_lines.append(" ").append(to_string(loc.getLine()));
-				}
-
-				WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
-				mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
-				i->setMetadata("inst.warning",mdNode);
-				Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-				Diag.print(ProgName, errs(), 1,1);
-			}
-		}
-		// Get tainted conditionals
-		// for the function F for now
-		// We would like the conditionals in DG from the collective call
-		//DG->getCondLines(&F);
-	}
+  // Compute inter-procedural iPDF for all tainted collectives in the code
+  scc_iterator<CallGraph*> CGI = scc_begin(&CG);
+  CallGraphSCC CurSCC(CG, &CGI); 
+  while (!CGI.isAtEnd()) { 
+    const std::vector<CallGraphNode *> &NodeVec = *CGI;
+    CurSCC.initialize(NodeVec.data(), NodeVec.data() + NodeVec.size()); 
+    runOnSCC(CurSCC, DG);
+    ++CGI;
   }
-
 
 
   return false;
 }
+
+bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
+   for(CallGraphSCC::iterator CGit=SCC.begin(); CGit != SCC.end(); CGit++){
+       CallGraphNode *CGN = *CGit;
+       Function *F = CGN->getFunction();
+       if (!F || F->isDeclaration()) continue; 
+
+       for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
+          Instruction *i=&*I;       
+          // Debug info (line in the source code, file)
+	  DebugLoc DLoc = i->getDebugLoc();
+	  StringRef File=""; unsigned OP_line=0;
+	  if(DLoc){
+		  OP_line = DLoc.getLine();
+		  File=DLoc->getFilename();
+	  }
+	  MDNode* mdNode;
+	  // Warning info
+	  string WarningMsg;
+	  const char *ProgName="PARCOACH";
+	  SMDiagnostic Diag;
+	  std::string COND_lines;
+	
+	  // FOUND A CALL INSTRUCTION
+	  CallInst *CI = dyn_cast<CallInst>(i);
+	  if(!CI) continue;
+
+	  Function *f = CI->getCalledFunction();
+	  if(!f) continue;
+
+	  string OP_name = f->getName().str();
+	  StringRef funcName = f->getName();
+
+	  // Is it a tainted collective call?
+	  for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
+		  if (funcName.equals(*vI) && DG->isTaintedCall(&*CI) == true){
+			  //errs() << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
+
+	  		  // Get tainted conditionals from the callsite
+			  set<const Value *> conds;
+			  DG->getTaintedCallConditions(CI, conds);
+
+			  for (const Value *cond : conds) {
+				  if (!DG->isTaintedValue(cond))
+					  continue;
+				  const Instruction *inst = cast<Instruction>(cond);
+				  DebugLoc loc = inst->getDebugLoc();
+				  COND_lines.append(" ").append(to_string(loc.getLine()));
+			  }
+
+			  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
+			  mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
+			  i->setMetadata("inst.warning",mdNode);
+			  Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
+			  Diag.print(ProgName, errs(), 1,1);
+		  }
+	  }
+       }
+   }
+   return false;
+}
+
+
 
 char ParcoachInstr::ID = 0;
 static RegisterPass<ParcoachInstr> Z("parcoach", "Module pass");

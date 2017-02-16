@@ -11,6 +11,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
+#include "llvm/Analysis/CallGraphSCCPass.h"
 
 namespace {
   class ParcoachInstr : public llvm::ModulePass {
@@ -19,7 +20,7 @@ namespace {
     ParcoachInstr();
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
-
+    virtual bool runOnSCC(llvm::CallGraphSCC &SCC, DepGraph *DG);
     virtual bool runOnModule(llvm::Module &M);
 
   private:

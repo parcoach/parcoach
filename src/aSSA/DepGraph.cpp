@@ -531,10 +531,10 @@ DepGraph::toDot(string filename) {
       stream << "Node" << ((void *) s) << " -> "
   	     << "NodeCall" << ((void *) call) << "\n";
     }
-	if (taintedLLVMNodes.count(s) != 0){
+	/*if (taintedLLVMNodes.count(s) != 0){
 		errs() << "DBG: " << s->getName() << " is a tainted condition \n";
       		s->dump();
-	}
+	}*/
   }
 
   stream << "}\n";
@@ -544,19 +544,6 @@ DepGraph::toDot(string filename) {
   floodDepTime += t2 - t1;
   floodCallTime += t3 - t2;
   dotTime += t4 - t3;
-}
-
-void
-DepGraph::getCondLines(const Function *F){
-	for (auto I : condToCallEdges) {
-		const Value *s = I.first;
-    		// Tainted condition? -> get the debug info (line in the source code for ex)
-		if (taintedLLVMNodes.count(s) != 0){
-			errs() << "DBG: " << s->getName() << " is a tainted condition \n";
-      			s->dump();
-		}
-	}
-
 }
 
 
@@ -753,17 +740,9 @@ DepGraph::isTaintedValue(const Value *v){
 	if (taintedLLVMNodes.count(v) != 0)
 	//	errs() << getCallValueLabel(v) << " IS tainted 1\n";
 		return true;
-	}
 	return false;
 }
 
-bool
-DepGraph::isTaintedFunc(const Function *F){
-	if(taintedFunctions.count(F) != 0){
-	//	 errs() << F->getName() << " IS tainted 2\n";
-		return true;
-	}
-	return false;
 void
 DepGraph::getTaintedCallConditions(const llvm::CallInst *call,
 				   std::set<const llvm::Value *> &conditions) {

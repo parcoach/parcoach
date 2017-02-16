@@ -9,9 +9,12 @@
 using namespace llvm;
 using namespace std;
 
-DepGraph::DepGraph(MemorySSA *mssa) : mssa(mssa), buildGraphTime(0),
-				      phiElimTime(0), floodDepTime(0),
-				      floodCallTime(0), dotTime(0) {}
+DepGraph::DepGraph(MemorySSA *mssa, PTACallGraph *CG)
+  : mssa(mssa), CG(CG),
+    buildGraphTime(0), phiElimTime(0),
+    floodDepTime(0), floodCallTime(0),
+    dotTime(0) {}
+
 DepGraph::~DepGraph() {}
 
 void
@@ -29,7 +32,7 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
     funcToSSANodesMap[F].insert(chi->var);
     if (chi->opVar) {
       funcToSSANodesMap[F].insert(chi->opVar);
-      ssaToSSAEdges[chi->opVar].insert(chi->var);
+      addEdge(chi->opVar, chi->var);
     }
   }
 
@@ -43,7 +46,7 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
       MSSAChi *exitChi =  mssa->extVarArgExitChi[F];
       assert(exitChi && exitChi->var);
       funcToSSANodesMap[F].insert(exitChi->var);
-      ssaToSSAEdges[exitChi->opVar].insert(exitChi->var);
+      addEdge(exitChi->opVar, exitChi->var);
     }
 
     // Add args entry and exit chi nodes for external functions.
@@ -60,7 +63,7 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
       MSSAChi *exitChi =  mssa->extArgExitChi[F][argNo];
       assert(exitChi && exitChi->var);
       funcToSSANodesMap[F].insert(exitChi->var);
-      ssaToSSAEdges[exitChi->opVar].insert(exitChi->var);
+      addEdge(exitChi->opVar, exitChi->var);
 
       argNo++;
     }
@@ -81,51 +84,96 @@ DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
 
     // If the function is MPI_Group_rank set the address-taken ssa of the
     // second argument as a contamination source.
-    if (F->getName().equals("MPI_Group_rank")) {
+    else if (F->getName().equals("MPI_Group_rank")) {
       assert(mssa->extArgExitChi[F][1]);
       ssaSources.insert(mssa->extArgExitChi[F][1]->var);
     }
 
     // memcpy
-    if (F->getName().find("memcpy") != StringRef::npos) {
+    else if (F->getName().find("memcpy") != StringRef::npos) {
       MSSAChi *srcEntryChi = mssa->extArgEntryChi[F][1];
       MSSAChi *dstExitChi = mssa->extArgExitChi[F][0];
 
-      ssaToSSAEdges[srcEntryChi->var].insert(dstExitChi->var);
+      addEdge(srcEntryChi->var, dstExitChi->var);
 
       // llvm.mempcy instrinsic returns void whereas memcpy returns dst
       if (F->getReturnType()->isPointerTy()) {
 	MSSAChi *retChi = mssa->extRetChi[F];
-	ssaToSSAEdges[dstExitChi->var].insert(retChi->var);
+	addEdge(dstExitChi->var, retChi->var);
       }
     }
 
     // memmove
-    if (F->getName().find("memmove") != StringRef::npos) {
+    else if (F->getName().find("memmove") != StringRef::npos) {
       MSSAChi *srcEntryChi = mssa->extArgEntryChi[F][1];
       MSSAChi *dstExitChi = mssa->extArgExitChi[F][0];
 
-      ssaToSSAEdges[srcEntryChi->var].insert(dstExitChi->var);
+      addEdge(srcEntryChi->var, dstExitChi->var);
 
       // llvm.memmove instrinsic returns void whereas memmove returns dst
       if (F->getReturnType()->isPointerTy()) {
 	MSSAChi *retChi = mssa->extRetChi[F];
-	ssaToSSAEdges[dstExitChi->var].insert(retChi->var);
+	addEdge(dstExitChi->var, retChi->var);
       }
     }
 
     // memset
-    if (F->getName().find("memset") != StringRef::npos) {
+    else if (F->getName().find("memset") != StringRef::npos) {
       MSSAChi *argExitChi = mssa->extArgExitChi[F][0];
       const Argument *cArg = getFunctionArgument(F, 1);
       assert(cArg);
 
-      llvmToSSAEdges[cArg].insert(argExitChi->var);
+      addEdge(cArg, argExitChi->var);
 
       // llvm.memset instrinsic returns void whereas memset returns dst
       if (F->getReturnType()->isPointerTy()) {
 	MSSAChi *retChi = mssa->extRetChi[F];
-	ssaToSSAEdges[argExitChi->var].insert(retChi->var);
+	addEdge(argExitChi->var, retChi->var);
+      }
+    }
+
+    // Unknown external function, we have to connect every input to every
+    // output.
+    else {
+      std::set<MSSAVar *> ssaOutputs;
+      std::set<MSSAVar *> ssaInputs;
+
+      // Compute SSA outputs
+      for (auto I : mssa->extArgExitChi[F]) {
+	MSSAChi *argExitChi = I.second;
+	ssaOutputs.insert(argExitChi->var);
+      }
+      if (F->isVarArg()) {
+	MSSAChi *varArgExitChi = mssa->extVarArgExitChi[F];
+	ssaOutputs.insert(varArgExitChi->var);
+      }
+      if (F->getReturnType()->isPointerTy()) {
+	MSSAChi *retChi = mssa->extRetChi[F];
+	ssaOutputs.insert(retChi->var);
+      }
+
+      // Compute SSA inputs
+      for (auto I : mssa->extArgEntryChi[F]) {
+	MSSAChi *argEntryChi = I.second;
+	ssaInputs.insert(argEntryChi->var);
+      }
+      if (F->isVarArg()) {
+	MSSAChi *varArgEntryChi = mssa->extVarArgEntryChi[F];
+	ssaInputs.insert(varArgEntryChi->var);
+      }
+
+      // Connect SSA inputs to SSA outputs
+      for (MSSAVar *in : ssaInputs) {
+	for (MSSAVar *out : ssaOutputs) {
+	  addEdge(in, out);
+	}
+      }
+
+      // Connect LLVM arguments to SSA outputs
+      for (const Argument &arg : F->getArgumentList()) {
+	for (MSSAVar *out : ssaOutputs) {
+	  addEdge(&arg, out);
+	}
       }
     }
   }
@@ -144,12 +192,12 @@ DepGraph::visitBasicBlock(llvm::BasicBlock &BB) {
     for (auto I : phi->opsVar) {
       assert(I.second);
       funcToSSANodesMap[curFunc].insert(I.second);
-      ssaToSSAEdges[I.second].insert(phi->var);
+      addEdge(I.second, phi->var);
     }
 
     for (const Value *pred : phi->preds) {
       funcToLLVMNodesMap[curFunc].insert(pred);
-      llvmToSSAEdges[pred].insert(phi->var);
+      addEdge(pred, phi->var);
     }
   }
 }
@@ -170,7 +218,7 @@ DepGraph::visitCmpInst(llvm::CmpInst &I) {
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
-    llvmToLLVMEdges[v].insert(&I);
+    addEdge(v, &I);
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
@@ -184,10 +232,10 @@ DepGraph::visitLoadInst(llvm::LoadInst &I) {
   for (MSSAMu *mu : mssa->loadToMuMap[&I]) {
     assert(mu && mu->var);
     funcToSSANodesMap[curFunc].insert(mu->var);
-    ssaToLLVMEdges[mu->var].insert(&I);
+    addEdge(mu->var, &I);
   }
 
-  llvmToLLVMEdges[I.getPointerOperand()].insert(&I);
+  addEdge(I.getPointerOperand(), &I);
 }
 
 void
@@ -201,9 +249,9 @@ DepGraph::visitStoreInst(llvm::StoreInst &I) {
     funcToLLVMNodesMap[curFunc].insert(I.getPointerOperand());
     funcToLLVMNodesMap[curFunc].insert(I.getValueOperand());
 
-    ssaToSSAEdges[chi->opVar].insert(chi->var);
-    llvmToSSAEdges[I.getValueOperand()].insert(chi->var);
-    llvmToSSAEdges[I.getPointerOperand()].insert(chi->var);
+    addEdge(chi->opVar, chi->var);
+    addEdge(I.getValueOperand(), chi->var);
+    addEdge(I.getPointerOperand(), chi->var);
   }
 }
 
@@ -213,7 +261,7 @@ DepGraph::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
-    llvmToLLVMEdges[v].insert(&I);
+    addEdge(v, &I);
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
@@ -223,12 +271,12 @@ DepGraph::visitPHINode(llvm::PHINode &I) {
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
-    llvmToLLVMEdges[v].insert(&I);
+    addEdge(v, &I);
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 
   for (const Value *v : mssa->llvmPhiToPredMap[&I]) {
-    llvmToLLVMEdges[v].insert(&I);
+    addEdge(v, &I);
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
@@ -238,7 +286,7 @@ DepGraph::visitCastInst(llvm::CastInst &I) {
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
-    llvmToLLVMEdges[v].insert(&I);
+    addEdge(v, &I);
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
@@ -248,7 +296,7 @@ DepGraph::visitSelectInst(llvm::SelectInst &I) {
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
-    llvmToLLVMEdges[v].insert(&I);
+    addEdge(v, &I);
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
@@ -258,7 +306,7 @@ DepGraph::visitBinaryOperator(llvm::BinaryOperator &I) {
   funcToLLVMNodesMap[curFunc].insert(&I);
 
   for (const Value *v : I.operands()) {
-    llvmToLLVMEdges[v].insert(&I);
+    addEdge(v, &I);
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
@@ -299,51 +347,42 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
   if (isIntrinsicDbgInst(&I))
     return;
 
-  // Chi of the callsite.
-  for (MSSAChi *chi : mssa->callSiteToChiMap[CallSite(&I)]) {
-    assert(chi && chi->var && chi->opVar);
-    funcToSSANodesMap[curFunc].insert(chi->opVar);
-    funcToSSANodesMap[curFunc].insert(chi->var);
-    ssaToSSAEdges[chi->opVar].insert(chi->var); // rule4
+  connectCSMus(I);
+  connectCSChis(I);
+  connectCSEffectiveParameters(I);
+  connectCSCalledReturnValue(I);
+  connectCSRetChi(I);
 
-    MSSACallChi *callChi = cast<MSSACallChi>(chi);
-    const Function *called = callChi->called;
+  // Add call node
+  funcToCallNodes[curFunc].insert(&I);
 
-    // External Function, we connect call chi to artifical chi of the external
-    // function for each argument.
-    if (called->isDeclaration()) {
-      MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(callChi);
-      unsigned argNo = extCallChi->argNo;
-
-      // Case where this is a var arg parameter.
-      if (argNo >= called->arg_size()) {
-	assert(called->isVarArg());
-
-	assert(mssa->extVarArgExitChi[called]);
-	MSSAVar *var = mssa->extVarArgExitChi[called]->var;
-	assert(var);
-	funcToSSANodesMap[called].insert(var);
-	ssaToSSAEdges[var].insert(chi->var); // rule5
-      }
-
-      else {
-	// rule5
-	assert(mssa->extArgExitChi[called][argNo]);
-	ssaToSSAEdges[mssa->extArgExitChi[called][argNo]->var].insert(chi->var);
-      }
-
-      continue;
-    }
-
-    auto it = mssa->funRegToReturnMuMap.find(called);
-    if (it != mssa->funRegToReturnMuMap.end()) {
-      MSSAMu *returnMu = it->second[chi->region];
-      assert(returnMu && returnMu->var);
-      funcToSSANodesMap[called].insert(returnMu->var);
-      ssaToSSAEdges[returnMu->var].insert(chi->var); // rule5
-    }
+  // Add pred to call edges
+  set<const Value *> preds = computeIPDFPredicates(*curPDT, I.getParent());
+  for (const Value *pred : preds) {
+    condToCallEdges[pred].insert(&I);
+    callsiteToConds[&I].insert(pred);
   }
 
+  // Add call to func edge
+  const Function *callee = I.getCalledFunction();
+
+  // direct call
+  if (callee) {
+    callToFuncEdges[&I] = callee;
+    funcToCallSites[callee].insert(&I);
+  }
+
+  // indirect call
+  else {
+    for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+      callToFuncEdges[&I] = mayCallee;
+      funcToCallSites[mayCallee].insert(&I);
+    }
+  }
+}
+
+void
+DepGraph::connectCSMus(llvm::CallInst &I) {
   // Mu of the call site.
   for (MSSAMu *mu : mssa->callSiteToMuMap[CallSite(&I)]) {
     assert(mu && mu->var);
@@ -365,13 +404,13 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
 	MSSAVar *var = mssa->extVarArgEntryChi[called]->var;
 	assert(var);
 	funcToSSANodesMap[called].insert(var);
-	ssaToSSAEdges[mu->var].insert(var); // rule3
+	addEdge(mu->var, var); // rule3
       }
 
       else {
 	// rule3
 	assert(mssa->extArgEntryChi[called][argNo]);
-	ssaToSSAEdges[mu->var].insert(mssa->extArgEntryChi[called][argNo]->var);
+	addEdge(mu->var, mssa->extArgEntryChi[called][argNo]->var);
       }
 
       continue;
@@ -382,57 +421,201 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
       MSSAChi *entryChi = it->second[mu->region];
       assert(entryChi && entryChi->var);
       funcToSSANodesMap[called].insert(entryChi->var);
-      ssaToSSAEdges[callMu->var].insert(entryChi->var); // rule3
+      addEdge(callMu->var, entryChi->var); // rule3
+    }
+  }
+}
+
+void
+DepGraph::connectCSChis(llvm::CallInst &I) {
+  // Chi of the callsite.
+  for (MSSAChi *chi : mssa->callSiteToChiMap[CallSite(&I)]) {
+    assert(chi && chi->var && chi->opVar);
+    funcToSSANodesMap[curFunc].insert(chi->opVar);
+    funcToSSANodesMap[curFunc].insert(chi->var);
+    addEdge(chi->opVar, chi->var); // rule4
+
+    MSSACallChi *callChi = cast<MSSACallChi>(chi);
+    const Function *called = callChi->called;
+
+    // External Function, we connect call chi to artifical chi of the external
+    // function for each argument.
+    if (called->isDeclaration()) {
+      MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(callChi);
+      unsigned argNo = extCallChi->argNo;
+
+      // Case where this is a var arg parameter.
+      if (argNo >= called->arg_size()) {
+	assert(called->isVarArg());
+
+	assert(mssa->extVarArgExitChi[called]);
+	MSSAVar *var = mssa->extVarArgExitChi[called]->var;
+	assert(var);
+	funcToSSANodesMap[called].insert(var);
+	addEdge(var, chi->var); // rule5
+      }
+
+      else {
+	// rule5
+	assert(mssa->extArgExitChi[called][argNo]);
+	addEdge(mssa->extArgExitChi[called][argNo]->var, chi->var);
+      }
+
+      continue;
+    }
+
+    auto it = mssa->funRegToReturnMuMap.find(called);
+    if (it != mssa->funRegToReturnMuMap.end()) {
+      MSSAMu *returnMu = it->second[chi->region];
+      assert(returnMu && returnMu->var);
+      funcToSSANodesMap[called].insert(returnMu->var);
+      addEdge(returnMu->var, chi->var); // rule5
+    }
+  }
+}
+
+void
+DepGraph::connectCSEffectiveParameters(llvm::CallInst &I) {
+  // Connect effective parameters to formal parameters.
+  const Function *callee = I.getCalledFunction();
+
+  // direct call
+  if (callee) {
+    unsigned argIdx = 0;
+    for (const Argument &arg : callee->getArgumentList()) {
+      funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
+      funcToLLVMNodesMap[callee].insert(&arg);
+
+      addEdge(I.getArgOperand(argIdx), &arg); // rule1
+
+      argIdx++;
     }
   }
 
-  // Connect effective parameters to formal parameters.
-  const Function *called = I.getCalledFunction();
-  unsigned argIdx = 0;
-  for (const Argument &arg : called->getArgumentList()) {
-    funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
-    funcToLLVMNodesMap[called].insert(&arg);
+  // indirect call
+  else {
+    for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+      unsigned argIdx = 0;
+      for (const Argument &arg : mayCallee->getArgumentList()) {
+	funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
+	funcToLLVMNodesMap[callee].insert(&arg);
 
-    llvmToLLVMEdges[I.getArgOperand(argIdx)].insert(&arg); // rule1
+	addEdge(I.getArgOperand(argIdx), &arg); // rule1
 
-    argIdx++;
+	argIdx++;
+      }
+    }
   }
+}
 
+void
+DepGraph::connectCSCalledReturnValue(llvm::CallInst &I) {
   // If the function called returns a value, connect the return value to the
   // call value.
-  if (!called->isDeclaration() && !I.getType()->isVoidTy()) {
-    funcToLLVMNodesMap[curFunc].insert(&I);
-    llvmToLLVMEdges[getReturnValue(called)].insert(&I); // rule2
+
+  const Function *callee = I.getCalledFunction();
+
+  // direct call
+  if (callee) {
+    if (!callee->isDeclaration() && !I.getType()->isVoidTy()) {
+      funcToLLVMNodesMap[curFunc].insert(&I);
+      addEdge(getReturnValue(callee), &I); // rule2
+    }
   }
 
+  // indirect call
+  else {
+    for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+      if (!mayCallee->isDeclaration() && !I.getType()->isVoidTy()) {
+	funcToLLVMNodesMap[curFunc].insert(&I);
+	addEdge(getReturnValue(mayCallee), &I); // rule2
+      }
+    }
+  }
+}
+
+void
+DepGraph::connectCSRetChi(llvm::CallInst &I) {
   // External function, if the function called returns a pointer, connect the
   // artifical ret chi to the retcallchi
   // return chi of the caller.
-  if (called->isDeclaration() && called->getReturnType()->isPointerTy()) {
-    for (MSSAChi *chi : mssa->extCallSiteToRetChiMap[CallSite(&I)]) {
-      assert(chi && chi->var && chi->opVar);
-      funcToSSANodesMap[curFunc].insert(chi->var);
-      funcToSSANodesMap[curFunc].insert(chi->opVar);
 
-      ssaToSSAEdges[chi->opVar].insert(chi->var);
-      ssaToSSAEdges[mssa->extRetChi[called]->var].insert(chi->var);
+  const Function *callee = I.getCalledFunction();
+
+  // direct call
+  if (callee) {
+    if (callee->isDeclaration() && callee->getReturnType()->isPointerTy()) {
+      for (MSSAChi *chi : mssa->extCallSiteToRetChiMap[CallSite(&I)]) {
+	assert(chi && chi->var && chi->opVar);
+	funcToSSANodesMap[curFunc].insert(chi->var);
+	funcToSSANodesMap[curFunc].insert(chi->opVar);
+
+	addEdge(chi->opVar, chi->var);
+	addEdge(mssa->extRetChi[callee]->var, chi->var);
+      }
     }
   }
 
-  // Add call node
-  funcToCallNodes[curFunc].insert(&I);
+  // indirect call
+  else {
+    for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+      if (mayCallee->isDeclaration() &&
+	  mayCallee->getReturnType()->isPointerTy()) {
+	for (MSSAChi *chi : mssa->extCallSiteToRetChiMap[CallSite(&I)]) {
+	  assert(chi && chi->var && chi->opVar);
+	  funcToSSANodesMap[curFunc].insert(chi->var);
+	  funcToSSANodesMap[curFunc].insert(chi->opVar);
 
-  // Add pred to call edges
-  set<const Value *> preds = computeIPDFPredicates(*curPDT, I.getParent());
-  for (const Value *pred : preds) {
-    condToCallEdges[pred].insert(&I);
-    callsiteToConds[&I].insert(pred);
+	  addEdge(chi->opVar, chi->var);
+	  addEdge(mssa->extRetChi[mayCallee]->var, chi->var);
+	}
+      }
+    }
   }
+}
 
-  // Add call to func edge
-  callToFuncEdges[&I] = I.getCalledFunction();
+void
+DepGraph::visitExtractValueInst(llvm::ExtractValueInst &I) {
+  // Connect operands
+  funcToLLVMNodesMap[curFunc].insert(&I);
 
-  funcToCallSites[called].insert(&I);
+  for (const Value *v : I.operands()) {
+    addEdge(v, &I);
+    funcToLLVMNodesMap[curFunc].insert(v);
+  }
+}
+
+void
+DepGraph::visitExtractElementInst(llvm::ExtractElementInst &I) {
+  // Connect operands
+  funcToLLVMNodesMap[curFunc].insert(&I);
+
+  for (const Value *v : I.operands()) {
+    addEdge(v, &I);
+    funcToLLVMNodesMap[curFunc].insert(v);
+  }
+}
+
+void
+DepGraph::visitInsertElementInst(llvm::InsertElementInst &I) {
+  // Connect operands
+  funcToLLVMNodesMap[curFunc].insert(&I);
+
+  for (const Value *v : I.operands()) {
+    addEdge(v, &I);
+    funcToLLVMNodesMap[curFunc].insert(v);
+  }
+}
+
+void
+DepGraph::visitShuffleVectorInst(llvm::ShuffleVectorInst &I) {
+  // Connect operands
+  funcToLLVMNodesMap[curFunc].insert(&I);
+
+  for (const Value *v : I.operands()) {
+    addEdge(v, &I);
+    funcToLLVMNodesMap[curFunc].insert(v);
+  }
 }
 
 void
@@ -478,7 +661,7 @@ DepGraph::toDot(string filename) {
   }
 
   // Edges
-  for (auto I : llvmToLLVMEdges) {
+  for (auto I : llvmToLLVMChildren) {
     const Value *s = I.first;
     for (const Value *d : I.second) {
       stream << "Node" << ((void *) s) << " -> "
@@ -486,7 +669,7 @@ DepGraph::toDot(string filename) {
     }
   }
 
-  for (auto I : llvmToSSAEdges) {
+  for (auto I : llvmToSSAChildren) {
     const Value *s = I.first;
     for (MSSAVar *d : I.second) {
       stream << "Node" << ((void *) s) << " -> "
@@ -494,7 +677,7 @@ DepGraph::toDot(string filename) {
     }
   }
 
-  for (auto I : ssaToSSAEdges) {
+  for (auto I : ssaToSSAChildren) {
     MSSAVar *s = I.first;
     for (MSSAVar *d : I.second) {
       stream << "Node" << ((void *) s) << " -> "
@@ -502,7 +685,7 @@ DepGraph::toDot(string filename) {
     }
   }
 
-  for (auto I : ssaToLLVMEdges) {
+  for (auto I : ssaToLLVMChildren) {
     MSSAVar *s = I.first;
     for (const Value *d : I.second) {
       stream << "Node" << ((void *) s) << " -> "
@@ -644,7 +827,7 @@ DepGraph::computeTaintedValues() {
       MSSAVar *s = varToVisit.front();
       varToVisit.pop();
 
-      for (MSSAVar *d : ssaToSSAEdges[s]) {
+      for (MSSAVar *d : ssaToSSAChildren[s]) {
 	if (taintedSSANodes.count(d) != 0)
 	  continue;
 
@@ -652,7 +835,7 @@ DepGraph::computeTaintedValues() {
 	varToVisit.push(d);
       }
 
-      for (const Value *d : ssaToLLVMEdges[s]) {
+      for (const Value *d : ssaToLLVMChildren[s]) {
 	if (taintedLLVMNodes.count(d) != 0)
 	  continue;
 
@@ -665,7 +848,7 @@ DepGraph::computeTaintedValues() {
       const Value *s = valueToVisit.front();
       valueToVisit.pop();
 
-      for (const Value *d : llvmToLLVMEdges[s]) {
+      for (const Value *d : llvmToLLVMChildren[s]) {
 	if (taintedLLVMNodes.count(d) != 0)
 	  continue;
 
@@ -673,7 +856,7 @@ DepGraph::computeTaintedValues() {
 	valueToVisit.push(d);
       }
 
-      for (MSSAVar *d : llvmToSSAEdges[s]) {
+      for (MSSAVar *d : llvmToSSAChildren[s]) {
 	if (taintedSSANodes.count(d) != 0)
 	  continue;
 	taintedSSANodes.insert(d);
@@ -781,37 +964,37 @@ DepGraph::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
   ValueSet incomingValuesVar1;
   ValueSet incomingValuesVar2;
 
+  // Check whether number of edges are the same for both nodes.
+  if (ssaToSSAChildren[var1].size() != ssaToSSAChildren[var2].size())
+    return false;
+
+  if (ssaToLLVMChildren[var1].size() != ssaToLLVMChildren[var2].size())
+    return false;
+
+  if (ssaToSSAParents[var1].size() != ssaToSSAParents[var2].size())
+    return false;
+
+  if (ssaToLLVMParents[var1].size() != ssaToLLVMParents[var2].size())
+    return false;
+
+
   // Check whether outgoing edges are the same for both nodes.
-  if (ssaToSSAEdges[var1].size() != ssaToSSAEdges[var2].size())
-    return false;
-
-  if (ssaToLLVMEdges[var1].size() != ssaToLLVMEdges[var2].size())
-    return false;
-
-  for (MSSAVar *v : ssaToSSAEdges[var1]) {
-    if (ssaToSSAEdges[var2].find(v) == ssaToSSAEdges[var2].end())
+  for (MSSAVar *v : ssaToSSAChildren[var1]) {
+    if (ssaToSSAChildren[var2].find(v) == ssaToSSAChildren[var2].end())
       return false;
   }
-  for (const Value *v : ssaToLLVMEdges[var1]) {
-    if (ssaToLLVMEdges[var2].find(v) == ssaToLLVMEdges[var2].end())
+  for (const Value *v : ssaToLLVMChildren[var1]) {
+    if (ssaToLLVMChildren[var2].find(v) == ssaToLLVMChildren[var2].end())
       return false;
   }
 
   // Check whether incoming edges are the same for both nodes.
-  for (auto I : ssaToSSAEdges) {
-    auto it1 = I.second.find(var1);
-    auto it2 = I.second.find(var2);
-
-    if ((it1 == I.second.end() && it2 != I.second.end()) ||
-	(it1 != I.second.end() && it2 == I.second.end()))
+  for (MSSAVar *v : ssaToSSAParents[var1]) {
+    if (ssaToSSAParents[var2].find(v) == ssaToSSAParents[var2].end())
       return false;
   }
-  for (auto I : llvmToSSAEdges) {
-    auto it1 = I.second.find(var1);
-    auto it2 = I.second.find(var2);
-
-    if ((it1 == I.second.end() && it2 != I.second.end()) ||
-	(it1 != I.second.end() && it2 == I.second.end()))
+  for (const Value *v : ssaToLLVMParents[var1]) {
+    if (ssaToLLVMParents[var2].find(v) == ssaToLLVMParents[var2].end())
       return false;
   }
 
@@ -821,27 +1004,20 @@ DepGraph::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
 void
 DepGraph::eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2) {
   // Remove links from predicates to PHI
-  for (const Value *v : phi->preds) {
-    auto it = llvmToSSAEdges[v].find(phi->var);
-    assert(it != llvmToSSAEdges[v].end());
-    llvmToSSAEdges[v].erase(it);
-  }
+  for (const Value *v : phi->preds)
+    removeEdge(v, phi->var);
 
   // Remove links from op1,op2 to PHI
-  auto it1 = ssaToSSAEdges[op1].find(phi->var);
-  assert(it1 != ssaToSSAEdges[op1].end());
-  ssaToSSAEdges[op1].erase(it1);
-  auto it2 = ssaToSSAEdges[op2].find(phi->var);
-  assert(it2 != ssaToSSAEdges[op2].end());
-  ssaToSSAEdges[op2].erase(it2);
+  removeEdge(op1, phi->var);
+  removeEdge(op2, phi->var);
 
   // For each outgoing edge from PHI to a SSA node N, connect
   // op1 to N and remove the link from PHI to N.
-  for (MSSAVar *v : ssaToSSAEdges[phi->var]) {
-    ssaToSSAEdges[op1].insert(v);
+  for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
+    addEdge(op1, v);
+    removeEdge(phi->var, v);
 
-    // If N is a phi replace the phi operand of N with
-    // PHI operand 0
+    // If N is a phi replace the phi operand of N with op1
     if (v->def->type == MSSADef::PHI) {
       MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
 
@@ -856,56 +1032,36 @@ DepGraph::eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2) {
       }
       assert(found);
     }
-
-    auto it = ssaToSSAEdges[phi->var].find(v);
-    assert(it != ssaToSSAEdges[phi->var].end());
-    ssaToSSAEdges[phi->var].erase(it);
   }
 
   // For each outgoing edge from PHI to a LLVM node N, connect
-  // connect PHI operand 0 to N and remove the link from PHI to N.
-  for (const Value *v : ssaToLLVMEdges[phi->var]) {
-    ssaToLLVMEdges[op1].insert(v);
-    // ssaToLLVMEdges[op2].insert(v);
-
-    auto it = ssaToLLVMEdges[phi->var].find(v);
-    assert(it != ssaToLLVMEdges[phi->var].end());
-    ssaToLLVMEdges[phi->var].erase(it);
+  // connect op1 to N and remove the link from PHI to N.
+  for (const Value *v : ssaToLLVMChildren[phi->var]) {
+    addEdge(op1, v);
+    removeEdge(phi->var, v);
   }
 
   // Remove PHI Node
   const Function *F = phi->var->bb->getParent();
   assert(F);
-  auto it3 = funcToSSANodesMap[F].find(phi->var);
-  assert(it3 != funcToSSANodesMap[F].end());
-  funcToSSANodesMap[F].erase(it3);
+  auto it = funcToSSANodesMap[F].find(phi->var);
+  assert(it != funcToSSANodesMap[F].end());
+  funcToSSANodesMap[F].erase(it);
 
-  // Remove edges connected to PHI operand 1
-  for (auto I = ssaToSSAEdges.begin(), E = ssaToSSAEdges.end(); I != E;
-       ++I) {
-    set<MSSAVar *>::iterator J = I->second.find(op2);
-    if (J != I->second.end()) {
-      I->second.erase(J);
-      assert(I->second.find(op2) == I->second.end());
-    }
-  }
-  for (auto I : ssaToSSAEdges) {
-    set<MSSAVar *>::iterator J = I.second.find(op2);
-    assert (J == I.second.end());
-  }
-  for (auto I = llvmToSSAEdges.begin(), E = llvmToSSAEdges.end(); I != E;
-       ++I) {
-    auto J = I->second.find(op2);
-    if (J != I->second.end()) {
-      I->second.erase(J);
-      assert(I->second.find(op2) == I->second.end());
-    }
-  }
+  // Remove edges connected to op2
+  for (MSSAVar *v : ssaToSSAParents[op2])
+    removeEdge(v, op2);
+  for (const Value *v : ssaToLLVMParents[op2])
+    removeEdge(v, op2);
+  for (MSSAVar *v : ssaToSSAChildren[op2])
+    removeEdge(op2, v);
+  for (const Value *v : ssaToLLVMChildren[op2])
+    removeEdge(op2, v);
 
-  // Remove PHI operand 1
-  auto it4 = funcToSSANodesMap[F].find(op2);
-  assert(it4 != funcToSSANodesMap[F].end());
-  funcToSSANodesMap[F].erase(it4);
+  // Remove op2
+  auto it2 = funcToSSANodesMap[F].find(op2);
+  assert(it2 != funcToSSANodesMap[F].end());
+  funcToSSANodesMap[F].erase(it2);
 }
 
 
@@ -950,4 +1106,64 @@ DepGraph::phiElimination() {
 
   double t2 = gettime();
   phiElimTime += t2 - t1;
+}
+
+void
+DepGraph::addEdge(const llvm::Value *s, const llvm::Value *d) {
+  llvmToLLVMChildren[s].insert(d);
+  llvmToLLVMParents[d].insert(s);
+}
+
+void
+DepGraph::addEdge(const llvm::Value *s, MSSAVar *d) {
+  llvmToSSAChildren[s].insert(d);
+  ssaToLLVMParents[d].insert(s);
+}
+
+void
+DepGraph::addEdge(MSSAVar *s, const llvm::Value *d) {
+  ssaToLLVMChildren[s].insert(d);
+  llvmToSSAParents[d].insert(s);
+}
+
+void
+DepGraph::addEdge(MSSAVar *s, MSSAVar *d) {
+  ssaToSSAChildren[s].insert(d);
+  ssaToSSAParents[d].insert(s);
+}
+
+void
+DepGraph::removeEdge(const llvm::Value *s, const llvm::Value *d) {
+  int n;
+  n = llvmToLLVMChildren[s].erase(d);
+  assert(n == 1);
+  n = llvmToLLVMParents[d].erase(s);
+  assert(n == 1);
+}
+
+void
+DepGraph::removeEdge(const llvm::Value *s, MSSAVar *d) {
+  int n;
+  n = llvmToSSAChildren[s].erase(d);
+  assert(n == 1);
+  n = ssaToLLVMParents[d].erase(s);
+  assert(n == 1);
+}
+
+void
+DepGraph::removeEdge(MSSAVar *s, const llvm::Value *d) {
+  int n;
+  n = ssaToLLVMChildren[s].erase(d);
+  assert(n == 1);
+  n = llvmToSSAParents[d].erase(s);
+  assert(n == 1);
+}
+
+void
+DepGraph::removeEdge(MSSAVar *s, MSSAVar *d) {
+  int n;
+  n = ssaToSSAChildren[s].erase(d);
+  assert(n == 1);
+  n = ssaToSSAParents[d].erase(s);
+  assert(n == 1);
 }

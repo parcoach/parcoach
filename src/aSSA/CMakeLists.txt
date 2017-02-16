@@ -17,6 +17,7 @@ add_llvm_loadable_module( LLVMaSSA
 	MemorySSA.cpp
 	ModRefAnalysis.cpp
 	Parcoach.cpp
+	PTACallGraph.cpp
 	Utils.cpp
 	andersen/Andersen.cpp
 	andersen/ConstraintCollect.cpp

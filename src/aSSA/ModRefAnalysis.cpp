@@ -1,12 +1,11 @@
 #include "ModRefAnalysis.h"
 
 #include "llvm/ADT/SCCIterator.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
 
 using namespace llvm;
 using namespace std;
 
-ModRefAnalysis::ModRefAnalysis(CallGraph &CG, Andersen *PTA)
+ModRefAnalysis::ModRefAnalysis(PTACallGraph &CG, Andersen *PTA)
   : CG(CG), PTA(PTA) {
   analyze();
 }
@@ -44,39 +43,72 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   assert(CS.isCall());
   CallInst *CI = cast<CallInst>(CS.getInstruction());
   const Function *callee = CI->getCalledFunction();
-  if (callee->isDeclaration()) {
-    for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
-      const Value *arg = CI->getArgOperand(i);
-      if (arg->getType()->isPointerTy() == false)
-	continue;
 
-      vector<const Value *> ptsSet;
-      vector<const Value *> argPtsSet;
-      assert(PTA->getPointsToSet(arg, argPtsSet));
-      ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
-
-      vector<MemReg *> regs;
-      MemReg::getValuesRegion(ptsSet, regs);
-
-      for (MemReg *r : regs) {
-	funcModMap[curFunc].insert(r);
-	funcRefMap[curFunc].insert(r);
+  // indirect call
+  if (!callee) {
+    bool mayCallExternalFunction = false;
+    for (const Function *mayCallee : CG.indirectCallMap[CI]) {
+      if (mayCallee->isDeclaration()) {
+	mayCallExternalFunction = true;
+	break;
       }
+    }
+    if (!mayCallExternalFunction)
+      return;
+  }
+
+  // direct call
+  else {
+    if (!callee->isDeclaration())
+      return;
+  }
+
+  for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
+    const Value *arg = CI->getArgOperand(i);
+    if (arg->getType()->isPointerTy() == false)
+      continue;
+
+    // Case where argument is a inttoptr cast (e.g. MPI_IN_PLACE)
+    const ConstantExpr *ce = dyn_cast<ConstantExpr>(arg);
+    if (ce) {
+      Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
+      assert(inst);
+      if(isa<IntToPtrInst>(inst)) {
+	delete inst;
+	continue;
+      }
+      delete inst;
+    }
+
+    vector<const Value *> ptsSet;
+    vector<const Value *> argPtsSet;
+
+    assert(PTA->getPointsToSet(arg, argPtsSet));
+    ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
+
+    vector<MemReg *> regs;
+    MemReg::getValuesRegion(ptsSet, regs);
+
+    for (MemReg *r : regs) {
+      funcModMap[curFunc].insert(r);
+      funcRefMap[curFunc].insert(r);
     }
   }
 }
 
 void
 ModRefAnalysis::analyze() {
-  scc_iterator<CallGraph *> cgSccIter = scc_begin(&CG);
-  CallGraphSCC curSCC(CG, &cgSccIter);
-  while(!cgSccIter.isAtEnd()){
-    const vector<CallGraphNode*> &nodeVec = *cgSccIter;
-    curSCC.initialize(nodeVec.data(), nodeVec.data() + nodeVec.size());
+  unsigned nbFunctions  = CG.getModule().getFunctionList().size();
+  unsigned counter = 0;
+
+  scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&CG);
+  while(!cgSccIter.isAtEnd()) {
+
+    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
 
     // For each function in the SCC add mod/ref from load/store.
-    for (auto I = curSCC.begin(), E = curSCC.end(); I != E; ++I) {
-      Function *F = (*I)->getFunction();
+    for (PTACallGraphNode *node : nodeVec) {
+      Function *F = node->getFunction();
       if (F == NULL || isIntrinsicDbgFunction(F))
 	continue;
       curFunc = F;
@@ -88,16 +120,15 @@ ModRefAnalysis::analyze() {
     bool changed = true;
     while (changed) {
       changed = false;
-      for (auto I = curSCC.begin(), E = curSCC.end(); I != E; ++I) {
-	CallGraphNode *CGN = *I;
-	const Function *F = CGN->getFunction();
+      for (PTACallGraphNode *node : nodeVec) {
+	const Function *F = node->getFunction();
 	if (F == NULL)
 	  continue;
 
 	unsigned modSize = funcModMap[F].size();
 	unsigned refSize = funcRefMap[F].size();
 
-	for (auto it : *CGN) {
+	for (auto it : *node) {
 	  const Function *callee = it.second->getFunction();
 	  if (callee == NULL || F == callee)
 	    continue;
@@ -111,6 +142,13 @@ ModRefAnalysis::analyze() {
 	if (funcModMap[F].size() > modSize || funcRefMap[F].size() > refSize)
 	  changed = true;
       }
+    }
+
+    counter += nodeVec.size();
+
+    if (counter%100) {
+      errs() << "Mod/Ref: visited " << counter << " functions over " << nbFunctions
+	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
     }
 
     ++cgSccIter;
@@ -129,14 +167,12 @@ ModRefAnalysis::getFuncRef(const Function *F) {
 
 void
 ModRefAnalysis::dump() {
-  scc_iterator<CallGraph *> cgSccIter = scc_begin(&CG);
-  CallGraphSCC curSCC(CG, &cgSccIter);
+  scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&CG);
   while(!cgSccIter.isAtEnd()){
-    const vector<CallGraphNode*> &nodeVec = *cgSccIter;
-    curSCC.initialize(nodeVec.data(), nodeVec.data() + nodeVec.size());
+    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
 
-    for (auto I = curSCC.begin(), E = curSCC.end(); I != E; ++I) {
-      Function *F = (*I)->getFunction();
+    for (PTACallGraphNode *node : nodeVec) {
+      Function *F = node->getFunction();
       if (F == NULL || isIntrinsicDbgFunction(F))
 	continue;
 

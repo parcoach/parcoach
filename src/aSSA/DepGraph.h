@@ -3,6 +3,7 @@
 
 #include "MSSAMuChi.h"
 #include "MemorySSA.h"
+#include "PTACallGraph.h"
 
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/raw_ostream.h"
@@ -13,7 +14,7 @@ public:
   typedef std::set<const MSSAVar *> ConstVarSet;
   typedef std::set<const llvm::Value *> ValueSet;
 
-  DepGraph(MemorySSA *mssa);
+  DepGraph(MemorySSA *mssa, PTACallGraph *CG);
   virtual ~DepGraph();
 
   void buildFunction(const llvm::Function *F, llvm::PostDominatorTree *PDT);
@@ -31,6 +32,10 @@ public:
   void visitSelectInst(llvm::SelectInst &I);
   void visitBinaryOperator(llvm::BinaryOperator &I);
   void visitCallInst(llvm::CallInst &I);
+  void visitExtractValueInst(llvm::ExtractValueInst &I);
+  void visitExtractElementInst(llvm::ExtractElementInst &I);
+  void visitInsertElementInst(llvm::InsertElementInst &I);
+  void visitShuffleVectorInst(llvm::ShuffleVectorInst &I);
   void visitInstruction(llvm::Instruction &I);
 
   // Phi elimination pass.
@@ -55,6 +60,7 @@ public:
 
 private:
   MemorySSA *mssa;
+  PTACallGraph *CG;
 
   const llvm::Function *curFunc;
   llvm::PostDominatorTree *curPDT;
@@ -70,13 +76,28 @@ private:
   /* Graph edges */
 
   // top-level to top-level edges
-  llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMEdges;
+  llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMChildren;
+  llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMParents;
+
   // top-level to address-taken ssa edges
-  llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAEdges;
+  llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAChildren;
+  llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAParents;
   // address-taken ssa to top-level edges
-  llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMEdges;
+  llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMChildren;
+  llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMParents;
+
   // address-top ssa to address-taken ssa edges
-  llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAEdges;
+  llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAChildren;
+  llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAParents;
+
+  void addEdge(const llvm::Value *s, const llvm::Value *d);
+  void addEdge(const llvm::Value *s, MSSAVar *d);
+  void addEdge(MSSAVar *s, const llvm::Value *d);
+  void addEdge(MSSAVar *s, MSSAVar *d);
+  void removeEdge(const llvm::Value *s, const llvm::Value *d);
+  void removeEdge(const llvm::Value *s, MSSAVar *d);
+  void removeEdge(MSSAVar *s, const llvm::Value *d);
+  void removeEdge(MSSAVar *s, MSSAVar *d);
 
   /* PDF+ call nodes and edges */
 
@@ -98,6 +119,13 @@ private:
   std::set<const llvm::Function *> taintedFunctions;
   ConstVarSet taintedSSANodes;
   ConstVarSet ssaSources;
+
+  /* Graph construction for call sites*/
+  void connectCSMus(llvm::CallInst &I);
+  void connectCSChis(llvm::CallInst &I);
+  void connectCSEffectiveParameters(llvm::CallInst &I);
+  void connectCSCalledReturnValue(llvm::CallInst &I);
+  void connectCSRetChi(llvm::CallInst &I);
 
   // Two nodes are equivalent if they have exactly the same incoming and
   // outgoing edges and if none of them are phi nodes.

@@ -166,6 +166,7 @@ computeIPDFPredicates(llvm::PostDominatorTree &PDT,
       assert(si);
       const Value *cond = si->getCondition();
       preds.insert(cond);
+
     }
   }
 
@@ -203,4 +204,31 @@ bool isIntrinsicDbgFunction(const llvm::Function *F) {
 
 bool isIntrinsicDbgInst(const llvm::Instruction *I) {
   return isa<DbgInfoIntrinsic>(I);
+}
+
+bool functionDoesNotRet(const llvm::Function *F) {
+  std::vector<const BasicBlock *> toVisit;
+  std::set<const BasicBlock *> visited;
+
+  toVisit.push_back(&F->getEntryBlock());
+
+  while (!toVisit.empty()) {
+    const BasicBlock *BB = toVisit.back();
+    toVisit.pop_back();
+
+    for (const Instruction &inst : *BB) {
+      if(isa<ReturnInst>(inst))
+	return false;
+    }
+
+    for (auto I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+      const BasicBlock *succ = *I;
+      if (visited.find(succ) == visited.end()) {
+	toVisit.push_back(succ);
+	visited.insert(succ);
+      }
+    }
+  }
+
+  return true;
 }

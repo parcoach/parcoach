@@ -7,10 +7,11 @@
 using namespace std;
 using namespace llvm;
 
-MemorySSA::MemorySSA(Module *m, Andersen *PTA, ModRefAnalysis *MRA)
+MemorySSA::MemorySSA(Module *m, Andersen *PTA, PTACallGraph *CG,
+		     ModRefAnalysis *MRA)
   : computeMuChiTime(0), computePhiTime(0), renameTime(0),
     computePhiPredicatesTime(0),
-    m(m), PTA(PTA), MRA(MRA), curDF(NULL), curDT(NULL) {}
+    m(m), PTA(PTA), CG(CG), MRA(MRA), curDF(NULL), curDT(NULL) {}
 MemorySSA::~MemorySSA() {}
 
 void
@@ -60,68 +61,19 @@ MemorySSA::computeMuChi(const Function *F) {
 	continue;
 
       CallSite cs(const_cast<Instruction *>(inst));
-      Function *called = cs.getCalledFunction();
-      assert(called);
+      Function *callee = cs.getCalledFunction();
 
-      // If the callee is a declaration (external function), we create a Mu and
-      // a Chi for each pointer argument.
-      if (called->isDeclaration()) {
-	assert(isa<CallInst>(inst)); // InvokeInst are not handled yet
-	const CallInst *CI = cast<CallInst>(inst);
-
-	// Mu and Chi for parameters
-	for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
-	  const Value *arg = CI->getArgOperand(i);
-	  if (arg->getType()->isPointerTy() == false)
-	    continue;
-
-	  vector<const Value *> ptsSet;
-	  vector<const Value *> argPtsSet;
-	  assert(PTA->getPointsToSet(arg, argPtsSet));
-	  ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
-
-	  vector<MemReg *> regs;
-	  MemReg::getValuesRegion(ptsSet, regs);
-
-	  for (MemReg * r : regs) {
-	    callSiteToMuMap[cs].insert(new MSSAExtCallMu(r, called, i));
-	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, called, i));
-	    regDefToBBMap[r].insert(inst->getParent());
-	    usedRegs.insert(r);
-	  }
-	}
-
-	// Chi for return value if it is a pointer
-	if (CI->getType()->isPointerTy()) {
-	  vector<const Value *> ptsSet;
-	  assert(PTA->getPointsToSet(CI, ptsSet));
-	  vector<MemReg *> regs;
-	  MemReg::getValuesRegion(ptsSet, regs);
-
-	  for (MemReg *r : regs) {
-	    extCallSiteToRetChiMap[cs].insert(new MSSAExtRetCallChi(r, called));
-	    regDefToBBMap[r].insert(inst->getParent());
-	    usedRegs.insert(r);
-	  }
+      // indirect call
+      if (callee == NULL) {
+	for (const Function *mayCallee : CG->indirectCallMap[inst]) {
+	  computeMuChiForCalledFunction(inst,
+					const_cast<Function *>(mayCallee));
 	}
       }
 
-      // If the callee is not a declaration we create a Mu(Chi) for each region
-      // in Ref(Mod) callee.
+      // direct call
       else {
-	// Create Mu for each region \in ref(callee)
-	for (MemReg *r : MRA->getFuncRef(called)) {
-	  callSiteToMuMap[cs].insert(new MSSACallMu(r, called));
-	  regDefToBBMap[r].insert(inst->getParent());
-	  usedRegs.insert(r);
-	}
-
-	// Create Chi for each region \in mod(callee)
-	for (MemReg *r : MRA->getFuncMod(called)) {
-	  callSiteToChiMap[cs].insert(new MSSACallChi(r, called));
-	  regDefToBBMap[r].insert(inst->getParent());
-	  usedRegs.insert(r);
-	}
+	computeMuChiForCalledFunction(inst, callee);
       }
 
       continue;
@@ -172,13 +124,96 @@ MemorySSA::computeMuChi(const Function *F) {
    */
   for (MemReg *r : usedRegs) {
     funToEntryChiMap[F].insert(new MSSAEntryChi(r, F));
-    funToReturnMuMap[F].insert(new MSSARetMu(r, F));
+    regDefToBBMap[r].insert(&F->getEntryBlock());
+  }
+
+  if (!functionDoesNotRet(F)) {
+    for (MemReg *r : usedRegs)
+      funToReturnMuMap[F].insert(new MSSARetMu(r, F));
   }
 
   for (MSSAChi *chi : funToEntryChiMap[F])
     funRegToEntryChiMap[F][chi->region] = chi;
   for (MSSAMu *mu : funToReturnMuMap[F])
     funRegToReturnMuMap[F][mu->region] = mu;
+}
+
+void
+MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
+					 Function *callee) {
+  CallSite cs(const_cast<Instruction *>(inst));
+
+  // If the callee is a declaration (external function), we create a Mu and
+  // a Chi for each pointer argument.
+  if (callee->isDeclaration()) {
+    assert(isa<CallInst>(inst)); // InvokeInst are not handled yet
+    const CallInst *CI = cast<CallInst>(inst);
+
+    // Mu and Chi for parameters
+    for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
+      const Value *arg = CI->getArgOperand(i);
+      if (arg->getType()->isPointerTy() == false)
+	continue;
+
+    // Case where argument is a inttoptr cast (e.g. MPI_IN_PLACE)
+    const ConstantExpr *ce = dyn_cast<ConstantExpr>(arg);
+    if (ce) {
+      Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
+      assert(inst);
+      if(isa<IntToPtrInst>(inst)) {
+	delete inst;
+	continue;
+      }
+      delete inst;
+    }
+
+      vector<const Value *> ptsSet;
+      vector<const Value *> argPtsSet;
+      assert(PTA->getPointsToSet(arg, argPtsSet));
+      ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
+
+      vector<MemReg *> regs;
+      MemReg::getValuesRegion(ptsSet, regs);
+
+      for (MemReg * r : regs) {
+	callSiteToMuMap[cs].insert(new MSSAExtCallMu(r, callee, i));
+	callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i));
+	regDefToBBMap[r].insert(inst->getParent());
+	usedRegs.insert(r);
+      }
+    }
+
+    // Chi for return value if it is a pointer
+    if (CI->getType()->isPointerTy()) {
+      vector<const Value *> ptsSet;
+      assert(PTA->getPointsToSet(CI, ptsSet));
+      vector<MemReg *> regs;
+      MemReg::getValuesRegion(ptsSet, regs);
+
+      for (MemReg *r : regs) {
+	extCallSiteToRetChiMap[cs].insert(new MSSAExtRetCallChi(r, callee));
+	regDefToBBMap[r].insert(inst->getParent());
+	usedRegs.insert(r);
+      }
+    }
+  }
+
+  // If the callee is not a declaration we create a Mu(Chi) for each region
+  // in Ref(Mod) callee.
+  else {
+    // Create Mu for each region \in ref(callee)
+    for (MemReg *r : MRA->getFuncRef(callee)) {
+      callSiteToMuMap[cs].insert(new MSSACallMu(r, callee));
+      usedRegs.insert(r);
+    }
+
+    // Create Chi for each region \in mod(callee)
+    for (MemReg *r : MRA->getFuncMod(callee)) {
+      callSiteToChiMap[cs].insert(new MSSACallChi(r, callee));
+      regDefToBBMap[r].insert(inst->getParent());
+      usedRegs.insert(r);
+    }
+  }
 }
 
 void
@@ -202,6 +237,7 @@ MemorySSA::computePhi(const Function *F) {
       auto it = curDF->find(const_cast<BasicBlock *>(X));
       if (it == curDF->end()) {
 	errs() << "Error: basic block not in the dom frontier !\n";
+	exit(EXIT_FAILURE);
 	continue;
       }
 
@@ -213,7 +249,7 @@ MemorySSA::computePhi(const Function *F) {
 	bbToPhiMap[Y].insert(new MSSAPhi(r));
 	domFronPlus.insert(Y);
 
-	if (work.find(Y) == work.end())
+	if (work.find(Y) != work.end())
 	  continue;
 
 	work.insert(Y);

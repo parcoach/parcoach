@@ -34,4 +34,6 @@ bool isIntrinsicDbgFunction(const llvm::Function *F);
 
 bool isIntrinsicDbgInst(const llvm::Instruction *I);
 
+bool functionDoesNotRet(const llvm::Function *F);
+
 #endif /* UTILS_H */

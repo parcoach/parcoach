@@ -3,6 +3,7 @@
 
 #include "andersen/Andersen.h"
 #include "MSSAMuChi.h"
+#include "PTACallGraph.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/DominanceFrontier.h"
@@ -51,7 +52,8 @@ class MemorySSA {
 			 llvm::DenseMap<unsigned, MSSAChi *> > FuncToArgChiMap;
 
 public:
-  MemorySSA(llvm::Module *m, Andersen *PTA, ModRefAnalysis *MRA);
+  MemorySSA(llvm::Module *m, Andersen *PTA, PTACallGraph *CG,
+	    ModRefAnalysis *MRA);
   virtual ~MemorySSA();
 
   void buildSSA(const llvm::Function *F, llvm::DominatorTree &DT,
@@ -64,6 +66,9 @@ public:
 
 private:
   void computeMuChi(const llvm::Function *F);
+
+  void computeMuChiForCalledFunction(const llvm::Instruction *inst,
+				     llvm::Function *callee);
 
   // The three following functions generate SSA from mu/chi by implementing the
   // algorithm from the paper:
@@ -93,6 +98,7 @@ private:
 protected:
   llvm::Module *m;
   Andersen *PTA;
+  PTACallGraph *CG;
   ModRefAnalysis *MRA;
 
   llvm::DominanceFrontier *curDF;

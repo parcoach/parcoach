@@ -4,6 +4,7 @@
 #include "MemorySSA.h"
 #include "ModRefAnalysis.h"
 #include "Parcoach.h"
+#include "PTACallGraph.h"
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
@@ -38,6 +39,8 @@ using namespace std;
 
 static cl::opt<bool> optDumpSSA("dump-ssa",
 				cl::desc("Dump the all-inclusive SSA"));
+static cl::opt<bool> optDotGraph("dot-depgraph",
+				cl::desc("Dot the dependency graph to dg.dot"));
 static cl::opt<bool> optDumpRegions("dump-regions",
 				cl::desc("Dump the regions found by the "\
 					 "Andersen PTA"));
@@ -66,31 +69,55 @@ ParcoachInstr::runOnModule(Module &M) {
   Andersen AA(M);
   double endPTA = gettime();
 
+  errs() << "AA done\n";
+
+  // Create PTA call graph
+  PTACallGraph PTACG(M, &AA);
+  errs() << "PTA Call graph creation done\n";
+
   // Create regions from allocation sites.
   double startCreateReg = gettime();
   vector<const Value *> regions;
   AA.getAllAllocationSites(regions);
 
-  for (const Value *r : regions)
+  errs() << regions.size() << " regions\n";
+  unsigned regCounter = 0;
+  for (const Value *r : regions) {
+    if (regCounter%100 == 0) {
+      errs() << regCounter << " regions created ("
+  	     << ((float) regCounter) / regions.size() * 100<< "%)\n";
+      }
+    regCounter++;
     MemReg::createRegion(r);
+  }
   double endCreateReg = gettime();
 
   if (optDumpRegions)
     MemReg::dumpRegions();
+  errs() << "Regions creation done\n";
 
   // Compute MOD/REF analysis
   double startModRef = gettime();
-  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  ModRefAnalysis MRA(CG, &AA);
+  ModRefAnalysis MRA(PTACG, &AA);
   double endModRef = gettime();
   if (optDumpModRef)
     MRA.dump();
 
+  errs() << "Mod/ref done\n";
+
   // Compute all-inclusive SSA.
-  MemorySSA MSSA(&M, &AA, &MRA);
+  MemorySSA MSSA(&M, &AA, &PTACG, &MRA);
+
+  unsigned nbFunctions = M.getFunctionList().size();
+  unsigned counter = 0;
   for (Function &F : M) {
-    if (isIntrinsicDbgFunction(&F))
+    errs() << "MSSA: visited " << counter << " functions over " << nbFunctions
+  	   << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
+    counter++;
+
+    if (isIntrinsicDbgFunction(&F)) {
       continue;
+    }
 
     if (F.isDeclaration()) {
       MSSA.buildExtSSA(&F);
@@ -108,10 +135,17 @@ ParcoachInstr::runOnModule(Module &M) {
       MSSA.dumpMSSA(&F);
   }
 
-  // Compute dep graph.
-  DepGraph *DG = new DepGraph(&MSSA);
+  errs() << "SSA done\n";
 
+  // Compute dep graph.
+  DepGraph *DG = new DepGraph(&MSSA, &PTACG);
+  counter = 0;
   for (Function &F : M) {
+    errs() << "DepGraph: visited " << counter << " functions over " << nbFunctions
+  	   << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
+
+    counter++;
+
     if (isIntrinsicDbgFunction(&F))
       continue;
 
@@ -121,15 +155,30 @@ ParcoachInstr::runOnModule(Module &M) {
     DG->buildFunction(&F, PDT);
   }
 
+  errs() << "Dep graph done\n";
+
+  // Phi elimination pass.
+  DG->phiElimination();
+
+  errs() << "phi elimination done\n";
+
+  // Compute tainted values
+  DG->computeTaintedValues();
+  errs() << "value contamination  done\n";
+
+  DG->computeTaintedCalls();
+  errs() << "call contamination  done\n";
+
   // Dot dep graph.
-  DG->toDot("dg.dot");
+  if (optDotGraph)
+    DG->toDot("dg.dot");
 
   if (optTimeStats) {
     errs() << "Andersen PTA time : " << (endPTA - startPTA)*1.0e3 << " ms\n";
     errs() << "Create regions time : " << (endCreateReg - startCreateReg)*1.0e3
-	   << " ms\n";
+  	   << " ms\n";
     errs() << "Mod/Ref analysis time : " << (endModRef - startModRef)*1.0e3
-	   << " ms\n";
+  	   << " ms\n";
     MSSA.printTimers();
     DG->printTimers();
   }
@@ -137,8 +186,10 @@ ParcoachInstr::runOnModule(Module &M) {
  
   // Parcoach analysis: use DG to find postdominance frontier and tainted nodes
   // Compute inter-procedural iPDF for all tainted collectives in the code
+  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   scc_iterator<CallGraph*> CGI = scc_begin(&CG);
-  CallGraphSCC CurSCC(CG, &CGI); 
+  CallGraphSCC CurSCC(CG, &CGI);
+ 
   while (!CGI.isAtEnd()) { 
     const std::vector<CallGraphNode *> &NodeVec = *CGI;
     CurSCC.initialize(NodeVec.data(), NodeVec.data() + NodeVec.size()); 
@@ -210,6 +261,92 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
    }
    return false;
 }
+
+/*
+  unsigned nbCollectivesFound = 0;
+  unsigned nbCollectivesTainted = 0;
+
+  for (Function &F : M) {
+
+    PostDominatorTree *PDT = F.isDeclaration() ? NULL :
+      &getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
+
+  	for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
+  		Instruction *i=&*I;
+                // Debug info (line in the source code, file)
+                DebugLoc DLoc = i->getDebugLoc();
+                StringRef File=""; unsigned OP_line=0;
+                if(DLoc){
+                	OP_line = DLoc.getLine();
+                        File=DLoc->getFilename();
+                }
+  		MDNode* mdNode;
+                // Warning info
+                string WarningMsg;
+                const char *ProgName="PARCOACH";
+                SMDiagnostic Diag;
+                std::string COND_lines;
+
+
+  		// FOUND A CALL INSTRUCTION
+                CallInst *CI = dyn_cast<CallInst>(i);
+                if(!CI) continue;
+
+                Function *f = CI->getCalledFunction();
+                if(!f) continue;
+
+                string OP_name = f->getName().str();
+  		StringRef funcName = f->getName();
+
+  		//DG->isTaintedCalls(f);
+
+  		// Is it a tainted collective call?
+  		for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
+  		  if (!funcName.equals(*vI))
+		    continue;
+
+		  nbCollectivesFound++;
+
+  		  if (!DG->isTaintedCall(&*CI))
+		    continue;
+
+		  errs() << OP_name + " line " + to_string(OP_line) + " is tainted! it is  possibly not called by all processes\n";
+		  nbCollectivesTainted++;
+
+		  set<const Value *> conds;
+		  DG->getTaintedCallConditions(CI, conds);
+
+		  for (const Value *cond : conds) {
+		    // FIXME: sometimes the condition of a branch
+		    // instruction is a phi node and there is no valid DebugLog
+		    // for phi nodes.
+		    if (isa<PHINode>(cond))
+		      continue;
+		    if (!isa<Instruction>(cond))
+		      continue;
+
+
+		    if (!DG->isTaintedValue(cond))
+		      continue;
+		    const Instruction *inst = cast<Instruction>(cond);
+		    DebugLoc loc = inst->getDebugLoc();
+		    COND_lines.append(" ").append(to_string(loc.getLine()));
+		  }
+
+		  // FIXME: conditions responsibles for tainted call can be in another
+		  // file.
+		  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
+		  mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
+		  i->setMetadata("inst.warning",mdNode);
+		  Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
+		  Diag.print(ProgName, errs(), 1,1);
+		}
+	}
+  }
+
+
+  errs() << nbCollectivesFound << " found, and " << nbCollectivesTainted << " are tainted\n";
+*/
 
 
 

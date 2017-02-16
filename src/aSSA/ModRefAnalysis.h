@@ -3,13 +3,13 @@
 
 #include "andersen/Andersen.h"
 #include "MemoryRegion.h"
+#include "PTACallGraph.h"
 
-#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/InstVisitor.h"
 
 class ModRefAnalysis : public llvm::InstVisitor<ModRefAnalysis> {
 public:
-  ModRefAnalysis(llvm::CallGraph &CG, Andersen *PTA);
+  ModRefAnalysis(PTACallGraph &CG, Andersen *PTA);
   ~ModRefAnalysis();
 
   MemRegSet getFuncMod(const llvm::Function *F);
@@ -25,7 +25,7 @@ private:
   void analyze();
 
   const llvm::Function *curFunc;
-  llvm::CallGraph &CG;
+  PTACallGraph &CG;
   Andersen *PTA;
   llvm::DenseMap<const llvm::Function *, MemRegSet> funcModMap;
   llvm::DenseMap<const llvm::Function *, MemRegSet> funcRefMap;

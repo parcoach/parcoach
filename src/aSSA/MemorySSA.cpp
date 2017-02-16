@@ -125,7 +125,11 @@ MemorySSA::computeMuChi(const Function *F) {
   for (MemReg *r : usedRegs) {
     funToEntryChiMap[F].insert(new MSSAEntryChi(r, F));
     regDefToBBMap[r].insert(&F->getEntryBlock());
-    funToReturnMuMap[F].insert(new MSSARetMu(r, F));
+  }
+
+  if (!functionDoesNotRet(F)) {
+    for (MemReg *r : usedRegs)
+      funToReturnMuMap[F].insert(new MSSARetMu(r, F));
   }
 
   for (MSSAChi *chi : funToEntryChiMap[F])

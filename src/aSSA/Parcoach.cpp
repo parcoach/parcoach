@@ -17,7 +17,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SourceMgr.h"
-
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 
 std::vector<const char *> MPI_v_coll = {
@@ -54,6 +54,7 @@ ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 void
 ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
+  au.addRequiredID(UnifyFunctionExitNodes::ID);
   au.addRequired<DominanceFrontierWrapperPass>();
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();

@@ -60,6 +60,16 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.addRequired<CallGraphWrapperPass>();
 }
 
+bool 
+ParcoachInstr::doFinalization(Module &M){
+  errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+  errs() << "\033[0;36m==========  PARCOACH STATISTICS ==========\033[0;0m\n";
+  errs() << "\033[0;36m==========================================\033[0;0m\n";
+  errs() << "Module name: " << M.getName() << "\n";
+  errs() << ParcoachInstr::nbCollectivesFound << " collectives found, and " << ParcoachInstr::nbCollectivesTainted << " are tainted\n";
+  errs() << "\033[0;36m==========================================\033[0;0m\n";
+  return true;
+}
 
 
 bool
@@ -234,28 +244,35 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 
 	  // Is it a tainted collective call?
 	  for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
-		  if (funcName.equals(*vI) && DG->isTaintedCall(&*CI) == true){
-			  //errs() << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
+  		  if (!funcName.equals(*vI))
+			continue;
+		  nbCollectivesFound++;
+		  if (!DG->isTaintedCall(&*CI))
+			continue;
+		  nbCollectivesTainted++;
+		  //errs() << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
 
-	  		  // Get tainted conditionals from the callsite
-		          set<const BasicBlock *> callIPDF;
-			  DG->getTaintedCallInterIPDF(CI, callIPDF);
+		  // Get tainted conditionals from the callsite
+		  // FIXME: execution rank for collectives
+		  set<const BasicBlock *> callIPDF;
+		  DG->getTaintedCallInterIPDF(CI, callIPDF);
 
-			  for (const BasicBlock *BB : callIPDF) {
-			          const Value *cond = getBasicBlockCond(BB);
-				  if (!cond || !DG->isTaintedValue(cond))
-				    continue;
-				  const Instruction *inst = BB->getTerminator();
-				  DebugLoc loc = inst->getDebugLoc();
-				  COND_lines.append(" ").append(to_string(loc.getLine()));
-			  }
-
-			  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
-			  mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
-			  i->setMetadata("inst.warning",mdNode);
-			  Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-			  Diag.print(ProgName, errs(), 1,1);
+		  for (const BasicBlock *BB : callIPDF) {
+			  const Value *cond = getBasicBlockCond(BB);
+			  if (!cond || !DG->isTaintedValue(cond))
+				  continue;
+			  const Instruction *inst = BB->getTerminator();
+			  DebugLoc loc = inst->getDebugLoc();
+			  COND_lines.append(" ").append(to_string(loc.getLine()));
 		  }
+
+		  // FIXME: conditions responsibles for tainted call can be in another
+		  // file.
+		  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
+		  mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
+		  i->setMetadata("inst.warning",mdNode);
+		  Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
+		  Diag.print(ProgName, errs(), 1,1);
 	  }
        }
    }
@@ -263,59 +280,6 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 }
 
 /*
-  unsigned nbCollectivesFound = 0;
-  unsigned nbCollectivesTainted = 0;
-
-  for (Function &F : M) {
-
-    PostDominatorTree *PDT = F.isDeclaration() ? NULL :
-      &getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
-
-  	for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
-  		Instruction *i=&*I;
-                // Debug info (line in the source code, file)
-                DebugLoc DLoc = i->getDebugLoc();
-                StringRef File=""; unsigned OP_line=0;
-                if(DLoc){
-                	OP_line = DLoc.getLine();
-                        File=DLoc->getFilename();
-                }
-  		MDNode* mdNode;
-                // Warning info
-                string WarningMsg;
-                const char *ProgName="PARCOACH";
-                SMDiagnostic Diag;
-                std::string COND_lines;
-
-
-  		// FOUND A CALL INSTRUCTION
-                CallInst *CI = dyn_cast<CallInst>(i);
-                if(!CI) continue;
-
-                Function *f = CI->getCalledFunction();
-                if(!f) continue;
-
-                string OP_name = f->getName().str();
-  		StringRef funcName = f->getName();
-
-  		//DG->isTaintedCalls(f);
-
-  		// Is it a tainted collective call?
-  		for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
-  		  if (!funcName.equals(*vI))
-		    continue;
-
-		  nbCollectivesFound++;
-
-  		  if (!DG->isTaintedCall(&*CI))
-		    continue;
-
-		  errs() << OP_name + " line " + to_string(OP_line) + " is tainted! it is  possibly not called by all processes\n";
-		  nbCollectivesTainted++;
-
-		  set<const Value *> conds;
-		  DG->getTaintedCallConditions(CI, conds);
-
 		  for (const Value *cond : conds) {
 		    // FIXME: sometimes the condition of a branch
 		    // instruction is a phi node and there is no valid DebugLog
@@ -332,23 +296,12 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 		    DebugLoc loc = inst->getDebugLoc();
 		    COND_lines.append(" ").append(to_string(loc.getLine()));
 		  }
-
-		  // FIXME: conditions responsibles for tainted call can be in another
-		  // file.
-		  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
-		  mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
-		  i->setMetadata("inst.warning",mdNode);
-		  Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-		  Diag.print(ProgName, errs(), 1,1);
-		}
-	}
-  }
-
-
-  errs() << nbCollectivesFound << " found, and " << nbCollectivesTainted << " are tainted\n";
 */
 
 
 
 char ParcoachInstr::ID = 0;
+unsigned ParcoachInstr::nbCollectivesFound = 0;
+unsigned ParcoachInstr::nbCollectivesTainted = 0;
+
 static RegisterPass<ParcoachInstr> Z("parcoach", "Module pass");

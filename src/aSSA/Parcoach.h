@@ -17,9 +17,12 @@ namespace {
   class ParcoachInstr : public llvm::ModulePass {
   public:
     static char ID;
+    static unsigned nbCollectivesFound;
+    static unsigned nbCollectivesTainted;
     ParcoachInstr();
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
+    virtual bool doFinalization(llvm::Module &M);
     virtual bool runOnSCC(llvm::CallGraphSCC &SCC, DepGraph *DG);
     virtual bool runOnModule(llvm::Module &M);
 

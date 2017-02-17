@@ -40,10 +40,20 @@ std::string getCallValueLabel(const llvm::Value *v) {
  * POSTDOMINANCE
  */
 
+static map<BasicBlock *, set<BasicBlock *> *> pdfCache;
+
 // PDF computation
 vector<BasicBlock * >
 postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   vector<BasicBlock * > PDF;
+
+  set<BasicBlock *> *cache = pdfCache[BB];
+  if (cache) {
+    for (BasicBlock *b : *cache)
+      PDF.push_back(b);
+    return PDF;
+  }
+
   PDF.clear();
   DomTreeNode *DomNode = PDT.getNode(BB);
 
@@ -67,14 +77,26 @@ postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
       }
     }
   }
+
+  pdfCache[BB] = new set<BasicBlock *>();
+  pdfCache[BB]->insert(PDF.begin(), PDF.end());
+
   return PDF;
 }
 
+static map<BasicBlock *, set<BasicBlock *> *> ipdfCache;
 
 // PDF+ computation
 vector<BasicBlock * >
 iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   vector<BasicBlock * > iPDF;
+
+  set<BasicBlock *> *cache = ipdfCache[BB];
+  if (cache) {
+    for (BasicBlock *b : *cache)
+      iPDF.push_back(b);
+    return iPDF;
+  }
 
   iPDF=postdominance_frontier(PDT, BB);
   if(iPDF.size()==0)
@@ -106,6 +128,9 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   }
 
   iPDF.insert(iPDF.end(), S.begin(), S.end());
+
+  ipdfCache[BB] = new set<BasicBlock *>();
+  ipdfCache[BB]->insert(iPDF.begin(), iPDF.end());
 
   return iPDF;
 }

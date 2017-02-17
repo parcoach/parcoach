@@ -111,8 +111,9 @@ ParcoachInstr::runOnModule(Module &M) {
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
   for (Function &F : M) {
-    errs() << "MSSA: visited " << counter << " functions over " << nbFunctions
-  	   << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
+    if (counter % 100 == 0)
+      errs() << "MSSA: visited " << counter << " functions over " << nbFunctions
+	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
     counter++;
 
     if (isIntrinsicDbgFunction(&F)) {
@@ -138,21 +139,19 @@ ParcoachInstr::runOnModule(Module &M) {
   errs() << "SSA done\n";
 
   // Compute dep graph.
-  DepGraph *DG = new DepGraph(&MSSA, &PTACG);
+  DepGraph *DG = new DepGraph(&MSSA, &PTACG, this);
   counter = 0;
   for (Function &F : M) {
-    errs() << "DepGraph: visited " << counter << " functions over " << nbFunctions
-  	   << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
+    if (counter % 100 == 0)
+      errs() << "DepGraph: visited " << counter << " functions over " << nbFunctions
+	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
 
     counter++;
 
     if (isIntrinsicDbgFunction(&F))
       continue;
 
-    PostDominatorTree *PDT = F.isDeclaration() ? NULL :
-      &getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
-
-    DG->buildFunction(&F, PDT);
+    DG->buildFunction(&F);
   }
 
   errs() << "Dep graph done\n";
@@ -239,13 +238,14 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 			  //errs() << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
 
 	  		  // Get tainted conditionals from the callsite
-			  set<const Value *> conds;
-			  DG->getTaintedCallConditions(CI, conds);
+		          set<const BasicBlock *> callIPDF;
+			  DG->getTaintedCallInterIPDF(CI, callIPDF);
 
-			  for (const Value *cond : conds) {
-				  if (!DG->isTaintedValue(cond))
-					  continue;
-				  const Instruction *inst = cast<Instruction>(cond);
+			  for (const BasicBlock *BB : callIPDF) {
+			          const Value *cond = getBasicBlockCond(BB);
+				  if (!cond || !DG->isTaintedValue(cond))
+				    continue;
+				  const Instruction *inst = BB->getTerminator();
 				  DebugLoc loc = inst->getDebugLoc();
 				  COND_lines.append(" ").append(to_string(loc.getLine()));
 			  }

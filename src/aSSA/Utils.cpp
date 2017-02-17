@@ -173,6 +173,28 @@ computeIPDFPredicates(llvm::PostDominatorTree &PDT,
   return preds;
 }
 
+const llvm::Value *
+getBasicBlockCond(const BasicBlock *BB) {
+  const TerminatorInst *ti = BB->getTerminator();
+  assert(ti);
+
+  if (isa<BranchInst>(ti)) {
+    const BranchInst *bi = cast<BranchInst>(ti);
+    assert(bi);
+
+    if (bi->isUnconditional())
+      return NULL;
+
+    return bi->getCondition();
+  } else if(isa<SwitchInst>(ti)) {
+    const SwitchInst *si = cast<SwitchInst>(ti);
+    assert(si);
+    return si->getCondition();
+  }
+
+  return NULL;
+}
+
 const llvm::Value *getReturnValue(const llvm::Function *F) {
   const Value *ret = NULL;
 

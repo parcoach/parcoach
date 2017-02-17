@@ -146,7 +146,7 @@ ModRefAnalysis::analyze() {
 
     counter += nodeVec.size();
 
-    if (counter%100) {
+    if (counter%100 == 0) {
       errs() << "Mod/Ref: visited " << counter << " functions over " << nbFunctions
 	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
     }

@@ -1,6 +1,7 @@
 #include "DepGraph.h"
 #include "Utils.h"
 
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -9,8 +10,8 @@
 using namespace llvm;
 using namespace std;
 
-DepGraph::DepGraph(MemorySSA *mssa, PTACallGraph *CG)
-  : mssa(mssa), CG(CG),
+DepGraph::DepGraph(MemorySSA *mssa, PTACallGraph *CG, Pass *pass)
+  : mssa(mssa), CG(CG), pass(pass),
     buildGraphTime(0), phiElimTime(0),
     floodDepTime(0), floodCallTime(0),
     dotTime(0) {}
@@ -18,11 +19,17 @@ DepGraph::DepGraph(MemorySSA *mssa, PTACallGraph *CG)
 DepGraph::~DepGraph() {}
 
 void
-DepGraph::buildFunction(const llvm::Function *F, PostDominatorTree *PDT) {
+DepGraph::buildFunction(const llvm::Function *F) {
   double t1 = gettime();
 
   curFunc = F;
-  curPDT = PDT;
+
+  if (F->isDeclaration())
+    curPDT = NULL;
+  else
+    curPDT =
+      &pass->getAnalysis<PostDominatorTreeWrapperPass>
+      (*const_cast<Function *>(F)).getPostDomTree();
 
   visit(*const_cast<Function *>(F));
 
@@ -946,6 +953,34 @@ DepGraph::getTaintedCallConditions(const llvm::CallInst *call,
 
     for (const Value *cond : callsiteToConds[CS])
       conditions.insert(cond);
+
+    for (const Value *v : funcToCallSites[F]) {
+      const CallInst *CS2 = cast<CallInst>(v);
+      if (visitedCallSites.count(CS2) != 0)
+	continue;
+      callsitesToVisit.push(CS2);
+    }
+  }
+}
+
+void
+DepGraph::getTaintedCallInterIPDF(const llvm::CallInst *call,
+				  std::set<const llvm::BasicBlock *> &ipdf) {
+  std::set<const llvm::CallInst *> visitedCallSites;
+  queue<const CallInst *> callsitesToVisit;
+  callsitesToVisit.push(call);
+
+  while (callsitesToVisit.size() > 0) {
+    const CallInst *CS = callsitesToVisit.front();
+    Function *F = const_cast<Function *>(CS->getParent()->getParent());
+    callsitesToVisit.pop();
+    visitedCallSites.insert(CS);
+
+    BasicBlock *BB = const_cast<BasicBlock *>(CS->getParent());
+    PostDominatorTree *PDT =
+      &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
+    vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
+    ipdf.insert(funcIPDF.begin(), funcIPDF.end());
 
     for (const Value *v : funcToCallSites[F]) {
       const CallInst *CS2 = cast<CallInst>(v);

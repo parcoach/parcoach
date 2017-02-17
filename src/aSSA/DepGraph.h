@@ -6,6 +6,7 @@
 #include "PTACallGraph.h"
 
 #include "llvm/IR/InstVisitor.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 
 class DepGraph : public llvm::InstVisitor<DepGraph> {
@@ -14,10 +15,10 @@ public:
   typedef std::set<const MSSAVar *> ConstVarSet;
   typedef std::set<const llvm::Value *> ValueSet;
 
-  DepGraph(MemorySSA *mssa, PTACallGraph *CG);
+  DepGraph(MemorySSA *mssa, PTACallGraph *CG, llvm::Pass *pass);
   virtual ~DepGraph();
 
-  void buildFunction(const llvm::Function *F, llvm::PostDominatorTree *PDT);
+  void buildFunction(const llvm::Function *F);
   void toDot(std::string filename);
 
   void visitBasicBlock(llvm::BasicBlock &BB);
@@ -56,11 +57,15 @@ public:
   bool isTaintedValue(const llvm::Value *v);
   void getTaintedCallConditions(const llvm::CallInst *call,
 				std::set<const llvm::Value *> &conditions);
+  void getTaintedCallInterIPDF(const llvm::CallInst *call,
+			       std::set<const llvm::BasicBlock *> &ipdf);
+
   void printTimers() const;
 
 private:
   MemorySSA *mssa;
   PTACallGraph *CG;
+  llvm::Pass *pass;
 
   const llvm::Function *curFunc;
   llvm::PostDominatorTree *curPDT;

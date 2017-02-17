@@ -36,4 +36,6 @@ bool isIntrinsicDbgInst(const llvm::Instruction *I);
 
 bool functionDoesNotRet(const llvm::Function *F);
 
+const llvm::Value *getBasicBlockCond(const llvm::BasicBlock *BB);
+
 #endif /* UTILS_H */

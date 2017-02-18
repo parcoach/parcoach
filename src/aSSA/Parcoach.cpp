@@ -250,7 +250,7 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 		  if (!DG->isTaintedCall(&*CI))
 			continue;
 		  nbCollectivesTainted++;
-		  //errs() << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
+		  errs() << "!!!!" << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
 
 		  // Get tainted conditionals from the callsite
 		  // FIXME: execution rank for collectives

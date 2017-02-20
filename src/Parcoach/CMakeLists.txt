@@ -12,9 +12,9 @@ endif()
 
 
 add_llvm_loadable_module( LLVMParcoach
-	Collectives.cpp
 	Parcoach.cpp
 	Utils.cpp
+	Collectives.cpp
   )
 
 add_definitions("-Wall -g")

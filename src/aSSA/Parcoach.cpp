@@ -66,7 +66,7 @@ ParcoachInstr::doFinalization(Module &M){
   errs() << "\n\033[0;36m==========================================\033[0;0m\n";
   errs() << "\033[0;36m==========  PARCOACH STATISTICS ==========\033[0;0m\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
-  errs() << "Module name: " << M.getName() << "\n";
+  errs() << "Module name: " << M.getModuleIdentifier() << "\n";
   errs() << ParcoachInstr::nbCollectivesFound << " collectives found, and " << ParcoachInstr::nbCollectivesTainted << " are tainted\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
   return true;
@@ -75,6 +75,8 @@ ParcoachInstr::doFinalization(Module &M){
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
+  errs() << ">>> Module name: " << M.getModuleIdentifier() << "\n";
+ 
   // Run Andersen alias analysis.
   double startPTA = gettime();
   Andersen AA(M);
@@ -251,7 +253,7 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 		  if (!DG->isTaintedCall(&*CI))
 			continue;
 		  nbCollectivesTainted++;
-		  errs() << "!!!!" << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
+		  //errs() << "!!!!" << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
 
 		  // Get tainted conditionals from the callsite
 		  // FIXME: execution rank for collectives
@@ -265,10 +267,8 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 			  const Instruction *inst = BB->getTerminator();
 			  DebugLoc loc = inst->getDebugLoc();
 			  COND_lines.append(" ").append(to_string(loc.getLine()));
+			  COND_lines.append(" (").append(loc->getFilename()).append(")");
 		  }
-
-		  // FIXME: conditions responsibles for tainted call can be in another
-		  // file.
 		  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
 		  mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
 		  i->setMetadata("inst.warning",mdNode);

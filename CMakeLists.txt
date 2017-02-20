@@ -44,7 +44,7 @@ link_directories(${LLVM_LIBRARY_DIRS})
 set(LIBS ${LIBS} ${MPI_LIBRARIES})
 
 add_subdirectory(src/aSSA/)	
-#add_subdirectory(src/InterP/)	
+add_subdirectory(src/Parcoach/)	
 
 #if(NOT DISABLE_UNIT_TESTS)
 #	enable_testing()

@@ -2,20 +2,31 @@
 -------------- This is PARCOACH (PARallel COntrol flow Anomaly CHecker) -------------
 -------------------------------------------------------------------------------------
 
-PARCOACH automatically checks MPI applications for correct use of MPI collective calls.
-It uses an intraprocedural analysis and statically instruments codes to verify at runtime 
-if the error will occur or not.
+PARCOACH automatically checks MPI applications to verify the correct use of MPI collective calls.
+
+----------------------------- Project structure ------------------------------
+
+This project contains the following directories: 
+   - src
+      - Parcoach (Parcoach intra-procedural analysis)
+      - aSSA (aSSA applied to Parcoach)
+      - SVG (code svg)
+      - lib (Parcoach dynamic library)
+   - docs
+      - article template
+   - tests
+      - ASSA
+      - MPI
+      - OMP
+      - UPC
+      - EXAMPLES
+
 
 
 TODO: 
-   - Interprocedural analysis
-   - Dataflow analysis
    - Check MPI+OpenMP codes
    - Check OpenMP collectives
    - Check general properties (e.g., non initialized variables) 
-
-
-This project contains two directories: Parcoach and tests
 
 
 
@@ -30,7 +41,7 @@ PARCOACH uses CMake. CMake can be downloaded from http://www.cmake.org
 This version of PARCOACH is an LLVM pass. It works with LLVM 3.9.1
 To get LLVM 3.9.1, follow these steps:
 
--> compiling LLvm requires that you have installed GNU CMAKE (version 3.79, 3.79.1), 
+-> compiling LLvm requires that you have installed GNU CMAKE, 
 GCC (>=4.7.0), python (>=2.7), libtool (version 1.5.22) and zlib (>=1.2.3.4)
 
 svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_391/final llvm

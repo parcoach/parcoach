@@ -19,6 +19,7 @@ add_llvm_loadable_module( LLVMaSSA
 	Parcoach.cpp
 	PTACallGraph.cpp
 	Utils.cpp
+	Collectives.cpp
 	andersen/Andersen.cpp
 	andersen/ConstraintCollect.cpp
 	andersen/ConstraintOptimize.cpp

@@ -5,6 +5,7 @@
 #include "ModRefAnalysis.h"
 #include "Parcoach.h"
 #include "PTACallGraph.h"
+#include "Collectives.h"
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
@@ -18,20 +19,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-
-
-std::vector<const char *> MPI_v_coll = {
-  "MPI_Barrier", "MPI_Bcast", "MPI_Scatter", "MPI_Scatterv", "MPI_Gather",
-  "MPI_Gatherv", "MPI_Allgather", "MPI_Allgatherv", "MPI_Alltoall",
-  "MPI_Alltoallv", "MPI_Alltoallw", "MPI_Reduce", "MPI_Allreduce",
-  "MPI_Reduce_scatter", "MPI_Scan", "MPI_Comm_split", "MPI_Comm_create",
-  "MPI_Comm_dup", "MPI_Comm_dup_with_info", "MPI_Ibarrier", "MPI_Igather",
-  "MPI_Igatherv", "MPI_Iscatter", "MPI_Iscatterv", "MPI_Iallgather",
-  "MPI_Iallgatherv", "MPI_Ialltoall", "MPI_Ialltoallv", "MPI_Ialltoallw",
-  "MPI_Ireduce", "MPI_Iallreduce", "MPI_Ireduce_scatter_block",
-  "MPI_Ireduce_scatter", "MPI_Iscan", "MPI_Iexscan","MPI_Ibcast"
-};
-
 
 
 using namespace llvm;
@@ -202,6 +189,46 @@ ParcoachInstr::runOnModule(Module &M) {
   // Parcoach analysis: use DG to find postdominance frontier and tainted nodes
   // Compute inter-procedural iPDF for all tainted collectives in the code
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+  scc_iterator<CallGraph *> I = scc_begin(&CG);
+  CallGraphSCC SCC(CG, &I);
+
+  errs() << "= TEST 1 =\n";
+ // Compute inverse order of scc.
+  list<vector<CallGraphNode *> > inverseOrder;
+  while (!I.isAtEnd()) {
+    vector<CallGraphNode *> nodeVec = *I;
+    inverseOrder.push_back(nodeVec);
+    ++I;
+  }
+
+ for (auto I = inverseOrder.begin(), E = inverseOrder.end(); I != E; ++I) {
+      vector<CallGraphNode *> nodeVec = *I;
+	for (unsigned i=0; i<nodeVec.size(); ++i) {
+	        Function *F = nodeVec[i]->getFunction();
+        	if (!F || F->isDeclaration())
+          		continue;
+        	errs() << "-> Function: " << F->getName() << "\n";
+	}
+  }
+
+
+  errs() << "= TEST 2 =\n";
+  for (scc_iterator<CallGraph *> I = scc_begin(&CG); !I.isAtEnd(); ++I) {
+     const std::vector<CallGraphNode *> &SCC = *I;
+	for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
+       		Function *F = SCC[i]->getFunction();
+		if (!F || F->isDeclaration()) { break;}
+		errs() << "SCC[" << i << "/" << e << "] -> Function: " << F->getName() << "\n";
+
+		for (CallGraphNode::iterator CI = SCC[i]->begin(), E = SCC[i]->end();CI != E; ++CI){
+			Function *Callee = CI->second->getFunction();
+			if (!Callee) { break;}
+			errs() << "> callee " << Callee->getName() << "\n";
+		}	
+	}
+  }
+  errs() << "= FIN TEST =\n";
+
   scc_iterator<CallGraph*> CGI = scc_begin(&CG);
   CallGraphSCC CurSCC(CG, &CGI);
  
@@ -216,12 +243,21 @@ ParcoachInstr::runOnModule(Module &M) {
   return false;
 }
 
+
+
 bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
    for(CallGraphSCC::iterator CGit=SCC.begin(); CGit != SCC.end(); CGit++){
        CallGraphNode *CGN = *CGit;
        Function *F = CGN->getFunction();
+       StringRef FuncSummary;
+       MDNode* mdNode;
        if (!F || F->isDeclaration()) continue; 
 
+	// (1) Set the sequence of collectives with a BFS from the exit node in the CFG
+	errs() << "  >>> BFS on " << F->getName() << "\n";  
+      BFS(F);		
+
+	// (2) Check collectives
        for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
           Instruction *i=&*I;       
           // Debug info (line in the source code, file)
@@ -231,7 +267,6 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 		  OP_line = DLoc.getLine();
 		  File=DLoc->getFilename();
 	  }
-	  MDNode* mdNode;
 	  // Warning info
 	  string WarningMsg;
 	  const char *ProgName="PARCOACH";
@@ -267,6 +302,12 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 			  const Value *cond = getBasicBlockCond(BB);
 			  if (!cond || !DG->isTaintedValue(cond))
 				  continue;
+			 // if the condition is tainted and has NAVS as a coll seq, keep for warning
+			// if the condition is tainted and has empty as a coll seq, keep because the function has no summary, function in another module?
+			  string Seq = getBBcollSequence(*(BB->getTerminator()));
+			  errs() << "DBG: " << F->getName() << " " << Seq << "\n";
+			  if(Seq!="NAVS" || Seq!="empty")
+				continue;
 			  const Instruction *inst = BB->getTerminator();
 			  DebugLoc loc = inst->getDebugLoc();
 			  COND_lines.append(" ").append(to_string(loc.getLine())).append(" (").append(loc->getFilename()).append(")");
@@ -278,6 +319,14 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 		  Diag.print(ProgName, errs(), 1,1);
 	  }
        }
+       // Keep a metadata for the summary of the function
+       // Set the summary of a function even if no potential errors detected
+       // Then take into account the summary when setting the sequence of collectives of a BB
+       BasicBlock &entry = F->getEntryBlock();
+       FuncSummary=getBBcollSequence(*entry.getTerminator());
+       mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
+       F->setMetadata("func.summary",mdNode);
+       errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
    }
    return false;
 }

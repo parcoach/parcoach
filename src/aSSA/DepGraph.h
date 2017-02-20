@@ -123,12 +123,15 @@ private:
   ValueSet taintedCallNodes;
   std::set<const llvm::Function *> taintedFunctions;
   ConstVarSet taintedSSANodes;
+  ConstVarSet taintResetSSANodes;
   ConstVarSet ssaSources;
 
   /* Graph construction for call sites*/
   void connectCSMus(llvm::CallInst &I);
   void connectCSChis(llvm::CallInst &I);
   void connectCSEffectiveParameters(llvm::CallInst &I);
+  void connectCSEffectiveParametersExt(llvm::CallInst &I,
+				       const llvm::Function *callee);
   void connectCSCalledReturnValue(llvm::CallInst &I);
   void connectCSRetChi(llvm::CallInst &I);
 

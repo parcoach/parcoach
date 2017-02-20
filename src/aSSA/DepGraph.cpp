@@ -45,15 +45,20 @@ DepGraph::buildFunction(const llvm::Function *F) {
 
   // External functions
   if (F->isDeclaration()) {
+
     // Add var arg entry and exit chi nodes.
     if (F->isVarArg()) {
-      MSSAChi *entryChi = mssa->extVarArgEntryChi[F];
-      assert(entryChi && entryChi->var);
-      funcToSSANodesMap[F].insert(entryChi->var);
-      MSSAChi *exitChi =  mssa->extVarArgExitChi[F];
-      assert(exitChi && exitChi->var);
-      funcToSSANodesMap[F].insert(exitChi->var);
-      addEdge(exitChi->opVar, exitChi->var);
+      for (auto I : mssa->extCallSiteToVarArgEntryChi[F]) {
+	MSSAChi *entryChi = I.second;
+	assert(entryChi && entryChi->var);
+	funcToSSANodesMap[F].insert(entryChi->var);
+      }
+      for (auto I : mssa->extCallSiteToVarArgExitChi[F]) {
+	MSSAChi *exitChi = I.second;
+	assert(exitChi && exitChi->var);
+	funcToSSANodesMap[F].insert(exitChi->var);
+	addEdge(exitChi->opVar, exitChi->var);
+      }
     }
 
     // Add args entry and exit chi nodes for external functions.
@@ -64,124 +69,151 @@ DepGraph::buildFunction(const llvm::Function *F) {
 	continue;
       }
 
-      MSSAChi *entryChi = mssa->extArgEntryChi[F][argNo];
-      assert(entryChi && entryChi->var);
-      funcToSSANodesMap[F].insert(entryChi->var);
-      MSSAChi *exitChi =  mssa->extArgExitChi[F][argNo];
-      assert(exitChi && exitChi->var);
-      funcToSSANodesMap[F].insert(exitChi->var);
-      addEdge(exitChi->opVar, exitChi->var);
+      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
+	MSSAChi *entryChi = I.second[argNo];
+	assert(entryChi && entryChi->var);
+	funcToSSANodesMap[F].insert(entryChi->var);
+      }
+      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
+	MSSAChi *exitChi =  I.second[argNo];
+	assert(exitChi && exitChi->var);
+	funcToSSANodesMap[F].insert(exitChi->var);
+	addEdge(exitChi->opVar, exitChi->var);
+      }
 
       argNo++;
     }
 
     // Add retval chi node for external functions
     if (F->getReturnType()->isPointerTy()) {
-      MSSAChi *retChi = mssa->extRetChi[F];
-      assert(retChi && retChi->var);
-      funcToSSANodesMap[F].insert(retChi->var);
+      for (auto I : mssa->extCallSiteToCalleeRetChi[F]) {
+	MSSAChi *retChi = I.second;
+	assert(retChi && retChi->var);
+	funcToSSANodesMap[F].insert(retChi->var);
+      }
     }
 
     // If the function is MPI_Comm_rank set the address-taken ssa of the
     // second argument as a contamination source.
     if (F->getName().equals("MPI_Comm_rank")) {
-      assert(mssa->extArgExitChi[F][1]);
-      ssaSources.insert(mssa->extArgExitChi[F][1]->var);
+      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
+	assert(I.second[1]);
+	ssaSources.insert(I.second[1]->var);
+      }
     }
 
     // If the function is MPI_Group_rank set the address-taken ssa of the
     // second argument as a contamination source.
     else if (F->getName().equals("MPI_Group_rank")) {
-      assert(mssa->extArgExitChi[F][1]);
-      ssaSources.insert(mssa->extArgExitChi[F][1]->var);
+      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
+	assert(I.second[1]);
+	ssaSources.insert(I.second[1]->var);
+      }
     }
 
     // memcpy
     else if (F->getName().find("memcpy") != StringRef::npos) {
-      MSSAChi *srcEntryChi = mssa->extArgEntryChi[F][1];
-      MSSAChi *dstExitChi = mssa->extArgExitChi[F][0];
+      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
+	CallSite CS = I.first;
+	MSSAChi *srcEntryChi = mssa->extCallSiteToArgEntryChi[F][CS][1];
+	MSSAChi *dstExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
 
-      addEdge(srcEntryChi->var, dstExitChi->var);
+	addEdge(srcEntryChi->var, dstExitChi->var);
 
-      // llvm.mempcy instrinsic returns void whereas memcpy returns dst
-      if (F->getReturnType()->isPointerTy()) {
-	MSSAChi *retChi = mssa->extRetChi[F];
-	addEdge(dstExitChi->var, retChi->var);
+	// llvm.mempcy instrinsic returns void whereas memcpy returns dst
+	if (F->getReturnType()->isPointerTy()) {
+	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
+	  addEdge(dstExitChi->var, retChi->var);
+	}
       }
     }
 
     // memmove
     else if (F->getName().find("memmove") != StringRef::npos) {
-      MSSAChi *srcEntryChi = mssa->extArgEntryChi[F][1];
-      MSSAChi *dstExitChi = mssa->extArgExitChi[F][0];
+      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
+	CallSite CS = I.first;
 
-      addEdge(srcEntryChi->var, dstExitChi->var);
+	MSSAChi *srcEntryChi = mssa->extCallSiteToArgEntryChi[F][CS][1];
+	MSSAChi *dstExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
 
-      // llvm.memmove instrinsic returns void whereas memmove returns dst
-      if (F->getReturnType()->isPointerTy()) {
-	MSSAChi *retChi = mssa->extRetChi[F];
-	addEdge(dstExitChi->var, retChi->var);
+	addEdge(srcEntryChi->var, dstExitChi->var);
+
+	// llvm.memmove instrinsic returns void whereas memmove returns dst
+	if (F->getReturnType()->isPointerTy()) {
+	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
+	  addEdge(dstExitChi->var, retChi->var);
+	}
       }
     }
 
     // memset
     else if (F->getName().find("memset") != StringRef::npos) {
-      MSSAChi *argExitChi = mssa->extArgExitChi[F][0];
-      const Argument *cArg = getFunctionArgument(F, 1);
-      assert(cArg);
+      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
+	CallSite CS = I.first;
 
-      addEdge(cArg, argExitChi->var);
+	MSSAChi *argExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
 
-      // llvm.memset instrinsic returns void whereas memset returns dst
-      if (F->getReturnType()->isPointerTy()) {
-	MSSAChi *retChi = mssa->extRetChi[F];
-	addEdge(argExitChi->var, retChi->var);
+	// llvm.memset instrinsic returns void whereas memset returns dst
+	if (F->getReturnType()->isPointerTy()) {
+	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
+	  addEdge(argExitChi->var, retChi->var);
+	}
+      }
+    }
+
+
+    else if (F->getName().find("MPI_Bcast") != StringRef::npos) {
+      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
+	CallSite CS = I.first;
+
+	MSSAChi *arg0OutChi = mssa->extCallSiteToArgExitChi[F][CS][0];
+	taintResetSSANodes.insert(arg0OutChi->var);
       }
     }
 
     // Unknown external function, we have to connect every input to every
     // output.
     else {
-      std::set<MSSAVar *> ssaOutputs;
-      std::set<MSSAVar *> ssaInputs;
+      // std::set<MSSAVar *> ssaOutputs;
+      // std::set<MSSAVar *> ssaInputs;
 
-      // Compute SSA outputs
-      for (auto I : mssa->extArgExitChi[F]) {
-	MSSAChi *argExitChi = I.second;
-	ssaOutputs.insert(argExitChi->var);
-      }
-      if (F->isVarArg()) {
-	MSSAChi *varArgExitChi = mssa->extVarArgExitChi[F];
-	ssaOutputs.insert(varArgExitChi->var);
-      }
-      if (F->getReturnType()->isPointerTy()) {
-	MSSAChi *retChi = mssa->extRetChi[F];
-	ssaOutputs.insert(retChi->var);
-      }
+      // // Compute SSA outputs
+      // for (auto I : mssa->extArgExitChi[F]) {
+      // 	MSSAChi *argExitChi = I.second;
+      // 	ssaOutputs.insert(argExitChi->var);
+      // }
+      // if (F->isVarArg()) {
+      // 	MSSAChi *varArgExitChi = mssa->extVarArgExitChi[F];
+      // 	ssaOutputs.insert(varArgExitChi->var);
+      // }
+      // if (F->getReturnType()->isPointerTy()) {
+      // 	MSSAChi *retChi = mssa->extRetChi[F];
+      // 	ssaOutputs.insert(retChi->var);
+      // }
 
-      // Compute SSA inputs
-      for (auto I : mssa->extArgEntryChi[F]) {
-	MSSAChi *argEntryChi = I.second;
-	ssaInputs.insert(argEntryChi->var);
-      }
-      if (F->isVarArg()) {
-	MSSAChi *varArgEntryChi = mssa->extVarArgEntryChi[F];
-	ssaInputs.insert(varArgEntryChi->var);
-      }
+      // // Compute SSA inputs
+      // for (auto I : mssa->extArgEntryChi[F]) {
+      // 	MSSAChi *argEntryChi = I.second;
+      // 	ssaInputs.insert(argEntryChi->var);
+      // }
+      // if (F->isVarArg()) {
+      // 	MSSAChi *varArgEntryChi = mssa->extVarArgEntryChi[F];
+      // 	ssaInputs.insert(varArgEntryChi->var);
+      // }
 
-      // Connect SSA inputs to SSA outputs
-      for (MSSAVar *in : ssaInputs) {
-	for (MSSAVar *out : ssaOutputs) {
-	  addEdge(in, out);
-	}
-      }
+      // // Connect SSA inputs to SSA outputs
+      // for (MSSAVar *in : ssaInputs) {
+      // 	for (MSSAVar *out : ssaOutputs) {
+      // 	  addEdge(in, out);
+      // 	}
+      // }
 
-      // Connect LLVM arguments to SSA outputs
-      for (const Argument &arg : F->getArgumentList()) {
-	for (MSSAVar *out : ssaOutputs) {
-	  addEdge(&arg, out);
-	}
-      }
+      // // Connect LLVM arguments to SSA outputs
+      // for (const Argument &arg : F->getArgumentList()) {
+      // 	for (MSSAVar *out : ssaOutputs) {
+      // 	  addEdge(&arg, out);
+      // 	}
+      // }
     }
   }
 
@@ -400,6 +432,8 @@ DepGraph::connectCSMus(llvm::CallInst &I) {
     // External Function, we connect call mu to artifical chi of the external
     // function for each argument.
     if (called->isDeclaration()) {
+      CallSite CS(&I);
+
       MSSAExtCallMu *extCallMu = cast<MSSAExtCallMu>(callMu);
       unsigned argNo = extCallMu->argNo;
 
@@ -407,8 +441,8 @@ DepGraph::connectCSMus(llvm::CallInst &I) {
       if (argNo >= called->arg_size()) {
 	assert(called->isVarArg());
 
-	assert(mssa->extVarArgEntryChi[called]);
-	MSSAVar *var = mssa->extVarArgEntryChi[called]->var;
+	assert(mssa->extCallSiteToVarArgEntryChi[called][CS]);
+	MSSAVar *var = mssa->extCallSiteToVarArgEntryChi[called][CS]->var;
 	assert(var);
 	funcToSSANodesMap[called].insert(var);
 	addEdge(mu->var, var); // rule3
@@ -416,8 +450,9 @@ DepGraph::connectCSMus(llvm::CallInst &I) {
 
       else {
 	// rule3
-	assert(mssa->extArgEntryChi[called][argNo]);
-	addEdge(mu->var, mssa->extArgEntryChi[called][argNo]->var);
+	assert(mssa->extCallSiteToArgEntryChi[called][CS][argNo]);
+	addEdge(mu->var,
+		mssa->extCallSiteToArgEntryChi[called][CS][argNo]->var);
       }
 
       continue;
@@ -448,6 +483,8 @@ DepGraph::connectCSChis(llvm::CallInst &I) {
     // External Function, we connect call chi to artifical chi of the external
     // function for each argument.
     if (called->isDeclaration()) {
+      CallSite CS(&I);
+
       MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(callChi);
       unsigned argNo = extCallChi->argNo;
 
@@ -455,8 +492,8 @@ DepGraph::connectCSChis(llvm::CallInst &I) {
       if (argNo >= called->arg_size()) {
 	assert(called->isVarArg());
 
-	assert(mssa->extVarArgExitChi[called]);
-	MSSAVar *var = mssa->extVarArgExitChi[called]->var;
+	assert(mssa->extCallSiteToVarArgExitChi[called][CS]);
+	MSSAVar *var = mssa->extCallSiteToVarArgExitChi[called][CS]->var;
 	assert(var);
 	funcToSSANodesMap[called].insert(var);
 	addEdge(var, chi->var); // rule5
@@ -464,8 +501,8 @@ DepGraph::connectCSChis(llvm::CallInst &I) {
 
       else {
 	// rule5
-	assert(mssa->extArgExitChi[called][argNo]);
-	addEdge(mssa->extArgExitChi[called][argNo]->var, chi->var);
+	assert(mssa->extCallSiteToArgExitChi[called][CS][argNo]);
+	addEdge(mssa->extCallSiteToArgExitChi[called][CS][argNo]->var, chi->var);
       }
 
       continue;
@@ -488,6 +525,11 @@ DepGraph::connectCSEffectiveParameters(llvm::CallInst &I) {
 
   // direct call
   if (callee) {
+    if (callee->isDeclaration()) {
+      connectCSEffectiveParametersExt(I, callee);
+      return;
+    }
+
     unsigned argIdx = 0;
     for (const Argument &arg : callee->getArgumentList()) {
       funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
@@ -502,6 +544,11 @@ DepGraph::connectCSEffectiveParameters(llvm::CallInst &I) {
   // indirect call
   else {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+      if (mayCallee->isDeclaration()) {
+	connectCSEffectiveParametersExt(I, mayCallee);
+	return;
+      }
+
       unsigned argIdx = 0;
       for (const Argument &arg : mayCallee->getArgumentList()) {
 	funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
@@ -512,6 +559,20 @@ DepGraph::connectCSEffectiveParameters(llvm::CallInst &I) {
 	argIdx++;
       }
     }
+  }
+}
+
+void
+DepGraph::connectCSEffectiveParametersExt(CallInst &I, const Function *callee) {
+  CallSite CS(&I);
+
+  if (callee->getName().find("memset") != StringRef::npos) {
+    MSSAChi *argExitChi = mssa->extCallSiteToArgExitChi[callee][CS][0];
+    const Value *cArg = I.getArgOperand(1);
+    assert(cArg);
+    funcToLLVMNodesMap[I.getParent()->getParent()].insert(cArg);
+    addEdge(cArg, argExitChi->var);
+
   }
 }
 
@@ -548,17 +609,18 @@ DepGraph::connectCSRetChi(llvm::CallInst &I) {
   // return chi of the caller.
 
   const Function *callee = I.getCalledFunction();
+  CallSite CS(&I);
 
   // direct call
   if (callee) {
     if (callee->isDeclaration() && callee->getReturnType()->isPointerTy()) {
-      for (MSSAChi *chi : mssa->extCallSiteToRetChiMap[CallSite(&I)]) {
+      for (MSSAChi *chi : mssa->extCallSiteToCallerRetChi[CallSite(&I)]) {
 	assert(chi && chi->var && chi->opVar);
 	funcToSSANodesMap[curFunc].insert(chi->var);
 	funcToSSANodesMap[curFunc].insert(chi->opVar);
 
 	addEdge(chi->opVar, chi->var);
-	addEdge(mssa->extRetChi[callee]->var, chi->var);
+	addEdge(mssa->extCallSiteToCalleeRetChi[callee][CS]->var, chi->var);
       }
     }
   }
@@ -568,13 +630,14 @@ DepGraph::connectCSRetChi(llvm::CallInst &I) {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
       if (mayCallee->isDeclaration() &&
 	  mayCallee->getReturnType()->isPointerTy()) {
-	for (MSSAChi *chi : mssa->extCallSiteToRetChiMap[CallSite(&I)]) {
+	for (MSSAChi *chi : mssa->extCallSiteToCallerRetChi[CallSite(&I)]) {
 	  assert(chi && chi->var && chi->opVar);
 	  funcToSSANodesMap[curFunc].insert(chi->var);
 	  funcToSSANodesMap[curFunc].insert(chi->opVar);
 
 	  addEdge(chi->opVar, chi->var);
-	  addEdge(mssa->extRetChi[mayCallee]->var, chi->var);
+	  addEdge(mssa->extCallSiteToCalleeRetChi[mayCallee][CS]->var,
+		  chi->var);
 	}
       }
     }
@@ -841,6 +904,15 @@ DepGraph::computeTaintedValues() {
 
       for (MSSAVar *d : ssaToSSAChildren[s]) {
 	if (taintedSSANodes.count(d) != 0)
+	  continue;
+
+	bool isReset = false;
+	for (const MSSAVar *resetVar : taintResetSSANodes) {
+	  if (ssaToSSAParents[d].find(const_cast<MSSAVar *>(resetVar))
+	      != ssaToSSAParents[d].end())
+	    isReset = true;
+	}
+	if (isReset)
 	  continue;
 
 	taintedSSANodes.insert(d);

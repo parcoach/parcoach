@@ -133,10 +133,8 @@ ParcoachInstr::runOnModule(Module &M) {
       continue;
     }
 
-    if (F.isDeclaration()) {
-      MSSA.buildExtSSA(&F);
+    if (F.isDeclaration())
       continue;
-    }
 
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     DominanceFrontier &DF =

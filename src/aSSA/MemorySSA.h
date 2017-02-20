@@ -28,8 +28,13 @@ class MemorySSA {
   // Chi and Mu annotations
   typedef llvm::DenseMap<const llvm::LoadInst *, MuSet> LoadToMuMap;
   typedef llvm::DenseMap<const llvm::StoreInst *, ChiSet> StoreToChiMap;
-  typedef std::map<llvm::CallSite, MuSet> CallSiteToMuMap;
-  typedef std::map<llvm::CallSite, ChiSet> CallSiteToChiMap;
+  typedef std::map<llvm::CallSite, MuSet> CallSiteToMuSetMap;
+  typedef std::map<llvm::CallSite, ChiSet> CallSiteToChiSetMap;
+  typedef std::map<const llvm::Function *,
+		   std::map<llvm::CallSite, MSSAChi *> > FuncCallSiteToChiMap;
+  typedef std::map<const llvm::Function *,
+		   std::map<llvm::CallSite, llvm::DenseMap<unsigned, MSSAChi *> > >
+  FuncCallSiteToArgChiMap;
 
   // Phis
   typedef llvm::DenseMap<const llvm::BasicBlock *, PhiSet> BBToPhiMap;
@@ -58,13 +63,16 @@ public:
 
   void buildSSA(const llvm::Function *F, llvm::DominatorTree &DT,
 		llvm::DominanceFrontier &DF, llvm::PostDominatorTree &PDT);
-  void buildExtSSA(const llvm::Function *F);
 
   void dumpMSSA(const llvm::Function *F);
 
   void printTimers() const;
 
 private:
+
+  void createArtificalChiForCalledFunction(llvm::CallSite CS,
+					   const llvm::Function *callee);
+
   void computeMuChi(const llvm::Function *F);
 
   void computeMuChiForCalledFunction(const llvm::Instruction *inst,
@@ -109,8 +117,8 @@ protected:
 
   LoadToMuMap loadToMuMap;
   StoreToChiMap storeToChiMap;
-  CallSiteToMuMap callSiteToMuMap;
-  CallSiteToChiMap callSiteToChiMap;
+  CallSiteToMuSetMap callSiteToMuMap;
+  CallSiteToChiSetMap callSiteToChiMap;
   BBToPhiMap bbToPhiMap;
   FunToEntryChiMap funToEntryChiMap;
   FunToReturnMuMap funToReturnMuMap;
@@ -120,12 +128,14 @@ protected:
   FunRegToReturnMuMap funRegToReturnMuMap;
 
   // External function artifical chis.
-  CallSiteToChiMap extCallSiteToRetChiMap;
-  FuncToChiMap extVarArgEntryChi;
-  FuncToChiMap extVarArgExitChi;
-  FuncToArgChiMap extArgEntryChi;
-  FuncToArgChiMap extArgExitChi;
-  FuncToChiMap extRetChi;
+  CallSiteToChiSetMap extCallSiteToCallerRetChi; // inside caller (necessary
+  // because there is no mod/ref analysis for external functions).
+
+  FuncCallSiteToChiMap  extCallSiteToVarArgEntryChi;
+  FuncCallSiteToChiMap extCallSiteToVarArgExitChi;
+  FuncCallSiteToArgChiMap extCallSiteToArgEntryChi;
+  FuncCallSiteToArgChiMap extCallSiteToArgExitChi;
+  FuncCallSiteToChiMap extCallSiteToCalleeRetChi;
 };
 
 #endif /* MEMORYSSA_H */

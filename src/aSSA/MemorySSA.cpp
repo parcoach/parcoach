@@ -68,12 +68,16 @@ MemorySSA::computeMuChi(const Function *F) {
 	for (const Function *mayCallee : CG->indirectCallMap[inst]) {
 	  computeMuChiForCalledFunction(inst,
 					const_cast<Function *>(mayCallee));
+	  if (mayCallee->isDeclaration())
+	    createArtificalChiForCalledFunction(cs, mayCallee);
 	}
       }
 
       // direct call
       else {
 	computeMuChiForCalledFunction(inst, callee);
+	if (callee->isDeclaration())
+	  createArtificalChiForCalledFunction(cs, callee);
       }
 
       continue;
@@ -191,7 +195,7 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
       MemReg::getValuesRegion(ptsSet, regs);
 
       for (MemReg *r : regs) {
-	extCallSiteToRetChiMap[cs].insert(new MSSAExtRetCallChi(r, callee));
+	extCallSiteToCallerRetChi[cs].insert(new MSSAExtRetCallChi(r, callee));
 	regDefToBBMap[r].insert(inst->getParent());
 	usedRegs.insert(r);
       }
@@ -321,7 +325,7 @@ MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
 	C[V]++;
       }
 
-      for (MSSAChi *chi : extCallSiteToRetChiMap[cs]) {
+      for (MSSAChi *chi : extCallSiteToCallerRetChi[cs]) {
       	MemReg *V = chi->region;
       	unsigned i = C[V];
       	chi->var = new MSSAVar(chi, i, inst->getParent());
@@ -392,7 +396,7 @@ MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
 	S[V].pop_back();
       }
 
-      for (MSSAChi *chi : extCallSiteToRetChiMap[cs]) {
+      for (MSSAChi *chi : extCallSiteToCallerRetChi[cs]) {
       	MemReg *V = chi->region;
       	S[V].pop_back();
       }
@@ -591,7 +595,7 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 		 << "  X(" << chi->region->getName() << chi->opVar->version
 		 << ")\n";
 
-	for (MSSAChi *chi : extCallSiteToRetChiMap[cs])
+	for (MSSAChi *chi : extCallSiteToCallerRetChi[cs])
 	  errs() << chi->region->getName() << chi->var->version << " = "
 		 << "  X(" << chi->region->getName() << chi->opVar->version
 		 << ")\n";
@@ -610,46 +614,49 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 }
 
 void
-MemorySSA::buildExtSSA(const llvm::Function *F) {
+MemorySSA::createArtificalChiForCalledFunction(llvm::CallSite CS,
+					       const llvm::Function *callee) {
+  assert(callee->isDeclaration());
+
   // If it is a var arg function, create artificial entry and exit chi for the
   // var arg.
-  if (F->isVarArg()) {
-    MSSAChi *entryChi = new MSSAExtVarArgChi(F);
-    extVarArgEntryChi[F] = entryChi;
+  if (callee->isVarArg()) {
+    MSSAChi *entryChi = new MSSAExtVarArgChi(callee);
+    extCallSiteToVarArgEntryChi[callee][CS] = entryChi;
     entryChi->var = new MSSAVar(entryChi, 0, NULL);
 
-    MSSAChi *outChi = new MSSAExtVarArgChi(F);
+    MSSAChi *outChi = new MSSAExtVarArgChi(callee);
     outChi->var = new MSSAVar(entryChi, 1, NULL);
     outChi->opVar = entryChi->var;
-    extVarArgExitChi[F] = outChi;
+    extCallSiteToVarArgExitChi[callee][CS] = outChi;
   }
 
 
   // Create artifical entry and exit chi for each pointer argument.
   unsigned argId = 0;
-  for (const Argument &arg : F->getArgumentList()) {
+  for (const Argument &arg : callee->getArgumentList()) {
     if (!arg.getType()->isPointerTy()) {
       argId++;
       continue;
     }
 
-    MSSAChi *entryChi = new MSSAExtArgChi(F, argId);
-    extArgEntryChi[F][argId] = entryChi;
+    MSSAChi *entryChi = new MSSAExtArgChi(callee, argId);
+    extCallSiteToArgEntryChi[callee][CS][argId] = entryChi;
     entryChi->var = new MSSAVar(entryChi, 0, NULL);
 
-    MSSAChi *exitChi = new MSSAExtArgChi(F, argId);
+    MSSAChi *exitChi = new MSSAExtArgChi(callee, argId);
     exitChi->var = new MSSAVar(exitChi, 1, NULL);
     exitChi->opVar = entryChi->var;
-    extArgExitChi[F][argId] = exitChi;
+    extCallSiteToArgExitChi[callee][CS][argId] = exitChi;
 
     argId++;
   }
 
   // Create artifical chi for return value if it is a pointer.
-  if (F->getReturnType()->isPointerTy()) {
-    MSSAChi *retChi = new MSSAExtRetChi(F);
+  if (callee->getReturnType()->isPointerTy()) {
+    MSSAChi *retChi = new MSSAExtRetChi(callee);
     retChi->var = new MSSAVar(retChi, 0, NULL);
-    extRetChi[F] = retChi;
+    extCallSiteToCalleeRetChi[callee][CS] = retChi;
   }
 }
 

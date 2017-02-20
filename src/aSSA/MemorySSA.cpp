@@ -604,7 +604,7 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 
   // Dump return mu
   for (MSSAMu *mu : funToReturnMuMap[F])
-    errs() << mu->region->getName() << mu->var->version << ")\n";
+    errs() << "  mu(" << mu->region->getName() << mu->var->version << ")\n";
 
   errs() << "}\n";
 }

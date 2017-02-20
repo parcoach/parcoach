@@ -48,6 +48,8 @@ static cl::opt<bool> optDumpModRef("dump-modref",
 				cl::desc("Dump the mod/ref analysis"));
 static cl::opt<bool> optTimeStats("timer",
 				cl::desc("Print timers"));
+static cl::opt<bool> optDisablePhiElim("disable-phi-elim",
+				cl::desc("Disable Phi elimination pass"));
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
@@ -168,7 +170,8 @@ ParcoachInstr::runOnModule(Module &M) {
   errs() << "Dep graph done\n";
 
   // Phi elimination pass.
-  DG->phiElimination();
+  if (!optDisablePhiElim)
+    DG->phiElimination();
 
   errs() << "phi elimination done\n";
 
@@ -264,12 +267,10 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 				  continue;
 			  const Instruction *inst = BB->getTerminator();
 			  DebugLoc loc = inst->getDebugLoc();
-			  COND_lines.append(" ").append(to_string(loc.getLine()));
+			  COND_lines.append(" ").append(to_string(loc.getLine()) + string(" in file ") + string(loc->getFilename()));
 		  }
 
-		  // FIXME: conditions responsibles for tainted call can be in another
-		  // file.
-		  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
+		  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s)" + COND_lines;
 		  mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
 		  i->setMetadata("inst.warning",mdNode);
 		  Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);

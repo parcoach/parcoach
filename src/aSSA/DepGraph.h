@@ -20,6 +20,8 @@ public:
 
   void buildFunction(const llvm::Function *F);
   void toDot(std::string filename);
+  void dotTaintPath(const llvm::Value *v, std::string filename);
+
 
   void visitBasicBlock(llvm::BasicBlock &BB);
   void visitAllocaInst(llvm::AllocaInst &I);

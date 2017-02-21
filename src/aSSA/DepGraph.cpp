@@ -1280,3 +1280,243 @@ DepGraph::removeEdge(MSSAVar *s, MSSAVar *d) {
   n = ssaToSSAParents[d].erase(s);
   assert(n == 1);
 }
+
+void
+DepGraph::dotTaintPath(const Value *v, string filename) {
+  errs() << "Writing '" << filename << "' ...\n";
+
+  // Parcours en largeur
+  unsigned curDist = 0;
+  unsigned curSize = 128;
+  std::vector<std::set<const Value *> > visitedLLVMNodesByDist;
+  std::set<const Value *> visitedLLVMNodes;
+  std::vector<std::set<MSSAVar *> > visitedSSANodesByDist;
+  std::set<MSSAVar *> visitedSSANodes;
+
+  visitedSSANodesByDist.resize(curSize);
+  visitedLLVMNodesByDist.resize(curSize);
+
+  visitedLLVMNodes.insert(v);
+
+  for (const Value *p : llvmToLLVMParents[v]) {
+    if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
+      continue;
+
+    if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
+      continue;
+
+    visitedLLVMNodesByDist[curDist].insert(p);
+  }
+  for (MSSAVar *p : llvmToSSAParents[v]) {
+    if (visitedSSANodes.find(p) != visitedSSANodes.end())
+      continue;
+
+    if (taintedSSANodes.find(p) == taintedSSANodes.end())
+      continue;
+
+    visitedSSANodesByDist[curDist].insert(p);
+  }
+
+  bool stop = false;
+  MSSAVar *root = NULL;
+
+  while (true) {
+    if (curDist >= curSize) {
+      curSize *=2;
+      visitedLLVMNodesByDist.resize(curSize);
+      visitedSSANodesByDist.resize(curSize);
+    }
+
+    // Visit parents of llvm values
+    for (const Value *v : visitedLLVMNodesByDist[curDist]) {
+      visitedLLVMNodes.insert(v);
+
+      for (const Value *p : llvmToLLVMParents[v]) {
+	if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
+	  continue;
+
+	if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
+	  continue;
+
+	visitedLLVMNodesByDist[curDist+1].insert(p);
+      }
+      for (MSSAVar *p : llvmToSSAParents[v]) {
+	if (visitedSSANodes.find(p) != visitedSSANodes.end())
+	  continue;
+
+	if (taintedSSANodes.find(p) == taintedSSANodes.end())
+	  continue;
+
+	visitedSSANodesByDist[curDist+1].insert(p);
+      }
+    }
+
+    // Visit parents of ssa variables
+    for (MSSAVar *v : visitedSSANodesByDist[curDist]) {
+      if (ssaSources.find(v) != ssaSources.end()) {
+	root = v;
+	visitedSSANodes.insert(v);
+	errs() << "found a path of size " << curDist << "\n";
+	stop = true;
+	break;
+      }
+
+      visitedSSANodes.insert(v);
+
+      for (const Value *p : ssaToLLVMParents[v]) {
+	if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
+	  continue;
+
+	if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
+	  continue;
+
+	visitedLLVMNodesByDist[curDist+1].insert(p);
+      }
+      for (MSSAVar *p : ssaToSSAParents[v]) {
+	if (visitedSSANodes.find(p) != visitedSSANodes.end())
+	  continue;
+
+	if (taintedSSANodes.find(p) == taintedSSANodes.end())
+	  continue;
+
+	visitedSSANodesByDist[curDist+1].insert(p);
+      }
+
+      if (stop)
+	break;
+    }
+
+    if (stop)
+      break;
+
+    curDist++;
+  }
+
+  assert(stop);
+
+  error_code EC;
+  raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
+
+  stream << "digraph F {\n";
+  stream << "compound=true;\n";
+  stream << "rankdir=LR;\n";
+
+  // compute visited functions
+  std::set<const Function *> visitedFunctions;
+  for (auto I : funcToLLVMNodesMap) {
+    for (const Value *v : I.second) {
+      if (visitedLLVMNodes.find(v) != visitedLLVMNodes.end())
+	visitedFunctions.insert(I.first);
+    }
+  }
+
+  for (auto I : funcToSSANodesMap) {
+    for (MSSAVar *v : I.second) {
+      if (visitedSSANodes.find(v) != visitedSSANodes.end())
+	visitedFunctions.insert(I.first);
+    }
+  }
+
+  // Dot visited functions and nodes
+  for (const Function *F : visitedFunctions) {
+    stream << "\tsubgraph cluster_" << ((void *) F) << " {\n";
+    stream << "style=filled;\ncolor=lightgrey;\n";
+    stream << "label=< <B>" << F->getName() << "</B> >;\n";
+    stream << "node [style=filled,color=white];\n";
+
+    for (const Value *v : visitedLLVMNodes) {
+      if (funcToLLVMNodesMap[F].find(v) == funcToLLVMNodesMap[F].end())
+	continue;
+
+      stream << "Node" << ((void *) v) << " [label=\""
+	     << getValueLabel(v) << "\" "
+	     << getNodeStyle(v) << "];\n";
+    }
+
+    for (MSSAVar *v : visitedSSANodes) {
+      if (funcToSSANodesMap[F].find(v) == funcToSSANodesMap[F].end())
+	continue;
+
+      stream << "Node" << ((void *) v) << " [label=\""
+	     << v->getName()
+	     <<  "\" shape=diamond "
+	     << getNodeStyle(v) << "];\n";
+    }
+
+    stream << "}\n";
+  }
+
+  MSSAVar *lastVar = root;
+  assert(root);
+  const Value *lastValue = NULL;
+  bool lastIsVar = true;
+
+  // Dot edges
+  for (unsigned i=curDist-1; i>0; i--) {
+    bool found = false;
+    if (lastIsVar) {
+      for (MSSAVar *v : visitedSSANodesByDist[i]) {
+	if (ssaToSSAParents[v].find(lastVar) == ssaToSSAParents[v].end())
+	  continue;
+
+	stream << "Node" << ((void *) lastVar) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastVar = v;
+	found = true;
+	break;
+      }
+
+      if (found)
+	continue;
+
+      for (const Value *v : visitedLLVMNodesByDist[i]) {
+	if (llvmToSSAParents[v].find(lastVar) == llvmToSSAParents[v].end())
+	  continue;
+
+	stream << "Node" << ((void *) lastVar) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastValue = v;
+	lastIsVar = false;
+	found = true;
+	break;
+      }
+
+      assert(found);
+    }
+
+    // Last visited is a value
+    else {
+      for (MSSAVar *v : visitedSSANodesByDist[i]) {
+	if (ssaToLLVMParents[v].find(lastValue) == ssaToLLVMParents[v].end())
+	  continue;
+
+	stream << "Node" << ((void *) lastValue) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastVar = v;
+	lastIsVar = true;
+	found = true;
+	break;
+      }
+
+      if (found)
+	continue;
+
+      for (const Value *v : visitedLLVMNodesByDist[i]) {
+	if (llvmToLLVMParents[v].find(lastValue) == llvmToLLVMParents[v].end())
+	  continue;
+
+	stream << "Node" << ((void *) lastValue) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastValue = v;
+	lastIsVar = false;
+	found = true;
+	break;
+      }
+
+      assert(found);
+    }
+  }
+
+
+  stream << "}\n";
+}

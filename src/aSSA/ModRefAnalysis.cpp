@@ -151,7 +151,6 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   // Compute mof/ref for return value if it is a pointer.
   if (callee) {
     const extModInfo *info = extInfo->getExtModInfo(callee);
-    errs() << "callee: " << callee->getName() << "\n";
     assert(info);
 
     if (callee->getReturnType()->isPointerTy()) {

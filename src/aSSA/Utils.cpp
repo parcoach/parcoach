@@ -18,6 +18,10 @@ bool isCallSite(const llvm::Instruction *inst) {
 
 
 std::string getValueLabel(const llvm::Value *v) {
+  const Function *F = dyn_cast<Function>(v);
+  if (F)
+    return F->getName();
+
   std::string label;
   llvm::raw_string_ostream rso(label);
   v->print(rso);

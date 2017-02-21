@@ -1413,6 +1413,88 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
   stream << "compound=true;\n";
   stream << "rankdir=LR;\n";
 
+  visitedSSANodes.clear();
+  visitedLLVMNodes.clear();
+  visitedSSANodes.insert(root);
+
+  string tmpStr;
+  raw_string_ostream strStream(tmpStr);
+
+  MSSAVar *lastVar = root;
+  assert(root);
+  const Value *lastValue = NULL;
+  bool lastIsVar = true;
+
+  // Compute edges of the shortest path to strStream
+  for (unsigned i=curDist-1; i>0; i--) {
+    bool found = false;
+    if (lastIsVar) {
+      for (MSSAVar *v : visitedSSANodesByDist[i]) {
+	if (ssaToSSAParents[v].find(lastVar) == ssaToSSAParents[v].end())
+	  continue;
+
+	visitedSSANodes.insert(v);
+	strStream << "Node" << ((void *) lastVar) << " -> "
+		  << "Node" << ((void *) v) << "\n";
+	lastVar = v;
+	found = true;
+	break;
+      }
+
+      if (found)
+	continue;
+
+      for (const Value *v : visitedLLVMNodesByDist[i]) {
+	if (llvmToSSAParents[v].find(lastVar) == llvmToSSAParents[v].end())
+	  continue;
+
+	visitedLLVMNodes.insert(v);
+	strStream << "Node" << ((void *) lastVar) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastValue = v;
+	lastIsVar = false;
+	found = true;
+	break;
+      }
+
+      assert(found);
+    }
+
+    // Last visited is a value
+    else {
+      for (MSSAVar *v : visitedSSANodesByDist[i]) {
+	if (ssaToLLVMParents[v].find(lastValue) == ssaToLLVMParents[v].end())
+	  continue;
+
+	visitedSSANodes.insert(v);
+	strStream << "Node" << ((void *) lastValue) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastVar = v;
+	lastIsVar = true;
+	found = true;
+	break;
+      }
+
+      if (found)
+	continue;
+
+      for (const Value *v : visitedLLVMNodesByDist[i]) {
+	if (llvmToLLVMParents[v].find(lastValue) == llvmToLLVMParents[v].end())
+	  continue;
+
+	visitedLLVMNodes.insert(v);
+	strStream << "Node" << ((void *) lastValue) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastValue = v;
+	lastIsVar = false;
+	found = true;
+	break;
+      }
+
+      assert(found);
+    }
+  }
+
   // compute visited functions
   std::set<const Function *> visitedFunctions;
   for (auto I : funcToLLVMNodesMap) {
@@ -1458,77 +1540,8 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
     stream << "}\n";
   }
 
-  MSSAVar *lastVar = root;
-  assert(root);
-  const Value *lastValue = NULL;
-  bool lastIsVar = true;
-
   // Dot edges
-  for (unsigned i=curDist-1; i>0; i--) {
-    bool found = false;
-    if (lastIsVar) {
-      for (MSSAVar *v : visitedSSANodesByDist[i]) {
-	if (ssaToSSAParents[v].find(lastVar) == ssaToSSAParents[v].end())
-	  continue;
-
-	stream << "Node" << ((void *) lastVar) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastVar = v;
-	found = true;
-	break;
-      }
-
-      if (found)
-	continue;
-
-      for (const Value *v : visitedLLVMNodesByDist[i]) {
-	if (llvmToSSAParents[v].find(lastVar) == llvmToSSAParents[v].end())
-	  continue;
-
-	stream << "Node" << ((void *) lastVar) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastValue = v;
-	lastIsVar = false;
-	found = true;
-	break;
-      }
-
-      assert(found);
-    }
-
-    // Last visited is a value
-    else {
-      for (MSSAVar *v : visitedSSANodesByDist[i]) {
-	if (ssaToLLVMParents[v].find(lastValue) == ssaToLLVMParents[v].end())
-	  continue;
-
-	stream << "Node" << ((void *) lastValue) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastVar = v;
-	lastIsVar = true;
-	found = true;
-	break;
-      }
-
-      if (found)
-	continue;
-
-      for (const Value *v : visitedLLVMNodesByDist[i]) {
-	if (llvmToLLVMParents[v].find(lastValue) == llvmToLLVMParents[v].end())
-	  continue;
-
-	stream << "Node" << ((void *) lastValue) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastValue = v;
-	lastIsVar = false;
-	found = true;
-	break;
-      }
-
-      assert(found);
-    }
-  }
-
+  stream << strStream.str();
 
   stream << "}\n";
 }

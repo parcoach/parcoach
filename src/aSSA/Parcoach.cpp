@@ -38,6 +38,9 @@ static cl::opt<bool> optTimeStats("timer",
 				cl::desc("Print timers"));
 static cl::opt<bool> optDisablePhiElim("disable-phi-elim",
 				cl::desc("Disable Phi elimination pass"));
+static cl::opt<bool> optDotTaintPaths("dot-taint-paths",
+				cl::desc("Dot taint path of each conditions of" \
+					 "tainted collectives."));
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
@@ -291,6 +294,8 @@ bool ParcoachInstr::runOnSCC(PTACallGraphSCC &SCC, DepGraph *DG){
 			  const Instruction *inst = BB->getTerminator();
 			  DebugLoc loc = inst->getDebugLoc();
 			  COND_lines.append(" ").append(to_string(loc.getLine())).append(" (").append(loc->getFilename()).append(")");
+			  if (optDotTaintPaths)
+			    DG->dotTaintPath(cond, string("taintpath-").append(loc->getFilename()).append("-").append(to_string(loc.getLine())).append(".dot"));
 		  }
 		  // No warning to issue
 		  if(COND_lines =="")

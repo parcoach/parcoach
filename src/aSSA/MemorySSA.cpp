@@ -8,10 +8,12 @@ using namespace std;
 using namespace llvm;
 
 MemorySSA::MemorySSA(Module *m, Andersen *PTA, PTACallGraph *CG,
-		     ModRefAnalysis *MRA)
+		     ModRefAnalysis *MRA, ExtInfo *extInfo)
   : computeMuChiTime(0), computePhiTime(0), renameTime(0),
     computePhiPredicatesTime(0),
-    m(m), PTA(PTA), CG(CG), MRA(MRA), curDF(NULL), curDT(NULL) {}
+    m(m), PTA(PTA), CG(CG), MRA(MRA), extInfo(extInfo),
+    curDF(NULL), curDT(NULL) {}
+
 MemorySSA::~MemorySSA() {}
 
 void
@@ -66,6 +68,9 @@ MemorySSA::computeMuChi(const Function *F) {
       // indirect call
       if (callee == NULL) {
 	for (const Function *mayCallee : CG->indirectCallMap[inst]) {
+	  if (isIntrinsicDbgFunction(mayCallee))
+	    continue;
+
 	  computeMuChiForCalledFunction(inst,
 					const_cast<Function *>(mayCallee));
 	  if (mayCallee->isDeclaration())
@@ -75,6 +80,9 @@ MemorySSA::computeMuChi(const Function *F) {
 
       // direct call
       else {
+	if (isIntrinsicDbgFunction(callee))
+	  continue;
+
 	computeMuChiForCalledFunction(inst, callee);
 	if (callee->isDeclaration())
 	  createArtificalChiForCalledFunction(cs, callee);
@@ -147,11 +155,14 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
 					 Function *callee) {
   CallSite cs(const_cast<Instruction *>(inst));
 
-  // If the callee is a declaration (external function), we create a Mu and
-  // a Chi for each pointer argument.
+  // If the callee is a declaration (external function), we create a Mu
+  // for each pointer argument and a Chi for each modified argument.
   if (callee->isDeclaration()) {
     assert(isa<CallInst>(inst)); // InvokeInst are not handled yet
     const CallInst *CI = cast<CallInst>(inst);
+
+    const extModInfo *info = extInfo->getExtModInfo(callee);
+    assert(info);
 
     // Mu and Chi for parameters
     for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
@@ -159,17 +170,17 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
       if (arg->getType()->isPointerTy() == false)
 	continue;
 
-    // Case where argument is a inttoptr cast (e.g. MPI_IN_PLACE)
-    const ConstantExpr *ce = dyn_cast<ConstantExpr>(arg);
-    if (ce) {
-      Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
-      assert(inst);
-      if(isa<IntToPtrInst>(inst)) {
+      // Case where argument is a inttoptr cast (e.g. MPI_IN_PLACE)
+      const ConstantExpr *ce = dyn_cast<ConstantExpr>(arg);
+      if (ce) {
+	Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
+	assert(inst);
+	if(isa<IntToPtrInst>(inst)) {
+	  delete inst;
+	  continue;
+	}
 	delete inst;
-	continue;
       }
-      delete inst;
-    }
 
       vector<const Value *> ptsSet;
       vector<const Value *> argPtsSet;
@@ -179,16 +190,33 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
       vector<MemReg *> regs;
       MemReg::getValuesRegion(ptsSet, regs);
 
+      // Mus
       for (MemReg * r : regs) {
 	callSiteToMuMap[cs].insert(new MSSAExtCallMu(r, callee, i));
-	callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i));
-	regDefToBBMap[r].insert(inst->getParent());
 	usedRegs.insert(r);
+      }
+
+      // Chis
+      if (i >= info->nbArgs) {
+	assert(callee->isVarArg());
+	if (info->argIsMod[info->nbArgs-1]) {
+	  for (MemReg *r : regs) {
+	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i));
+	    regDefToBBMap[r].insert(inst->getParent());
+	  }
+	}
+      } else {
+	if (info->argIsMod[i]) {
+	  for (MemReg *r : regs) {
+	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i));
+	    regDefToBBMap[r].insert(inst->getParent());
+	  }
+	}
       }
     }
 
     // Chi for return value if it is a pointer
-    if (CI->getType()->isPointerTy()) {
+    if (CI->getType()->isPointerTy() && info->retIsMod) {
       vector<const Value *> ptsSet;
       assert(PTA->getPointsToSet(CI, ptsSet));
       vector<MemReg *> regs;
@@ -616,7 +644,9 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 void
 MemorySSA::createArtificalChiForCalledFunction(llvm::CallSite CS,
 					       const llvm::Function *callee) {
-  assert(callee->isDeclaration());
+  // Not sure if we need mod/ref info here, we can just create entry/exit chi
+  // for each pointer arguments and then only connect the exit/return chis of
+  // modified arguments in the dep graph.
 
   // If it is a var arg function, create artificial entry and exit chi for the
   // var arg.

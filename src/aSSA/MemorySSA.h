@@ -2,6 +2,7 @@
 #define MEMORYSSA_H
 
 #include "andersen/Andersen.h"
+#include "ExtInfo.h"
 #include "MSSAMuChi.h"
 #include "PTACallGraph.h"
 
@@ -58,7 +59,7 @@ class MemorySSA {
 
 public:
   MemorySSA(llvm::Module *m, Andersen *PTA, PTACallGraph *CG,
-	    ModRefAnalysis *MRA);
+	    ModRefAnalysis *MRA, ExtInfo *extInfo);
   virtual ~MemorySSA();
 
   void buildSSA(const llvm::Function *F, llvm::DominatorTree &DT,
@@ -108,6 +109,7 @@ protected:
   Andersen *PTA;
   PTACallGraph *CG;
   ModRefAnalysis *MRA;
+  ExtInfo *extInfo;
 
   llvm::DominanceFrontier *curDF;
   llvm::DominatorTree *curDT;

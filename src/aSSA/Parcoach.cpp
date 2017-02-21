@@ -1,5 +1,6 @@
 #include "andersen/Andersen.h"
 #include "DepGraph.h"
+#include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "MemorySSA.h"
 #include "ModRefAnalysis.h"
@@ -66,7 +67,9 @@ ParcoachInstr::doFinalization(Module &M){
 bool
 ParcoachInstr::runOnModule(Module &M) {
   //errs() << ">>> Module name: " << M.getModuleIdentifier() << "\n";
- 
+
+  ExtInfo extInfo(M);
+
   // Run Andersen alias analysis.
   double startPTA = gettime();
   Andersen AA(M);
@@ -101,7 +104,7 @@ ParcoachInstr::runOnModule(Module &M) {
 
   // Compute MOD/REF analysis
   double startModRef = gettime();
-  ModRefAnalysis MRA(PTACG, &AA);
+  ModRefAnalysis MRA(PTACG, &AA, &extInfo);
   double endModRef = gettime();
   if (optDumpModRef)
     MRA.dump();
@@ -109,7 +112,7 @@ ParcoachInstr::runOnModule(Module &M) {
   errs() << "Mod/ref done\n";
 
   // Compute all-inclusive SSA.
-  MemorySSA MSSA(&M, &AA, &PTACG, &MRA);
+  MemorySSA MSSA(&M, &AA, &PTACG, &MRA, &extInfo);
 
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;

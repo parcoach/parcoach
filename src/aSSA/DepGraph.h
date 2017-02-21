@@ -142,7 +142,7 @@ private:
   bool areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2);
 
   // This function replaces phi with op1 and removes op2.
-  void eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2);
+  void eliminatePhi(MSSAPhi *phi, std::vector<MSSAVar *> ops);
 
   void dotFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
   void dotExtFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);

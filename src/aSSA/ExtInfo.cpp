@@ -29,6 +29,8 @@ static const funcModPair funcModPairs[] = {
   {"llvm.trap", { 0, false, {} } },
 
   /* libc */
+  {"atof", { 1, false, {false} } },
+  {"atoi", { 1, false, {false} } },
   {"calloc", { 2, true, {false, false} } },
   {"ceil", { 1, false, {false} } },
   {"clock", { 0, false, {} } },
@@ -61,6 +63,7 @@ static const funcModPair funcModPairs[] = {
   {"sin", { 1, false, {false} } },
   {"sprintf", { 3, false, {true, false, false} } },
   {"sqrt", { 1, false, {false} } },
+  {"strcat", { 2, true, {true, false} } },
   {"strcmp", { 2, false, {false, false} } },
   {"strcpy", { 2, true, {true, false} } },
   {"strcspn", { 2, false, {false, false} } },
@@ -172,6 +175,8 @@ static const funcDepPair funcDepPairs[] = {
   {"llvm.trap", { 0, {}, {} } },
 
   /* libc */
+  {"atof", { 1, {}, {0} } },
+  {"atoi", { 1, {}, {0} } },
   {"calloc", { 2, {}, {0, 1} } },
   {"ceil", { 1, {}, {0} } },
   {"clock", { 0, {}, {} } },
@@ -204,6 +209,7 @@ static const funcDepPair funcDepPairs[] = {
   {"sin", { 1, {}, {0} } },
   {"sprintf", { 3, { {0, {1, 2} } }, {} } },
   {"sqrt", { 1, {}, {0} } },
+  {"strcat", { 2, { {0, {1} } }, {0, 1} } },
   {"strcmp", { 2, {}, {0, 1} } },
   {"strcpy", { 2, {}, {} } },
   {"strcspn", { 2, {}, {0, 1} } },

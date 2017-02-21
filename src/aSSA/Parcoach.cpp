@@ -57,6 +57,7 @@ ParcoachInstr::doFinalization(Module &M){
   errs() << "\033[0;36m==========================================\033[0;0m\n";
   errs() << "Module name: " << M.getModuleIdentifier() << "\n";
   errs() << ParcoachInstr::nbCollectivesFound << " collectives found, and " << ParcoachInstr::nbCollectivesTainted << " are tainted\n";
+  errs() << ParcoachInstr::nbWarnings << " warnings issued\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
   return true;
 }
@@ -64,7 +65,7 @@ ParcoachInstr::doFinalization(Module &M){
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
-  errs() << ">>> Module name: " << M.getModuleIdentifier() << "\n";
+  //errs() << ">>> Module name: " << M.getModuleIdentifier() << "\n";
  
   // Run Andersen alias analysis.
   double startPTA = gettime();
@@ -186,20 +187,29 @@ ParcoachInstr::runOnModule(Module &M) {
  
   // Parcoach analysis: use DG to find postdominance frontier and tainted nodes
   // Compute inter-procedural iPDF for all tainted collectives in the code
+
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+
+  // (1) BFS on each function of the Callgraph in reverse topological order
+  //  -> set a function summary with sequence of collectives
+  //  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
+  scc_iterator<CallGraph *> I = scc_begin(&CG);
+  CallGraphSCC SCC(CG,&I);
+  while (!I.isAtEnd()) {
+    vector<CallGraphNode *> nodeVec = *I;
+    for (unsigned i=0; i<nodeVec.size(); ++i) {
+	Function *F = nodeVec[i]->getFunction();
+        if (!F || F->isDeclaration())
+          continue;
+  	//errs() << ">>> BFS on " << F->getName() << "\n"; 
+  	BFS(F);
+    }
+    ++I;
+  }
+
+  // (2) Check collectives
   scc_iterator<CallGraph*> CGI = scc_begin(&CG);
   CallGraphSCC CurSCC(CG, &CGI);
-
-  // TODO: BFS in Callgraph in reverse topological order
-  //  -> set a function summary
-  //  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
-  // (1) Set the sequence of collectives with a BFS from the exit node in the CFG
-  //errs() << ">>> BFS on " << F->getName() << "\n"; 
-  //BFS(F);
-
-
-
-
   while (!CGI.isAtEnd()) { 
     const std::vector<CallGraphNode *> &NodeVec = *CGI;
     CurSCC.initialize(NodeVec.data(), NodeVec.data() + NodeVec.size()); 
@@ -207,6 +217,7 @@ ParcoachInstr::runOnModule(Module &M) {
     ++CGI;
   }
 
+  errs() << "Parcoach analysis done\n";
 
   return false;
 }
@@ -222,12 +233,7 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
        if (!F || F->isDeclaration()) continue; 
 
 
-	// TODO: Should be done as a prerequisite
-       // (1) Set the sequence of collectives with a BFS from the exit node in the CFG
-       errs() << ">>> BFS on " << F->getName() << "\n"; 
-       BFS(F);
-
-	// (2) Check collectives
+	// Check collectives
        for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
           Instruction *i=&*I;       
           // Debug info (line in the source code, file)
@@ -264,7 +270,6 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 		  //errs() << "!!!!" << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
 
 		  // Get tainted conditionals from the callsite
-		  // FIXME: execution rank for collectives
 		  set<const BasicBlock *> callIPDF;
 		  DG->getTaintedCallInterIPDF(CI, callIPDF);
 
@@ -278,14 +283,18 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 			// Does not work properly if some functions are in different modules
 			  string Seq = getBBcollSequence(*(BB->getTerminator()));
 			 DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
-			  errs() << "DBG: line " << BDLoc->getLine() << " " << F->getName() << " " << Seq << "\n";
-			  if(Seq!="NAVS" && Seq!="white"){
+			  //errs() << "DBG: line " << BDLoc->getLine() << " " << F->getName() << " " << Seq << "\n";
+			  if(Seq!="NAVS" && Seq!="empty"){
 				continue;
 			  }
 			  const Instruction *inst = BB->getTerminator();
 			  DebugLoc loc = inst->getDebugLoc();
 			  COND_lines.append(" ").append(to_string(loc.getLine())).append(" (").append(loc->getFilename()).append(")");
 		  }
+		  // No warning to issue
+		  if(COND_lines =="")
+			continue;
+		  ParcoachInstr::nbWarnings ++;
 		  WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
 		  mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
 		  i->setMetadata("inst.warning",mdNode);
@@ -302,5 +311,6 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 char ParcoachInstr::ID = 0;
 unsigned ParcoachInstr::nbCollectivesFound = 0;
 unsigned ParcoachInstr::nbCollectivesTainted = 0;
+unsigned ParcoachInstr::nbWarnings = 0;
 
 static RegisterPass<ParcoachInstr> Z("parcoach", "Module pass");

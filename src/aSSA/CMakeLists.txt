@@ -10,9 +10,9 @@ if(WIN32 OR CYGWIN)
   set(LLVM_LINK_COMPONENTS Core Support)
 endif()
 
-
 add_llvm_loadable_module( LLVMaSSA
         DepGraph.cpp
+	ExtInfo.cpp
 	MemoryRegion.cpp
 	MemorySSA.cpp
 	ModRefAnalysis.cpp

@@ -191,15 +191,13 @@ ParcoachInstr::runOnModule(Module &M) {
   // Parcoach analysis: use DG to find postdominance frontier and tainted nodes
   // Compute inter-procedural iPDF for all tainted collectives in the code
 
-  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-
   // (1) BFS on each function of the Callgraph in reverse topological order
   //  -> set a function summary with sequence of collectives
   //  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
-  scc_iterator<CallGraph *> I = scc_begin(&CG);
-  CallGraphSCC SCC(CG,&I);
+  scc_iterator<PTACallGraph *> I = scc_begin(&PTACG);
+  PTACallGraphSCC SCC(PTACG,&I);
   while (!I.isAtEnd()) {
-    vector<CallGraphNode *> nodeVec = *I;
+    vector<PTACallGraphNode *> nodeVec = *I;
     for (unsigned i=0; i<nodeVec.size(); ++i) {
 	Function *F = nodeVec[i]->getFunction();
         if (!F || F->isDeclaration())
@@ -211,10 +209,10 @@ ParcoachInstr::runOnModule(Module &M) {
   }
 
   // (2) Check collectives
-  scc_iterator<CallGraph*> CGI = scc_begin(&CG);
-  CallGraphSCC CurSCC(CG, &CGI);
+  scc_iterator<PTACallGraph*> CGI = scc_begin(&PTACG);
+  PTACallGraphSCC CurSCC(PTACG, &CGI);
   while (!CGI.isAtEnd()) { 
-    const std::vector<CallGraphNode *> &NodeVec = *CGI;
+    const std::vector<PTACallGraphNode *> &NodeVec = *CGI;
     CurSCC.initialize(NodeVec.data(), NodeVec.data() + NodeVec.size()); 
     runOnSCC(CurSCC, DG);
     ++CGI;
@@ -227,9 +225,9 @@ ParcoachInstr::runOnModule(Module &M) {
 
 
 
-bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
-   for(CallGraphSCC::iterator CGit=SCC.begin(); CGit != SCC.end(); CGit++){
-       CallGraphNode *CGN = *CGit;
+bool ParcoachInstr::runOnSCC(PTACallGraphSCC &SCC, DepGraph *DG){
+   for(PTACallGraphSCC::iterator CGit=SCC.begin(); CGit != SCC.end(); CGit++){
+       PTACallGraphNode *CGN = *CGit;
        Function *F = CGN->getFunction();
        StringRef FuncSummary;
        MDNode* mdNode;

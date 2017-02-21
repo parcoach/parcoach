@@ -7,6 +7,8 @@
 #ifndef PARCOACH_H
 #define PARCOACH_H
 
+#include "PTACallGraph.h"
+
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -24,7 +26,7 @@ namespace {
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
     virtual bool doFinalization(llvm::Module &M);
-    virtual bool runOnSCC(llvm::CallGraphSCC &SCC, DepGraph *DG);
+    virtual bool runOnSCC(PTACallGraphSCC &SCC, DepGraph *DG);
     virtual bool runOnModule(llvm::Module &M);
 
   private:

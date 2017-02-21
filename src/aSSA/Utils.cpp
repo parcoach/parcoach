@@ -414,17 +414,30 @@ void BFS(llvm::Function *F){
                                 StringRef CollSequence_temp=StringRef(seq_temp);
 
                                 // if temp != coll seq -> warning + keep the bb in the PDF+
-                                errs() << "  >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
+                                errs() << " >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
                                 if(CollSequence_temp.str() != getBBcollSequence(*TI) || CollSequence_temp.str()=="NAVS" || getBBcollSequence(*TI)=="NAVS"){
                                         mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
                                         TI->setMetadata("inst.collSequence",mdNode);
                                         // DEBUG
                                         DebugLoc BDLoc = TI->getDebugLoc();
                                         errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n";
-                                }
+                                }else{
+					mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),seq_temp));
+                                        TI->setMetadata("inst.collSequence",mdNode);
+                                        // DEBUG
+                                        errs() << "  ===>>> Line " << TI->getDebugLoc().getLine() << " -> " << getBBcollSequence(*TI) << "\n";
+				}
                         }
                 }
         }
+	// Keep a metadata for the summary of the function
+       // Set the summary of a function even if no potential errors detected
+       // Then take into account the summary when setting the sequence of collectives of a BB
+       BasicBlock &entry = F->getEntryBlock();
+       StringRef FuncSummary=getBBcollSequence(*entry.getTerminator());
+       mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
+       F->setMetadata("func.summary",mdNode);
+       errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
 }
 
 

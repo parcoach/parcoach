@@ -187,49 +187,19 @@ ParcoachInstr::runOnModule(Module &M) {
   // Parcoach analysis: use DG to find postdominance frontier and tainted nodes
   // Compute inter-procedural iPDF for all tainted collectives in the code
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  scc_iterator<CallGraph *> I = scc_begin(&CG);
-  CallGraphSCC SCC(CG, &I);
-
-  errs() << "= TEST 1 =\n";
- // Compute inverse order of scc.
-  list<vector<CallGraphNode *> > inverseOrder;
-  while (!I.isAtEnd()) {
-    vector<CallGraphNode *> nodeVec = *I;
-    inverseOrder.push_back(nodeVec);
-    ++I;
-  }
-
- for (auto I = inverseOrder.begin(), E = inverseOrder.end(); I != E; ++I) {
-      vector<CallGraphNode *> nodeVec = *I;
-	for (unsigned i=0; i<nodeVec.size(); ++i) {
-	        Function *F = nodeVec[i]->getFunction();
-        	if (!F || F->isDeclaration())
-          		continue;
-        	errs() << "-> Function: " << F->getName() << "\n";
-	}
-  }
-
-
-  errs() << "= TEST 2 =\n";
-  for (scc_iterator<CallGraph *> I = scc_begin(&CG); !I.isAtEnd(); ++I) {
-     const std::vector<CallGraphNode *> &SCC = *I;
-	for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-       		Function *F = SCC[i]->getFunction();
-		if (!F || F->isDeclaration()) { break;}
-		errs() << "SCC[" << i << "/" << e << "] -> Function: " << F->getName() << "\n";
-
-		for (CallGraphNode::iterator CI = SCC[i]->begin(), E = SCC[i]->end();CI != E; ++CI){
-			Function *Callee = CI->second->getFunction();
-			if (!Callee) { break;}
-			errs() << "> callee " << Callee->getName() << "\n";
-		}	
-	}
-  }
-  errs() << "= FIN TEST =\n";
-
   scc_iterator<CallGraph*> CGI = scc_begin(&CG);
   CallGraphSCC CurSCC(CG, &CGI);
- 
+
+  // TODO: BFS in Callgraph in reverse topological order
+  //  -> set a function summary
+  //  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
+  // (1) Set the sequence of collectives with a BFS from the exit node in the CFG
+  //errs() << ">>> BFS on " << F->getName() << "\n"; 
+  //BFS(F);
+
+
+
+
   while (!CGI.isAtEnd()) { 
     const std::vector<CallGraphNode *> &NodeVec = *CGI;
     CurSCC.initialize(NodeVec.data(), NodeVec.data() + NodeVec.size()); 
@@ -251,9 +221,11 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
        MDNode* mdNode;
        if (!F || F->isDeclaration()) continue; 
 
-	// (1) Set the sequence of collectives with a BFS from the exit node in the CFG
-	errs() << "  >>> BFS on " << F->getName() << "\n";  
-      BFS(F);		
+
+	// TODO: Should be done as a prerequisite
+       // (1) Set the sequence of collectives with a BFS from the exit node in the CFG
+       errs() << ">>> BFS on " << F->getName() << "\n"; 
+       BFS(F);
 
 	// (2) Check collectives
        for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
@@ -300,12 +272,16 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 			  const Value *cond = getBasicBlockCond(BB);
 			  if (!cond || !DG->isTaintedValue(cond))
 				  continue;
-			 // if the condition is tainted and has NAVS as a coll seq, keep for warning
-			// if the condition is tainted and has empty as a coll seq, keep because the function has no summary, function in another module?
+			 // FIXME: conditional in upper functions will be at white because they are not seen yet
+			// works on conditionals in the same functions for now
+			// if the condition is tainted and has NAVS as a coll seq, keep for warning
+			// Does not work properly if some functions are in different modules
 			  string Seq = getBBcollSequence(*(BB->getTerminator()));
-			  errs() << "DBG: " << F->getName() << " " << Seq << "\n";
-			  if(Seq!="NAVS" || Seq!="empty")
+			 DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
+			  errs() << "DBG: line " << BDLoc->getLine() << " " << F->getName() << " " << Seq << "\n";
+			  if(Seq!="NAVS" && Seq!="white"){
 				continue;
+			  }
 			  const Instruction *inst = BB->getTerminator();
 			  DebugLoc loc = inst->getDebugLoc();
 			  COND_lines.append(" ").append(to_string(loc.getLine())).append(" (").append(loc->getFilename()).append(")");
@@ -317,36 +293,9 @@ bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
 		  Diag.print(ProgName, errs(), 1,1);
 	  }
        }
-       // Keep a metadata for the summary of the function
-       // Set the summary of a function even if no potential errors detected
-       // Then take into account the summary when setting the sequence of collectives of a BB
-       BasicBlock &entry = F->getEntryBlock();
-       FuncSummary=getBBcollSequence(*entry.getTerminator());
-       mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
-       F->setMetadata("func.summary",mdNode);
-       errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
    }
    return false;
 }
-
-/*
-		  for (const Value *cond : conds) {
-		    // FIXME: sometimes the condition of a branch
-		    // instruction is a phi node and there is no valid DebugLog
-		    // for phi nodes.
-		    if (isa<PHINode>(cond))
-		      continue;
-		    if (!isa<Instruction>(cond))
-		      continue;
-
-
-		    if (!DG->isTaintedValue(cond))
-		      continue;
-		    const Instruction *inst = cast<Instruction>(cond);
-		    DebugLoc loc = inst->getDebugLoc();
-		    COND_lines.append(" ").append(to_string(loc.getLine()));
-		  }
-*/
 
 
 

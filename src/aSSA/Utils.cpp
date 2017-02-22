@@ -291,25 +291,40 @@ bool functionDoesNotRet(const llvm::Function *F) {
  */
 
 // Get the sequence of collectives for a BB
-string get_BB_collectives(BasicBlock *BB){
+string getCollectivesInBB(BasicBlock *BB,PTACallGraph *PTACG){
 				string CollSequence="empty";
 				for(BasicBlock::iterator i = BB->begin(), e = BB->end(); i != e; ++i){
-								if(CallInst *CI = dyn_cast<CallInst>(i)) {
-												Function *f = CI->getCalledFunction();
-												if(!f) continue;
+								const Instruction *inst = &*i;					
 
-												string OP_name = f->getName().str();
-												StringRef funcName = f->getName();
+								if(CallInst *CI = dyn_cast<CallInst>(i)) {
+												Function *callee = CI->getCalledFunction();
+												if(isIntrinsicDbgInst(CI)) continue;
+												
+
+												// indirect call
+												if(callee == NULL){ 
+													//DBG: //errs() << " - found a null function:\n";
+													for (const Function *mayCallee : PTACG->indirectCallMap[inst]) {
+																	if (isIntrinsicDbgFunction(mayCallee))
+																					continue;
+																	callee = const_cast<Function *>(mayCallee);	
+																	//DBG: //errs() << "  -> " << callee->getName() << " with summary= " << getFuncSummary(*callee) << "\n";
+																	
+													}
+												}
+
+												string OP_name = callee->getName().str();
+												StringRef funcName = callee->getName();
 
 												// Is it a function with a summary?
 												// if function in another module it doesn't work..
-												errs() << " - found " << funcName << " with summary= " << getFuncSummary(*f) << "\n";
-												if(getFuncSummary(*f)!=""){
+												//DBG: //errs() << " - found " << funcName << " with summary= " << getFuncSummary(*callee) << "\n";
+												if(getFuncSummary(*callee)!=""){
 																if(CollSequence=="empty"){
-																				CollSequence=getFuncSummary(*f);
+																				CollSequence=getFuncSummary(*callee);
 																}else{
 																				CollSequence.append(" ");
-																				CollSequence.append(getFuncSummary(*f));
+																				CollSequence.append(getFuncSummary(*callee));
 																}
 												}
 
@@ -324,7 +339,7 @@ string get_BB_collectives(BasicBlock *BB){
 																				CollSequence.append(OP_name);
 																}
 												}
-								}
+										}
 				}
 				return CollSequence;
 }
@@ -358,8 +373,8 @@ getFuncSummary(llvm::Function &F){
 
 
 // BFS in reverse topological order
-void BFS(llvm::Function *F){
-				//errs() << "  >>> in BFS\n";
+void BFS(llvm::Function *F, PTACallGraph *PTACG){
+				//DBG: //errs() << "* BFS on " << F->getName() << "\n";
 				MDNode* mdNode;
 				StringRef CollSequence_Header;
 				StringRef CollSequence=StringRef();
@@ -370,7 +385,7 @@ void BFS(llvm::Function *F){
 								if(isa<ReturnInst>(I.getTerminator())){
 												Unvisited.push_back(&I);
 												// set the coll seq of this return bb
-												StringRef return_coll = StringRef(get_BB_collectives(&I));
+												StringRef return_coll = StringRef(getCollectivesInBB(&I, PTACG));
 												mdNode = MDNode::get(I.getContext(),MDString::get(I.getContext(),return_coll));
 												I.getTerminator()->setMetadata("inst.collSequence",mdNode);
 								}
@@ -389,12 +404,12 @@ void BFS(llvm::Function *F){
 												if(getBBcollSequence(*TI)=="white"){
 																string N="empty";
 																if(CollSequence_Header.str()=="empty"){
-																				N=get_BB_collectives(Pred);
+																				N=getCollectivesInBB(Pred, PTACG);
 																}else{
 																				N=CollSequence_Header.str();
-																				if(get_BB_collectives(Pred)!="empty"){
+																				if(getCollectivesInBB(Pred, PTACG)!="empty"){
 																								N.append(" ");
-																								N.append(get_BB_collectives(Pred)); // add the coll in Pred
+																								N.append(getCollectivesInBB(Pred,PTACG)); // add the coll in Pred
 																				}
 																}
 																CollSequence=StringRef(N);
@@ -406,29 +421,27 @@ void BFS(llvm::Function *F){
 												}else{
 																string seq_temp;
 																if(CollSequence_Header.str()=="empty"){
-																				seq_temp=get_BB_collectives(Pred);
+																				seq_temp=getCollectivesInBB(Pred, PTACG);
 																}else{
 																				seq_temp=CollSequence_Header.str();
-																				if(get_BB_collectives(Pred)!="empty"){
+																				if(getCollectivesInBB(Pred, PTACG)!="empty"){
 																								seq_temp.append(" ");
-																								seq_temp.append(get_BB_collectives(Pred));
+																								seq_temp.append(getCollectivesInBB(Pred, PTACG));
 																				}
 																}
 																StringRef CollSequence_temp=StringRef(seq_temp);
 
 																// if temp != coll seq -> warning + keep the bb in the PDF+
-																errs() << " >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
+																//DBG: //errs() << " >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
 																if(CollSequence_temp.str() != getBBcollSequence(*TI) || CollSequence_temp.str()=="NAVS" || getBBcollSequence(*TI)=="NAVS"){
 																				mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
 																				TI->setMetadata("inst.collSequence",mdNode);
-																				// DEBUG
 																				DebugLoc BDLoc = TI->getDebugLoc();
-																				errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n";
+																				//DBG: //errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n";
 																}else{
 																				mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),seq_temp));
 																				TI->setMetadata("inst.collSequence",mdNode);
-																				// DEBUG
-																				errs() << "  ===>>> Line " << TI->getDebugLoc().getLine() << " -> " << getBBcollSequence(*TI) << "\n";
+																				//DBG: //errs() << "  ===>>> Line " << TI->getDebugLoc().getLine() << " -> " << getBBcollSequence(*TI) << "\n";
 																}
 												}
 								}
@@ -440,7 +453,7 @@ void BFS(llvm::Function *F){
 				StringRef FuncSummary=getBBcollSequence(*entry.getTerminator());
 				mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
 				F->setMetadata("func.summary",mdNode);
-				errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
+				//DBG: //errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
 }
 
 

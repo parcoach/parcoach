@@ -3,6 +3,7 @@
 
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/CallSite.h"
+#include "PTACallGraph.h"
 
 #include <vector>
 
@@ -37,7 +38,7 @@ const llvm::Value *getBasicBlockCond(const llvm::BasicBlock *BB);
 
 std::string getFuncSummary(llvm::Function &F);
 std::string getBBcollSequence(const llvm::Instruction &inst);
-void BFS(llvm::Function *F);
+void BFS(llvm::Function *F, PTACallGraph *PTACG);
 
 
 #endif /* UTILS_H */

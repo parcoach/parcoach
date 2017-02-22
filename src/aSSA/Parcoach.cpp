@@ -192,81 +192,40 @@ ParcoachInstr::runOnModule(Module &M) {
 
  
   // Parcoach analysis
-  CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
-
-	scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
-  while(!cgSccIter.isAtEnd()) {
-		const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
-		for (PTACallGraphNode *node : nodeVec) {
-      Function *F = node->getFunction();
-			//if (F == NULL || isIntrinsicDbgFunction(F))
-        if (!F || F->isDeclaration())
-  continue;
-			errs() << "Function: " << F->getName() << "\n";
-  		BFS(F);
-		}
-		 ++cgSccIter;
-	}
-
-
 
   /* (1) BFS on each function of the Callgraph in reverse topological order
    *  -> set a function summary with sequence of collectives
    *  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
    */
- /* scc_iterator<CallGraph *> I = scc_begin(&CG);
-  CallGraphSCC SCC(CG,&I);
-=======
-  // Parcoach analysis: use DG to find postdominance frontier and tainted nodes
-  // Compute inter-procedural iPDF for all tainted collectives in the code
+	scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
+	while(!cgSccIter.isAtEnd()) {
+					const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
+					for (PTACallGraphNode *node : nodeVec) {
+									Function *F = node->getFunction();
+									//if (F == NULL || isIntrinsicDbgFunction(F))
+									if (!F || F->isDeclaration())
+													continue;
+									//DBG: //errs() << "Function: " << F->getName() << "\n";
+									BFS(F,&PTACG);
+					}
+					++cgSccIter;
+	}
 
-  // (1) BFS on each function of the Callgraph in reverse topological order
-  //  -> set a function summary with sequence of collectives
-  //  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
-  scc_iterator<PTACallGraph *> I = scc_begin(&PTACG);
-  PTACallGraphSCC SCC(PTACG,&I);
->>>>>>> 2ea10e84dc49bd59a3e56a62f85b5caac9a24113
-  while (!I.isAtEnd()) {
-    vector<PTACallGraphNode *> nodeVec = *I;
-    for (unsigned i=0; i<nodeVec.size(); ++i) {
-	Function *F = nodeVec[i]->getFunction();
-        if (!F || F->isDeclaration())
-          continue;
-  	BFS(F);
-    }
-    ++I;
-  }
-*/
+
   /* (2) Check collectives */
-/*  scc_iterator<CallGraph*> CGI = scc_begin(&CG);
-  CallGraphSCC CurSCC(CG, &CGI);
-
-  // (2) Check collectives
-  scc_iterator<PTACallGraph*> CGI = scc_begin(&PTACG);
-  PTACallGraphSCC CurSCC(PTACG, &CGI);
-  while (!CGI.isAtEnd()) { 
-    const std::vector<PTACallGraphNode *> &NodeVec = *CGI;
-    CurSCC.initialize(NodeVec.data(), NodeVec.data() + NodeVec.size()); 
-    runOnSCC(CurSCC, DG);
-    ++CGI;
-  }
-*/
-
-
-// TODO: Faire analyse de check avec PTACG !!!!!!! a changer
-  cgSccIter = scc_begin(&PTACG);
-  while(!cgSccIter.isAtEnd()) {
-    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
-    for (PTACallGraphNode *node : nodeVec) {
-      Function *F = node->getFunction();
-      //if (F == NULL || isIntrinsicDbgFunction(F))
-        if (!F || F->isDeclaration())
-  continue;
-      errs() << "Function: " << F->getName() << "\n";
-      checkCollectives(F,DG);
-    }
-     ++cgSccIter;
-  }
+	cgSccIter = scc_begin(&PTACG);
+	while(!cgSccIter.isAtEnd()) {
+					const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
+					for (PTACallGraphNode *node : nodeVec) {
+									Function *F = node->getFunction();
+									//if (F == NULL || isIntrinsicDbgFunction(F))
+									if (!F || F->isDeclaration())
+													continue;
+									//DBG: //errs() << "Function: " << F->getName() << "\n";
+									checkCollectives(F,DG);
+					}
+					++cgSccIter;
+	}
 
 
   errs() << "Parcoach analysis done\n";
@@ -324,7 +283,7 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
 																 */
 																string Seq = getBBcollSequence(*(BB->getTerminator()));
 																DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
-																errs() << "Seq = " << Seq << " - Line " << BDLoc->getLine() << "\n";
+																//DBG: //errs() << "Seq = " << Seq << " - Line " << BDLoc->getLine() << "\n";
 																if(Seq!="NAVS" && Seq!="empty") continue;
 
 																const Instruction *inst = BB->getTerminator();

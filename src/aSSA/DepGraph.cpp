@@ -585,7 +585,7 @@ DepGraph::connectCSCalledReturnValue(llvm::CallInst &I) {
 
   // direct call
   if (callee) {
-    if (!callee->isDeclaration() && !I.getType()->isVoidTy()) {
+    if (!callee->isDeclaration() && !callee->getReturnType()->isVoidTy()) {
       funcToLLVMNodesMap[curFunc].insert(&I);
       addEdge(getReturnValue(callee), &I); // rule2
     }
@@ -594,7 +594,8 @@ DepGraph::connectCSCalledReturnValue(llvm::CallInst &I) {
   // indirect call
   else {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
-      if (!mayCallee->isDeclaration() && !I.getType()->isVoidTy()) {
+      if (!mayCallee->isDeclaration() &&
+	  !mayCallee->getReturnType()->isVoidTy()) {
 	funcToLLVMNodesMap[curFunc].insert(&I);
 	addEdge(getReturnValue(mayCallee), &I); // rule2
       }

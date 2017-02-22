@@ -233,17 +233,24 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
   // If the callee is not a declaration we create a Mu(Chi) for each region
   // in Ref(Mod) callee.
   else {
+    const Function *caller = inst->getParent()->getParent();
+    set<MemReg *> killSet = MRA->getFuncKill(caller);
+
     // Create Mu for each region \in ref(callee)
     for (MemReg *r : MRA->getFuncRef(callee)) {
-      callSiteToMuMap[cs].insert(new MSSACallMu(r, callee));
-      usedRegs.insert(r);
+      if (killSet.find(r) == killSet.end()) {
+	callSiteToMuMap[cs].insert(new MSSACallMu(r, callee));
+	usedRegs.insert(r);
+      }
     }
 
     // Create Chi for each region \in mod(callee)
     for (MemReg *r : MRA->getFuncMod(callee)) {
-      callSiteToChiMap[cs].insert(new MSSACallChi(r, callee));
-      regDefToBBMap[r].insert(inst->getParent());
-      usedRegs.insert(r);
+      if (killSet.find(r) == killSet.end()) {
+	callSiteToChiMap[cs].insert(new MSSACallChi(r, callee));
+	regDefToBBMap[r].insert(inst->getParent());
+	usedRegs.insert(r);
+      }
     }
   }
 }

@@ -15,7 +15,9 @@ public:
 
   MemRegSet getFuncMod(const llvm::Function *F);
   MemRegSet getFuncRef(const llvm::Function *F);
+  MemRegSet getFuncKill(const llvm::Function *F);
 
+  void visitAllocaInst(llvm::AllocaInst &I);
   void visitLoadInst(llvm::LoadInst &I);
   void visitStoreInst(llvm::StoreInst &I);
   void visitCallSite(llvm::CallSite CS);
@@ -31,6 +33,8 @@ private:
   ExtInfo *extInfo;
   llvm::DenseMap<const llvm::Function *, MemRegSet> funcModMap;
   llvm::DenseMap<const llvm::Function *, MemRegSet> funcRefMap;
+  llvm::DenseMap<const llvm::Function *, MemRegSet> funcLocalMap;
+  llvm::DenseMap<const llvm::Function *, MemRegSet> funcKillMap;
 };
 
 #endif /* MODREFANALYSIS */

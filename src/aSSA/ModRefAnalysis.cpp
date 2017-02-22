@@ -14,6 +14,14 @@ ModRefAnalysis::ModRefAnalysis(PTACallGraph &CG, Andersen *PTA,
 ModRefAnalysis::~ModRefAnalysis() {}
 
 void
+ModRefAnalysis::visitAllocaInst(AllocaInst &I) {
+  MemReg *r = MemReg::getValueRegion(&I);
+  assert(r);
+  funcLocalMap[curFunc].insert(r);
+}
+
+
+void
 ModRefAnalysis::visitLoadInst(LoadInst &I) {
   vector<const Value *> ptsSet;
   assert(PTA->getPointsToSet(I.getPointerOperand(), ptsSet));
@@ -231,10 +239,24 @@ ModRefAnalysis::analyze() {
 	  if (callee == NULL || F == callee)
 	    continue;
 
-	  funcModMap[F].insert(funcModMap[callee].begin(),
-			       funcModMap[callee].end());
-	  funcRefMap[F].insert(funcRefMap[callee].begin(),
-			       funcRefMap[callee].end());
+	  set<MemReg *> modToAdd;
+	  set<MemReg *> refToAdd;
+	  modToAdd.insert(funcModMap[callee].begin(), funcModMap[callee].end());
+	  refToAdd.insert(funcRefMap[callee].begin(), funcRefMap[callee].end());
+
+	  // If callee is not in the scc, remove its local variables from the
+	  // toAdd sets.
+	  if (find(nodeVec.begin(), nodeVec.end(), it.second)
+	      == nodeVec.end()) {
+	    for (MemReg *r : funcLocalMap[callee]) {
+	      funcKillMap[F].insert(r);
+	      modToAdd.erase(r);
+	      refToAdd.erase(r);
+	    }
+	  }
+
+	  funcModMap[F].insert(modToAdd.begin(), modToAdd.end());
+	  funcRefMap[F].insert(refToAdd.begin(), refToAdd.end());
 	}
 
 	if (funcModMap[F].size() > modSize || funcRefMap[F].size() > refSize)
@@ -263,6 +285,11 @@ ModRefAnalysis::getFuncRef(const Function *F) {
   return funcRefMap[F];
 }
 
+MemRegSet
+ModRefAnalysis::getFuncKill(const Function *F) {
+  return funcKillMap[F];
+}
+
 void
 ModRefAnalysis::dump() {
   scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&CG);
@@ -281,6 +308,14 @@ ModRefAnalysis::dump() {
       errs() << ")\n";
       errs() << "Ref(";
       for (MemReg *r : funcRefMap[F])
+	errs() << r->getName() << ", ";
+      errs() << ")\n";
+      errs() << "Local(";
+      for (MemReg *r : funcLocalMap[F])
+	errs() << r->getName() << ", ";
+      errs() << ")\n";
+      errs() << "Kill(";
+      for (MemReg *r : funcKillMap[F])
 	errs() << r->getName() << ", ";
       errs() << ")\n";
     }

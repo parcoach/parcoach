@@ -211,7 +211,6 @@ ParcoachInstr::runOnModule(Module &M) {
 					++cgSccIter;
 	}
 
-
   /* (2) Check collectives */
 	cgSccIter = scc_begin(&PTACG);
 	while(!cgSccIter.isAtEnd()) {
@@ -227,13 +226,13 @@ ParcoachInstr::runOnModule(Module &M) {
 					++cgSccIter;
 	}
 
-
   errs() << "Parcoach analysis done\n";
 
   return false;
 }
 
 
+// (2) Check MPI collectives 
 void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
 
 				StringRef FuncSummary;
@@ -278,9 +277,6 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
 												for (const BasicBlock *BB : callIPDF) {
 																const Value *cond = getBasicBlockCond(BB);
 																if (!cond || !DG->isTaintedValue(cond)) continue;
-																/* FIXME: does not work properly if functions are in different modules 
-																 * if the condition is tainted and has NAVS as a coll seq, keep for warning
-																 */
 																string Seq = getBBcollSequence(*(BB->getTerminator()));
 																DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
 																//DBG: //errs() << "Seq = " << Seq << " - Line " << BDLoc->getLine() << "\n";
@@ -302,24 +298,6 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
 								}
 				}
 }
-
-
-// (2) Check MPI collectives 
-/*bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
-   for(CallGraphSCC::iterator CGit=SCC.begin(); CGit != SCC.end(); CGit++){
-       CallGraphNode *CGN = *CGit;
-*/
-bool ParcoachInstr::runOnSCC(PTACallGraphSCC &SCC, DepGraph *DG){
-   for(PTACallGraphSCC::iterator CGit=SCC.begin(); CGit != SCC.end(); CGit++){
-       PTACallGraphNode *CGN = *CGit;
-       Function *F = CGN->getFunction();
-       if (!F || F->isDeclaration()) continue; 
-  
-       checkCollectives(F, DG); 
-   }
-   return false;
-}
-
 
 
 char ParcoachInstr::ID = 0;

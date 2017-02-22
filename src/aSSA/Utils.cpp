@@ -287,10 +287,10 @@ bool functionDoesNotRet(const llvm::Function *F) {
 
 
 /*
- * FUNCTIONS USED TO CHECK COLLECTIVES (BFS PART)
+ * FUNCTIONS USED TO CHECK COLLECTIVES
  */
 
-// Get the sequence of collectives for a BB
+// Get the sequence of collectives in a BB
 string getCollectivesInBB(BasicBlock *BB,PTACallGraph *PTACG){
 				string CollSequence="empty";
 				for(BasicBlock::iterator i = BB->begin(), e = BB->end(); i != e; ++i){
@@ -300,16 +300,13 @@ string getCollectivesInBB(BasicBlock *BB,PTACallGraph *PTACG){
 												Function *callee = CI->getCalledFunction();
 												if(isIntrinsicDbgInst(CI)) continue;
 												
-
 												// indirect call
 												if(callee == NULL){ 
 													//DBG: //errs() << " - found a null function:\n";
 													for (const Function *mayCallee : PTACG->indirectCallMap[inst]) {
-																	if (isIntrinsicDbgFunction(mayCallee))
-																					continue;
+																	if (isIntrinsicDbgFunction(mayCallee))  continue;
 																	callee = const_cast<Function *>(mayCallee);	
 																	//DBG: //errs() << "  -> " << callee->getName() << " with summary= " << getFuncSummary(*callee) << "\n";
-																	
 													}
 												}
 
@@ -317,7 +314,6 @@ string getCollectivesInBB(BasicBlock *BB,PTACallGraph *PTACG){
 												StringRef funcName = callee->getName();
 
 												// Is it a function with a summary?
-												// if function in another module it doesn't work..
 												//DBG: //errs() << " - found " << funcName << " with summary= " << getFuncSummary(*callee) << "\n";
 												if(getFuncSummary(*callee)!=""){
 																if(CollSequence=="empty"){
@@ -327,19 +323,16 @@ string getCollectivesInBB(BasicBlock *BB,PTACallGraph *PTACG){
 																				CollSequence.append(getFuncSummary(*callee));
 																}
 												}
-
 												// Is it a collective?
 												for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI){
 																if (!funcName.equals(*vI)) continue;
-
 																if(CollSequence=="empty"){
 																				CollSequence=OP_name;
 																}else{
-																				CollSequence.append(" ");
-																				CollSequence.append(OP_name);
+																				CollSequence.append(" ").append(OP_name);
 																}
 												}
-										}
+								}
 				}
 				return CollSequence;
 }
@@ -447,14 +440,9 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
 								}
 				}
 				// Keep a metadata for the summary of the function
-				// Set the summary of a function even if no potential errors detected
-				// Then take into account the summary when setting the sequence of collectives of a BB
 				BasicBlock &entry = F->getEntryBlock();
 				StringRef FuncSummary=getBBcollSequence(*entry.getTerminator());
 				mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
 				F->setMetadata("func.summary",mdNode);
 				//DBG: //errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
 }
-
-
-

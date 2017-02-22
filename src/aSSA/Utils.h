@@ -40,5 +40,4 @@ std::string getFuncSummary(llvm::Function &F);
 std::string getBBcollSequence(const llvm::Instruction &inst);
 void BFS(llvm::Function *F, PTACallGraph *PTACG);
 
-
 #endif /* UTILS_H */

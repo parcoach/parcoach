@@ -283,61 +283,60 @@ bool functionDoesNotRet(const llvm::Function *F) {
 
 
 /*
- * FUNCTIONS TO CHECK COLLECTIVES
+ * FUNCTIONS USED TO CHECK COLLECTIVES (BFS PART)
  */
 
 // Get the sequence of collectives for a BB
 string get_BB_collectives(BasicBlock *BB){
-        string CollSequence="empty";
-        for(BasicBlock::iterator i = BB->begin(), e = BB->end(); i != e; ++i){
-                if(CallInst *CI = dyn_cast<CallInst>(i))
-                {
-                        Function *f = CI->getCalledFunction();
-                        if(!f) continue;
+				string CollSequence="empty";
+				for(BasicBlock::iterator i = BB->begin(), e = BB->end(); i != e; ++i){
+								if(CallInst *CI = dyn_cast<CallInst>(i)) {
+												Function *f = CI->getCalledFunction();
+												if(!f) continue;
 
-                        string OP_name = f->getName().str();
-                        StringRef funcName = f->getName();
+												string OP_name = f->getName().str();
+												StringRef funcName = f->getName();
 
-			// Is it a function with a summary?
-			if(getFuncSummary(*f)!=""){
-                                        if(CollSequence=="empty"){
-                                                CollSequence=getFuncSummary(*f);
-                                        }else{
-                                                CollSequence.append(" ");
-                                                CollSequence.append(getFuncSummary(*f));
-                                        }
-                         }
+												// Is it a function with a summary?
+												// if function in another module it doesn't work..
+												errs() << " - found " << funcName << " with summary= " << getFuncSummary(*f) << "\n";
+												if(getFuncSummary(*f)!=""){
+																if(CollSequence=="empty"){
+																				CollSequence=getFuncSummary(*f);
+																}else{
+																				CollSequence.append(" ");
+																				CollSequence.append(getFuncSummary(*f));
+																}
+												}
 
+												// Is it a collective?
+												for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI){
+																if (!funcName.equals(*vI)) continue;
 
-                        // Is it a collective?
-                        for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI){
-                                if (!funcName.equals(*vI))
-                                        continue;
-
-                                if(CollSequence=="empty"){
-                                        CollSequence=OP_name;
-                                }else{
-                                        CollSequence.append(" ");
-                                        CollSequence.append(OP_name);
-                                }
-                        }
-                }
-        }
-        return CollSequence;
+																if(CollSequence=="empty"){
+																				CollSequence=OP_name;
+																}else{
+																				CollSequence.append(" ");
+																				CollSequence.append(OP_name);
+																}
+												}
+								}
+				}
+				return CollSequence;
 }
 
 // Metadata
 string
 getBBcollSequence(const llvm::Instruction &inst){
-        string collSequence="white";
-         if (MDNode *node = inst.getMetadata("inst.collSequence")) {
-                if (Metadata *value = node->getOperand(0)) {
-                        MDString *mdstring = cast<MDString>(value);
-                        collSequence=mdstring->getString();
-                        return collSequence;
-                }
-        }
-        return collSequence;
+				string collSequence="white";
+				if (MDNode *node = inst.getMetadata("inst.collSequence")) {
+								if (Metadata *value = node->getOperand(0)) {
+												MDString *mdstring = cast<MDString>(value);
+												collSequence=mdstring->getString();
+												return collSequence;
+								}
+				}
+				return collSequence;
 }
 
 
@@ -356,88 +355,88 @@ getFuncSummary(llvm::Function &F){
 
 // BFS in reverse topological order
 void BFS(llvm::Function *F){
-        //errs() << "  >>> in BFS\n";
-        MDNode* mdNode;
-        StringRef CollSequence_Header;
-        StringRef CollSequence=StringRef();
-        std::vector<BasicBlock *> Unvisited;
+				//errs() << "  >>> in BFS\n";
+				MDNode* mdNode;
+				StringRef CollSequence_Header;
+				StringRef CollSequence=StringRef();
+				std::vector<BasicBlock *> Unvisited;
 
-        // GET ALL EXIT NODES
-        for(BasicBlock &I : *F){
-                if(isa<ReturnInst>(I.getTerminator())){
-                        Unvisited.push_back(&I);
-                        // set the coll seq of this return bb
-                        StringRef return_coll = StringRef(get_BB_collectives(&I));
-                        mdNode = MDNode::get(I.getContext(),MDString::get(I.getContext(),return_coll));
-                        I.getTerminator()->setMetadata("inst.collSequence",mdNode);
-                }
-        }
-        while(Unvisited.size()>0)
-        {
-                BasicBlock *header=*Unvisited.begin();
-                Unvisited.erase(Unvisited.begin());
-                CollSequence_Header = getBBcollSequence(*header->getTerminator());
-                pred_iterator PI=pred_begin(header), E=pred_end(header);
-                for(; PI!=E; ++PI){
-                        BasicBlock *Pred = *PI;
-                        TerminatorInst* TI = Pred->getTerminator();
-
-                        // BB NOT SEEN BEFORE
-                        if(getBBcollSequence(*TI)=="white"){
-                                string N="empty";
-                                if(CollSequence_Header.str()=="empty"){
-                                        N=get_BB_collectives(Pred);
-                                }else{
-                                        N=CollSequence_Header.str();
-                                        if(get_BB_collectives(Pred)!="empty"){
-                                                N.append(" ");
-                                                N.append(get_BB_collectives(Pred)); // add the coll in Pred
-                                        }
-                                }
-                                CollSequence=StringRef(N);
-                                mdNode = MDNode::get(TI->getContext(),MDString::get(TI->getContext(),CollSequence));
-                                TI->setMetadata("inst.collSequence",mdNode);
-                                Unvisited.push_back(Pred);
-                        // BB ALREADY SEEN
-                        //    -> check if already metadata set. if conditional and different sequences, set the sequence at NAVS
-                        }else{
-                                string seq_temp;
-                                if(CollSequence_Header.str()=="empty"){
-                                        seq_temp=get_BB_collectives(Pred);
-                                }else{
-                                        seq_temp=CollSequence_Header.str();
-                                        if(get_BB_collectives(Pred)!="empty"){
-                                                seq_temp.append(" ");
-                                                seq_temp.append(get_BB_collectives(Pred));
-                                        }
-                                }
-                                StringRef CollSequence_temp=StringRef(seq_temp);
-
-                                // if temp != coll seq -> warning + keep the bb in the PDF+
-                                //errs() << " >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
-                                if(CollSequence_temp.str() != getBBcollSequence(*TI) || CollSequence_temp.str()=="NAVS" || getBBcollSequence(*TI)=="NAVS"){
-                                        mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
-                                        TI->setMetadata("inst.collSequence",mdNode);
-                                        // DEBUG
-                                        DebugLoc BDLoc = TI->getDebugLoc();
-                                        //errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n";
-                                }else{
-					mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),seq_temp));
-                                        TI->setMetadata("inst.collSequence",mdNode);
-                                        // DEBUG
-                                        //errs() << "  ===>>> Line " << TI->getDebugLoc().getLine() << " -> " << getBBcollSequence(*TI) << "\n";
+				// GET ALL EXIT NODES
+				for(BasicBlock &I : *F){
+								if(isa<ReturnInst>(I.getTerminator())){
+												Unvisited.push_back(&I);
+												// set the coll seq of this return bb
+												StringRef return_coll = StringRef(get_BB_collectives(&I));
+												mdNode = MDNode::get(I.getContext(),MDString::get(I.getContext(),return_coll));
+												I.getTerminator()->setMetadata("inst.collSequence",mdNode);
+								}
 				}
-                        }
-                }
-        }
-	// Keep a metadata for the summary of the function
-       // Set the summary of a function even if no potential errors detected
-       // Then take into account the summary when setting the sequence of collectives of a BB
-       BasicBlock &entry = F->getEntryBlock();
-       StringRef FuncSummary=getBBcollSequence(*entry.getTerminator());
-       mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
-       F->setMetadata("func.summary",mdNode);
-       //errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
+				while(Unvisited.size()>0)
+				{
+								BasicBlock *header=*Unvisited.begin();
+								Unvisited.erase(Unvisited.begin());
+								CollSequence_Header = getBBcollSequence(*header->getTerminator());
+								pred_iterator PI=pred_begin(header), E=pred_end(header);
+								for(; PI!=E; ++PI){
+												BasicBlock *Pred = *PI;
+												TerminatorInst* TI = Pred->getTerminator();
+
+												// BB NOT SEEN BEFORE
+												if(getBBcollSequence(*TI)=="white"){
+																string N="empty";
+																if(CollSequence_Header.str()=="empty"){
+																				N=get_BB_collectives(Pred);
+																}else{
+																				N=CollSequence_Header.str();
+																				if(get_BB_collectives(Pred)!="empty"){
+																								N.append(" ");
+																								N.append(get_BB_collectives(Pred)); // add the coll in Pred
+																				}
+																}
+																CollSequence=StringRef(N);
+																mdNode = MDNode::get(TI->getContext(),MDString::get(TI->getContext(),CollSequence));
+																TI->setMetadata("inst.collSequence",mdNode);
+																Unvisited.push_back(Pred);
+																// BB ALREADY SEEN
+																//    -> check if already metadata set. if conditional and different sequences, set the sequence at NAVS
+												}else{
+																string seq_temp;
+																if(CollSequence_Header.str()=="empty"){
+																				seq_temp=get_BB_collectives(Pred);
+																}else{
+																				seq_temp=CollSequence_Header.str();
+																				if(get_BB_collectives(Pred)!="empty"){
+																								seq_temp.append(" ");
+																								seq_temp.append(get_BB_collectives(Pred));
+																				}
+																}
+																StringRef CollSequence_temp=StringRef(seq_temp);
+
+																// if temp != coll seq -> warning + keep the bb in the PDF+
+																errs() << " >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
+																if(CollSequence_temp.str() != getBBcollSequence(*TI) || CollSequence_temp.str()=="NAVS" || getBBcollSequence(*TI)=="NAVS"){
+																				mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
+																				TI->setMetadata("inst.collSequence",mdNode);
+																				// DEBUG
+																				DebugLoc BDLoc = TI->getDebugLoc();
+																				errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n";
+																}else{
+																				mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),seq_temp));
+																				TI->setMetadata("inst.collSequence",mdNode);
+																				// DEBUG
+																				errs() << "  ===>>> Line " << TI->getDebugLoc().getLine() << " -> " << getBBcollSequence(*TI) << "\n";
+																}
+												}
+								}
+				}
+				// Keep a metadata for the summary of the function
+				// Set the summary of a function even if no potential errors detected
+				// Then take into account the summary when setting the sequence of collectives of a BB
+				BasicBlock &entry = F->getEntryBlock();
+				StringRef FuncSummary=getBBcollSequence(*entry.getTerminator());
+				mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
+				F->setMetadata("func.summary",mdNode);
+				errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
 }
 
 

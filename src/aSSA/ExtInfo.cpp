@@ -12,6 +12,8 @@ struct funcModPair {
 };
 
 static const funcModPair funcModPairs[] = {
+  // {"func_name", { <nb_params>, <retval_is_pointer>, { <param_1_is_modified_pointer, ..., <param_n-1_is_modified_pointer> } } }
+
   /* LLVM intrinsics */
   {"llvm.fabs.v2f64", { 1, false, {false} } },
   {"llvm.lifetime.end", { 2, false, {false, false} } },
@@ -161,6 +163,16 @@ static const funcModPair funcModPairs[] = {
   {"gsl_rng_size", { 1, false, {false} } },
   {"gsl_rng_state", { 1, true, {false} } },
   {"gsl_rng_uniform", { 1, false, {false} } },
+
+  /* Functions from NAS-MPI */
+  {"timer_start", { 1, false, {false } } },
+  {"timer_stop", { 1, false, {false } } },
+  {"timer_clear", { 1, false, {false } } },
+  {"timer_read", { 1, false, {false } } },
+  {"c_print_results", { 20, false, {false,false,false,false,false,false,false,false,
+								false,false,false,false,false,false, false,false,false,false,false,false } } },
+  {"memset_pattern16", { 3, false, {false,false,false } } },
+  {"\01_fopen", { 2, true, {false, false} } },
 
   {NULL, {0, false, {} } }
 };

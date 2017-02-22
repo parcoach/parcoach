@@ -1115,19 +1115,27 @@ DepGraph::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
 }
 
 void
-DepGraph::eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2) {
+DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
+  // Singlify operands
+  std::set<MSSAVar *> opsSet;
+  for (MSSAVar *v : ops)
+    opsSet.insert(v);
+  ops.clear();
+  for (MSSAVar *v :opsSet)
+    ops.push_back(v);
+
   // Remove links from predicates to PHI
   for (const Value *v : phi->preds)
     removeEdge(v, phi->var);
 
-  // Remove links from op1,op2 to PHI
-  removeEdge(op1, phi->var);
-  removeEdge(op2, phi->var);
+  // Remove links from ops to PHI
+  for (MSSAVar *op : ops)
+    removeEdge(op, phi->var);
 
   // For each outgoing edge from PHI to a SSA node N, connect
   // op1 to N and remove the link from PHI to N.
   for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
-    addEdge(op1, v);
+    addEdge(ops[0], v);
     removeEdge(phi->var, v);
 
     // If N is a phi replace the phi operand of N with op1
@@ -1139,7 +1147,7 @@ DepGraph::eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2) {
 	   ++I) {
 	if (I->second == phi->var) {
 	  found = true;
-	  I->second = op1;
+	  I->second = ops[0];
 	  break;
 	}
       }
@@ -1150,7 +1158,7 @@ DepGraph::eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2) {
   // For each outgoing edge from PHI to a LLVM node N, connect
   // connect op1 to N and remove the link from PHI to N.
   for (const Value *v : ssaToLLVMChildren[phi->var]) {
-    addEdge(op1, v);
+    addEdge(ops[0], v);
     removeEdge(phi->var, v);
   }
 
@@ -1161,20 +1169,22 @@ DepGraph::eliminatePhi(MSSAPhi *phi, MSSAVar *op1, MSSAVar *op2) {
   assert(it != funcToSSANodesMap[F].end());
   funcToSSANodesMap[F].erase(it);
 
-  // Remove edges connected to op2
-  for (MSSAVar *v : ssaToSSAParents[op2])
-    removeEdge(v, op2);
-  for (const Value *v : ssaToLLVMParents[op2])
-    removeEdge(v, op2);
-  for (MSSAVar *v : ssaToSSAChildren[op2])
-    removeEdge(op2, v);
-  for (const Value *v : ssaToLLVMChildren[op2])
-    removeEdge(op2, v);
+  // Remove edges connected to other operands than op0
+  for (unsigned i=1; i<ops.size(); ++i) {
+    for (MSSAVar *v : ssaToSSAParents[ops[i]])
+      removeEdge(v, ops[i]);
+    for (const Value *v : ssaToLLVMParents[ops[i]])
+      removeEdge(v, ops[i]);
+    for (MSSAVar *v : ssaToSSAChildren[ops[i]])
+      removeEdge(ops[i], v);
+    for (const Value *v : ssaToLLVMChildren[ops[i]])
+      removeEdge(ops[i], v);
 
-  // Remove op2
-  auto it2 = funcToSSANodesMap[F].find(op2);
-  assert(it2 != funcToSSANodesMap[F].end());
-  funcToSSANodesMap[F].erase(it2);
+    // Remove op2
+    auto it2 = funcToSSANodesMap[F].find(ops[i]);
+    assert(it2 != funcToSSANodesMap[F].end());
+    funcToSSANodesMap[F].erase(it2);
+  }
 }
 
 
@@ -1201,17 +1211,19 @@ DepGraph::phiElimination() {
 	  for (auto J : phi->opsVar)
 	    phiOperands.push_back(J.second);
 
-	  if (phiOperands.size() != 2)
-	    continue;
-
-	  assert(phiOperands[0] != phiOperands[1]);
-
-	  if (!areSSANodesEquivalent(phiOperands[0], phiOperands[1]))
+	  bool canElim = true;
+	  for (unsigned i=0; i<phiOperands.size() - 1; i++) {
+	    if (!areSSANodesEquivalent(phiOperands[i], phiOperands[i+1])) {
+	      canElim = false;
+	      break;
+	    }
+	  }
+	  if (!canElim)
 	    continue;
 
 	  // PHI Node can be eliminated !
 	  changed = true;
-	  eliminatePhi(phi, phiOperands[0], phiOperands[1]);
+	  eliminatePhi(phi, phiOperands);
 	}
       }
     }
@@ -1401,6 +1413,88 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
   stream << "compound=true;\n";
   stream << "rankdir=LR;\n";
 
+  visitedSSANodes.clear();
+  visitedLLVMNodes.clear();
+  visitedSSANodes.insert(root);
+
+  string tmpStr;
+  raw_string_ostream strStream(tmpStr);
+
+  MSSAVar *lastVar = root;
+  assert(root);
+  const Value *lastValue = NULL;
+  bool lastIsVar = true;
+
+  // Compute edges of the shortest path to strStream
+  for (unsigned i=curDist-1; i>0; i--) {
+    bool found = false;
+    if (lastIsVar) {
+      for (MSSAVar *v : visitedSSANodesByDist[i]) {
+	if (ssaToSSAParents[v].find(lastVar) == ssaToSSAParents[v].end())
+	  continue;
+
+	visitedSSANodes.insert(v);
+	strStream << "Node" << ((void *) lastVar) << " -> "
+		  << "Node" << ((void *) v) << "\n";
+	lastVar = v;
+	found = true;
+	break;
+      }
+
+      if (found)
+	continue;
+
+      for (const Value *v : visitedLLVMNodesByDist[i]) {
+	if (llvmToSSAParents[v].find(lastVar) == llvmToSSAParents[v].end())
+	  continue;
+
+	visitedLLVMNodes.insert(v);
+	strStream << "Node" << ((void *) lastVar) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastValue = v;
+	lastIsVar = false;
+	found = true;
+	break;
+      }
+
+      assert(found);
+    }
+
+    // Last visited is a value
+    else {
+      for (MSSAVar *v : visitedSSANodesByDist[i]) {
+	if (ssaToLLVMParents[v].find(lastValue) == ssaToLLVMParents[v].end())
+	  continue;
+
+	visitedSSANodes.insert(v);
+	strStream << "Node" << ((void *) lastValue) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastVar = v;
+	lastIsVar = true;
+	found = true;
+	break;
+      }
+
+      if (found)
+	continue;
+
+      for (const Value *v : visitedLLVMNodesByDist[i]) {
+	if (llvmToLLVMParents[v].find(lastValue) == llvmToLLVMParents[v].end())
+	  continue;
+
+	visitedLLVMNodes.insert(v);
+	strStream << "Node" << ((void *) lastValue) << " -> "
+	       << "Node" << ((void *) v) << "\n";
+	lastValue = v;
+	lastIsVar = false;
+	found = true;
+	break;
+      }
+
+      assert(found);
+    }
+  }
+
   // compute visited functions
   std::set<const Function *> visitedFunctions;
   for (auto I : funcToLLVMNodesMap) {
@@ -1446,77 +1540,8 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
     stream << "}\n";
   }
 
-  MSSAVar *lastVar = root;
-  assert(root);
-  const Value *lastValue = NULL;
-  bool lastIsVar = true;
-
   // Dot edges
-  for (unsigned i=curDist-1; i>0; i--) {
-    bool found = false;
-    if (lastIsVar) {
-      for (MSSAVar *v : visitedSSANodesByDist[i]) {
-	if (ssaToSSAParents[v].find(lastVar) == ssaToSSAParents[v].end())
-	  continue;
-
-	stream << "Node" << ((void *) lastVar) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastVar = v;
-	found = true;
-	break;
-      }
-
-      if (found)
-	continue;
-
-      for (const Value *v : visitedLLVMNodesByDist[i]) {
-	if (llvmToSSAParents[v].find(lastVar) == llvmToSSAParents[v].end())
-	  continue;
-
-	stream << "Node" << ((void *) lastVar) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastValue = v;
-	lastIsVar = false;
-	found = true;
-	break;
-      }
-
-      assert(found);
-    }
-
-    // Last visited is a value
-    else {
-      for (MSSAVar *v : visitedSSANodesByDist[i]) {
-	if (ssaToLLVMParents[v].find(lastValue) == ssaToLLVMParents[v].end())
-	  continue;
-
-	stream << "Node" << ((void *) lastValue) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastVar = v;
-	lastIsVar = true;
-	found = true;
-	break;
-      }
-
-      if (found)
-	continue;
-
-      for (const Value *v : visitedLLVMNodesByDist[i]) {
-	if (llvmToLLVMParents[v].find(lastValue) == llvmToLLVMParents[v].end())
-	  continue;
-
-	stream << "Node" << ((void *) lastValue) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastValue = v;
-	lastIsVar = false;
-	found = true;
-	break;
-      }
-
-      assert(found);
-    }
-  }
-
+  stream << strStream.str();
 
   stream << "}\n";
 }

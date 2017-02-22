@@ -233,4 +233,26 @@ namespace llvm {
 
 }
 
+class PTACallGraphSCC {
+  const PTACallGraph &CG; // The call graph for this SCC.
+  void *Context;
+  std::vector<PTACallGraphNode*> Nodes;
+
+public:
+  PTACallGraphSCC(PTACallGraph &cg, void *context) : CG(cg), Context(context) {}
+
+  void initialize(PTACallGraphNode *const *I, PTACallGraphNode *const *E) {
+    Nodes.assign(I, E);
+  }
+
+  bool isSingular() const { return Nodes.size() == 1; }
+  unsigned size() const { return Nodes.size(); }
+
+  typedef std::vector<PTACallGraphNode *>::const_iterator iterator;
+  iterator begin() const { return Nodes.begin(); }
+  iterator end() const { return Nodes.end(); }
+
+  const PTACallGraph &getCallGraph() { return CG; }
+};
+
 #endif /* PTACALLGRAPH_H */

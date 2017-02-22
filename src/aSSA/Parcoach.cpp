@@ -1,5 +1,6 @@
 #include "andersen/Andersen.h"
 #include "DepGraph.h"
+#include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "MemorySSA.h"
 #include "ModRefAnalysis.h"
@@ -37,6 +38,9 @@ static cl::opt<bool> optTimeStats("timer",
 				cl::desc("Print timers"));
 static cl::opt<bool> optDisablePhiElim("disable-phi-elim",
 				cl::desc("Disable Phi elimination pass"));
+static cl::opt<bool> optDotTaintPaths("dot-taint-paths",
+				cl::desc("Dot taint path of each conditions of" \
+					 "tainted collectives."));
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
@@ -66,7 +70,9 @@ ParcoachInstr::doFinalization(Module &M){
 bool
 ParcoachInstr::runOnModule(Module &M) {
   //errs() << ">>> Module name: " << M.getModuleIdentifier() << "\n";
- 
+
+  ExtInfo extInfo(M);
+
   // Run Andersen alias analysis.
   double startPTA = gettime();
   Andersen AA(M);
@@ -101,7 +107,7 @@ ParcoachInstr::runOnModule(Module &M) {
 
   // Compute MOD/REF analysis
   double startModRef = gettime();
-  ModRefAnalysis MRA(PTACG, &AA);
+  ModRefAnalysis MRA(PTACG, &AA, &extInfo);
   double endModRef = gettime();
   if (optDumpModRef)
     MRA.dump();
@@ -109,7 +115,7 @@ ParcoachInstr::runOnModule(Module &M) {
   errs() << "Mod/ref done\n";
 
   // Compute all-inclusive SSA.
-  MemorySSA MSSA(&M, &AA, &PTACG, &MRA);
+  MemorySSA MSSA(&M, &AA, &PTACG, &MRA, &extInfo);
 
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
@@ -210,8 +216,18 @@ ParcoachInstr::runOnModule(Module &M) {
    */
  /* scc_iterator<CallGraph *> I = scc_begin(&CG);
   CallGraphSCC SCC(CG,&I);
+=======
+  // Parcoach analysis: use DG to find postdominance frontier and tainted nodes
+  // Compute inter-procedural iPDF for all tainted collectives in the code
+
+  // (1) BFS on each function of the Callgraph in reverse topological order
+  //  -> set a function summary with sequence of collectives
+  //  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
+  scc_iterator<PTACallGraph *> I = scc_begin(&PTACG);
+  PTACallGraphSCC SCC(PTACG,&I);
+>>>>>>> 2ea10e84dc49bd59a3e56a62f85b5caac9a24113
   while (!I.isAtEnd()) {
-    vector<CallGraphNode *> nodeVec = *I;
+    vector<PTACallGraphNode *> nodeVec = *I;
     for (unsigned i=0; i<nodeVec.size(); ++i) {
 	Function *F = nodeVec[i]->getFunction();
         if (!F || F->isDeclaration())
@@ -224,8 +240,12 @@ ParcoachInstr::runOnModule(Module &M) {
   /* (2) Check collectives */
 /*  scc_iterator<CallGraph*> CGI = scc_begin(&CG);
   CallGraphSCC CurSCC(CG, &CGI);
+
+  // (2) Check collectives
+  scc_iterator<PTACallGraph*> CGI = scc_begin(&PTACG);
+  PTACallGraphSCC CurSCC(PTACG, &CGI);
   while (!CGI.isAtEnd()) { 
-    const std::vector<CallGraphNode *> &NodeVec = *CGI;
+    const std::vector<PTACallGraphNode *> &NodeVec = *CGI;
     CurSCC.initialize(NodeVec.data(), NodeVec.data() + NodeVec.size()); 
     runOnSCC(CurSCC, DG);
     ++CGI;
@@ -310,6 +330,8 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
 																const Instruction *inst = BB->getTerminator();
 																DebugLoc loc = inst->getDebugLoc();
 																COND_lines.append(" ").append(to_string(loc.getLine())).append(" (").append(loc->getFilename()).append(")");
+																if (optDotTaintPaths)
+																				DG->dotTaintPath(cond, string("taintpath-").append(loc->getFilename()).append("-").append(to_string(loc.getLine())).append(".dot"));
 												}
 												if(COND_lines =="")  continue;
 												ParcoachInstr::nbWarnings ++;
@@ -320,20 +342,21 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
 												Diag.print(ProgName, errs(), 1,1);
 								}
 				}
-
-
 }
 
 
 // (2) Check MPI collectives 
-bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
+/*bool ParcoachInstr::runOnSCC(CallGraphSCC &SCC, DepGraph *DG){
    for(CallGraphSCC::iterator CGit=SCC.begin(); CGit != SCC.end(); CGit++){
        CallGraphNode *CGN = *CGit;
+*/
+bool ParcoachInstr::runOnSCC(PTACallGraphSCC &SCC, DepGraph *DG){
+   for(PTACallGraphSCC::iterator CGit=SCC.begin(); CGit != SCC.end(); CGit++){
+       PTACallGraphNode *CGN = *CGit;
        Function *F = CGN->getFunction();
        if (!F || F->isDeclaration()) continue; 
   
        checkCollectives(F, DG); 
-
    }
    return false;
 }

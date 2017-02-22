@@ -2,6 +2,7 @@
 #define MODREFANALYSIS
 
 #include "andersen/Andersen.h"
+#include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "PTACallGraph.h"
 
@@ -9,7 +10,7 @@
 
 class ModRefAnalysis : public llvm::InstVisitor<ModRefAnalysis> {
 public:
-  ModRefAnalysis(PTACallGraph &CG, Andersen *PTA);
+  ModRefAnalysis(PTACallGraph &CG, Andersen *PTA, ExtInfo *extInfo);
   ~ModRefAnalysis();
 
   MemRegSet getFuncMod(const llvm::Function *F);
@@ -27,6 +28,7 @@ private:
   const llvm::Function *curFunc;
   PTACallGraph &CG;
   Andersen *PTA;
+  ExtInfo *extInfo;
   llvm::DenseMap<const llvm::Function *, MemRegSet> funcModMap;
   llvm::DenseMap<const llvm::Function *, MemRegSet> funcRefMap;
 };

@@ -5,8 +5,9 @@
 using namespace llvm;
 using namespace std;
 
-ModRefAnalysis::ModRefAnalysis(PTACallGraph &CG, Andersen *PTA)
-  : CG(CG), PTA(PTA) {
+ModRefAnalysis::ModRefAnalysis(PTACallGraph &CG, Andersen *PTA,
+			       ExtInfo *extInfo)
+  : CG(CG), PTA(PTA), extInfo(extInfo) {
   analyze();
 }
 
@@ -36,9 +37,10 @@ ModRefAnalysis::visitStoreInst(StoreInst &I) {
 
 void
 ModRefAnalysis::visitCallSite(CallSite CS) {
-  // For each external function called, add the region of each the pointer
-  // parameters passed to the function to the mod/ref set of the calling
-  // function.
+  // For each external function called, add the region of each pointer
+  // parameters passed to the function to the ref set of the called
+  // function. Regions are added to the Mod set only if the parameter is
+  // modified in the callee.
 
   assert(CS.isCall());
   CallInst *CI = cast<CallInst>(CS.getInstruction());
@@ -48,7 +50,7 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   if (!callee) {
     bool mayCallExternalFunction = false;
     for (const Function *mayCallee : CG.indirectCallMap[CI]) {
-      if (mayCallee->isDeclaration()) {
+      if (mayCallee->isDeclaration() && !isIntrinsicDbgFunction(mayCallee)) {
 	mayCallExternalFunction = true;
 	break;
       }
@@ -60,6 +62,9 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   // direct call
   else {
     if (!callee->isDeclaration())
+      return;
+
+    if (isIntrinsicDbgFunction(callee))
       return;
   }
 
@@ -80,18 +85,110 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
       delete inst;
     }
 
-    vector<const Value *> ptsSet;
     vector<const Value *> argPtsSet;
 
     assert(PTA->getPointsToSet(arg, argPtsSet));
-    ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
-
     vector<MemReg *> regs;
-    MemReg::getValuesRegion(ptsSet, regs);
+    MemReg::getValuesRegion(argPtsSet, regs);
 
-    for (MemReg *r : regs) {
-      funcModMap[curFunc].insert(r);
+    for (MemReg *r : regs)
       funcRefMap[curFunc].insert(r);
+
+    // direct call
+    if (callee) {
+      const extModInfo *info = extInfo->getExtModInfo(callee);
+      assert(info);
+
+      // Variadic argument
+      if (i >= info->nbArgs) {
+	assert(callee->isVarArg());
+
+	if (info->argIsMod[info->nbArgs-1]) {
+	  for (MemReg *r : regs)
+	    funcModMap[curFunc].insert(r);
+	}
+      }
+
+      // Normal argument
+      else {
+	if (info->argIsMod[i]) {
+	  for (MemReg *r : regs)
+	    funcModMap[curFunc].insert(r);
+	}
+      }
+    }
+
+    // indirect call
+    else {
+      for (const Function *mayCallee : CG.indirectCallMap[CI]) {
+    	if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
+    	  continue;
+
+	const extModInfo *info = extInfo->getExtModInfo(mayCallee);
+	assert(info);
+
+	// Variadic argument
+	if (i >= info->nbArgs) {
+	  assert(mayCallee->isVarArg());
+
+	  if (info->argIsMod[info->nbArgs-1]) {
+	    for (MemReg *r : regs)
+	      funcModMap[curFunc].insert(r);
+	  }
+	}
+
+	// Normal argument
+	else {
+	  if (info->argIsMod[i]) {
+	    for (MemReg *r : regs)
+	      funcModMap[curFunc].insert(r);
+	  }
+	}
+      }
+    }
+  }
+
+  // Compute mof/ref for return value if it is a pointer.
+  if (callee) {
+    const extModInfo *info = extInfo->getExtModInfo(callee);
+    assert(info);
+
+    if (callee->getReturnType()->isPointerTy()) {
+      vector<const Value *> retPtsSet;
+      assert(PTA->getPointsToSet(CI, retPtsSet));
+      vector<MemReg *> regs;
+      MemReg::getValuesRegion(retPtsSet, regs);
+      for (MemReg *r : regs)
+	funcRefMap[curFunc].insert(r);
+
+      if (info->retIsMod) {
+	for (MemReg *r : regs)
+	  funcModMap[curFunc].insert(r);
+      }
+    }
+  }
+
+  else {
+    for (const Function *mayCallee : CG.indirectCallMap[CI]) {
+      if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
+	continue;
+
+      const extModInfo *info = extInfo->getExtModInfo(callee);
+      assert(info);
+
+      if (mayCallee->getReturnType()->isPointerTy()) {
+	vector<const Value *> retPtsSet;
+	assert(PTA->getPointsToSet(CI, retPtsSet));
+	vector<MemReg *> regs;
+	MemReg::getValuesRegion(retPtsSet, regs);
+	for (MemReg *r : regs)
+	  funcRefMap[curFunc].insert(r);
+
+	if (info->retIsMod) {
+	  for (MemReg *r : regs)
+	    funcModMap[curFunc].insert(r);
+	}
+      }
     }
   }
 }
@@ -101,19 +198,20 @@ ModRefAnalysis::analyze() {
   unsigned nbFunctions  = CG.getModule().getFunctionList().size();
   unsigned counter = 0;
 
+  // First compute the mod/ref sets of each function from its load/store
+  // instructions and calls to external functions.
+
+  for (Function &F : CG.getModule()) {
+    curFunc = &F;
+    visit(&F);
+  }
+
+  // Then iterate through the PTACallGraph with an SCC iterator
+  // and add mod/ref sets from callee to caller.
   scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&CG);
   while(!cgSccIter.isAtEnd()) {
 
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
-
-    // For each function in the SCC add mod/ref from load/store.
-    for (PTACallGraphNode *node : nodeVec) {
-      Function *F = node->getFunction();
-      if (F == NULL || isIntrinsicDbgFunction(F))
-	continue;
-      curFunc = F;
-      visit(F);
-    }
 
     // For each function in the SCC add mod/red from callee until reaching a
     // fixed point.

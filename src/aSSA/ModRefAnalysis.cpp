@@ -221,11 +221,56 @@ ModRefAnalysis::analyze() {
 
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
 
-    // For each function in the SCC add mod/red from callee until reaching a
-    // fixed point.
+    // For each function in the SCC compute kill sets
+    // from callee not in the SCC and update mod/ref sets accordingly.
+    for (PTACallGraphNode *node : nodeVec) {
+      const Function *F = node->getFunction();
+      if (F == NULL)
+	continue;
+
+      for (auto it : *node) {
+	const Function *callee = it.second->getFunction();
+	if (callee == NULL || F == callee)
+	  continue;
+
+	// If callee is not in the scc
+	// kill(F) = kill(F) U kill(callee) U local(callee)
+	if (find(nodeVec.begin(), nodeVec.end(), it.second)
+	    == nodeVec.end()) {
+	  for (MemReg *r : funcLocalMap[callee])
+	    funcKillMap[F].insert(r);
+	  for (MemReg *r : funcKillMap[callee])
+	    funcKillMap[F].insert(r);
+	}
+      }
+
+      // Mod(F) = Mod(F) \ kill(F)
+      // Ref(F) = Ref(F) \ kill(F)
+      vector<MemReg *> toRemove;
+      for (MemReg *r: funcModMap[F]) {
+	if (funcKillMap[F].find(r) != funcKillMap[F].end())
+	  toRemove.push_back(r);
+      }
+      for (MemReg *r : toRemove) {
+	funcModMap[F].erase(r);
+      }
+      toRemove.clear();
+      for (MemReg *r: funcRefMap[F]) {
+	if (funcKillMap[F].find(r) != funcKillMap[F].end())
+	  toRemove.push_back(r);
+      }
+      for (MemReg *r : toRemove) {
+	funcRefMap[F].erase(r);
+      }
+    }
+
+    // For each function in the SCC, update mod/ref sets until reaching a fixed
+    // point.
     bool changed = true;
+
     while (changed) {
       changed = false;
+
       for (PTACallGraphNode *node : nodeVec) {
 	const Function *F = node->getFunction();
 	if (F == NULL)
@@ -239,24 +284,20 @@ ModRefAnalysis::analyze() {
 	  if (callee == NULL || F == callee)
 	    continue;
 
+	  // Mod(caller) = Mod(caller) U (Mod(callee) \ Kill(caller)
+	  // Ref(caller) = Ref(caller) U (Ref(callee) \ Kill(caller)
 	  set<MemReg *> modToAdd;
 	  set<MemReg *> refToAdd;
 	  modToAdd.insert(funcModMap[callee].begin(), funcModMap[callee].end());
 	  refToAdd.insert(funcRefMap[callee].begin(), funcRefMap[callee].end());
-
-	  // If callee is not in the scc, remove its local variables from the
-	  // toAdd sets.
-	  if (find(nodeVec.begin(), nodeVec.end(), it.second)
-	      == nodeVec.end()) {
-	    for (MemReg *r : funcLocalMap[callee]) {
-	      funcKillMap[F].insert(r);
-	      modToAdd.erase(r);
-	      refToAdd.erase(r);
-	    }
+	  for (MemReg *r : modToAdd) {
+	    if (funcKillMap[F].find(r) == funcKillMap[F].end())
+	      funcModMap[F].insert(r);
 	  }
-
-	  funcModMap[F].insert(modToAdd.begin(), modToAdd.end());
-	  funcRefMap[F].insert(refToAdd.begin(), refToAdd.end());
+	  for (MemReg *r : refToAdd) {
+	    if (funcKillMap[F].find(r) == funcKillMap[F].end())
+	      funcRefMap[F].insert(r);
+	  }
 	}
 
 	if (funcModMap[F].size() > modSize || funcRefMap[F].size() > refSize)

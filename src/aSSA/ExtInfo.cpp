@@ -181,16 +181,19 @@ static const funcModPair funcModPairs[] = {
   {"gsl_rng_uniform", { 1, false, {false} } },
 
   /* Functions from NAS-MPI */
-  /*{"timer_start", { 1, false, {false } } },
-  {"timer_stop", { 1, false, {false } } },
-  {"timer_clear", { 1, false, {false } } },
-  {"timer_read", { 1, false, {false } } },
-  {"c_print_results", { 20, false, {false,false,false,false,false,false,false,false,
-								false,false,false,false,false,false, false,false,false,false,false,false } } },
-  */
   {"memset_pattern16", { 3, false, {false,false,false } } },
   {"\01_fopen", { 2, true, {false, false} } },
 
+  /* Functions from Coral AMG */
+	{"\01_strtod",{ 2, false, {false, true} }},	
+	{"sscanf",{3, false, {false, false, true} }},	
+	{"llvm.objectsize.i64.p0i8",{2,false, {false,false}}},	
+	{"__memcpy_chk",{3,false,{true,false,false}}},	
+	{"\01_clock", { 0, false, {} }},	
+	{"__strncpy_chk",{ 3, true, {true, false, false} }},	
+	{"__sprintf_chk",{ 3, false, {true, false, false} }},	
+	{"llvm.pow.f64",{2, false, {false,false}}},	
+	{"fscanf",{3,false,{false,false,true}}},	
 
   {NULL, {0, false, {} } }
 };

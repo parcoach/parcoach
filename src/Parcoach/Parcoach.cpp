@@ -95,14 +95,17 @@ ParcoachInstr::checkCollectives(Function &F, PostDominatorTree &PDT){
 		if(!f) continue;
 
 		string OP_name = f->getName().str();
-          	StringRef funcName = f->getName();
+		StringRef funcName = f->getName();
 
 		// Is it a collective?
 		for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
 			if (!funcName.equals(*vI))
 				continue;
+			//errs() << "\n -> Found a collective : " << funcName << "\n";
 			ParcoachInstr::nbCollectivesFound++;
 			vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
+			//vector<BasicBlock * > iPDF = {};
+			errs() << "  -> iPDF OK\n";
 
 			if(iPDF.size()==0)
 				continue;

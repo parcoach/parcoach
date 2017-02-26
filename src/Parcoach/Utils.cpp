@@ -11,63 +11,97 @@ using namespace std;
 
 
 // PDF computation
+static map<BasicBlock *, set<BasicBlock *> *> pdfCache;
+
 vector<BasicBlock * >
 postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
-        vector<BasicBlock * > PDF;
-        PDF.clear();
-        DomTreeNode *DomNode = PDT.getNode(BB);
+  vector<BasicBlock * > PDF;
 
-        for (auto it = pred_begin(BB), et = pred_end(BB); it != et; ++it){
-                // does BB immediately dominate this predecessor?
-                DomTreeNode *ID = PDT[*it]; //->getIDom();
-                if(ID && ID->getIDom()!=DomNode && *it!=BB){
-                        PDF.push_back(*it);
-                }
-        }
-        for (DomTreeNode::const_iterator NI = DomNode->begin(), NE = DomNode->end();
-                        NI != NE; ++NI) {
-                DomTreeNode *IDominee = *NI;
-                vector<BasicBlock * > ChildDF =
-                        postdominance_frontier(PDT, IDominee->getBlock());
-                vector<BasicBlock * >::const_iterator CDFI
-                        = ChildDF.begin(), CDFE = ChildDF.end();
-                for (; CDFI != CDFE; ++CDFI) {
-                        if (PDT[*CDFI]->getIDom() != DomNode && *CDFI!=BB){
-                                PDF.push_back(*CDFI);
-                        }
-                }
-        }
-        return PDF;
+  set<BasicBlock *> *cache = pdfCache[BB];
+  if (cache) {
+    for (BasicBlock *b : *cache)
+      PDF.push_back(b);
+    return PDF;
+  }
+
+  PDF.clear();
+  DomTreeNode *DomNode = PDT.getNode(BB);
+
+  for (auto it = pred_begin(BB), et = pred_end(BB); it != et; ++it){
+    // does BB immediately dominate this predecessor?
+    DomTreeNode *ID = PDT[*it]; //->getIDom();
+    if(ID && ID->getIDom()!=DomNode && *it!=BB){
+      PDF.push_back(*it);
+    }
+  }
+  for (DomTreeNode::const_iterator NI = DomNode->begin(), NE = DomNode->end();
+       NI != NE; ++NI) {
+    DomTreeNode *IDominee = *NI;
+    vector<BasicBlock * > ChildDF =
+      postdominance_frontier(PDT, IDominee->getBlock());
+    vector<BasicBlock * >::const_iterator CDFI
+      = ChildDF.begin(), CDFE = ChildDF.end();
+    for (; CDFI != CDFE; ++CDFI) {
+      if (PDT[*CDFI]->getIDom() != DomNode && *CDFI!=BB){
+	PDF.push_back(*CDFI);
+      }
+    }
+  }
+
+  pdfCache[BB] = new set<BasicBlock *>();
+  pdfCache[BB]->insert(PDF.begin(), PDF.end());
+
+  return PDF;
 }
 
 // PDF+ computation
-vector<BasicBlock * >
+static map<BasicBlock *, set<BasicBlock *> *> ipdfCache;
+
+vector<BasicBlock * > 
 iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
-        vector<BasicBlock * > iPDF;
-        vector<BasicBlock * > iPDF_temp;
-        vector<BasicBlock * > PDF;
-        vector<BasicBlock * > PDF_temp;
 
-        iPDF=postdominance_frontier(PDT, BB);
-        if(iPDF.size()==0)
-                return iPDF;
+  vector<BasicBlock * > iPDF; 
+  set<BasicBlock *> *cache = ipdfCache[BB];
+  if (cache) {
+    for (BasicBlock *b : *cache)
+      iPDF.push_back(b);
+    return iPDF;
+  }
 
-        // iterate
-        iPDF_temp=iPDF;
-        while(iPDF_temp.size()!=0){
-                vector<BasicBlock * >::const_iterator PDFI = iPDF_temp.begin(), PDFE = iPDF_temp.end();
-                for(; PDFI != PDFE; ++PDFI){
-                        PDF.clear();
-                        PDF=postdominance_frontier(PDT, *PDFI);
-                        PDF_temp.insert(std::end(PDF_temp), std::begin(PDF), std::end(PDF));
-                        iPDF.insert(std::end(iPDF), std::begin(PDF), std::end(PDF));
-                }
-                iPDF_temp.clear();
-                iPDF_temp=PDF_temp;
-                PDF_temp.clear();
-        }
+  iPDF=postdominance_frontier(PDT, BB);
+  if(iPDF.size()==0)
+    return iPDF;
 
-        return iPDF;
+  std::set<BasicBlock *> S;
+  S.insert(iPDF.begin(), iPDF.end());
+  std::set<BasicBlock *> toCompute;
+  std::set<BasicBlock *> toComputeTmp;
+  toCompute.insert(iPDF.begin(), iPDF.end());
+
+  bool changed = true;
+  while (changed) {
+    changed = false;
+
+    for (auto I = toCompute.begin(), E = toCompute.end(); I != E; ++I) {
+      vector<BasicBlock *> tmp = postdominance_frontier(PDT, *I);
+      for (auto J = tmp.begin(), F = tmp.end(); J != F; ++J) {
+	if ((S.insert(*J)).second) {
+	  toComputeTmp.insert(*J);
+	  changed = true;
+	}
+      }
+    }
+
+    toCompute = toComputeTmp;
+    toComputeTmp.clear();
+  }
+
+  iPDF.insert(iPDF.end(), S.begin(), S.end());
+
+  ipdfCache[BB] = new set<BasicBlock *>();
+  ipdfCache[BB]->insert(iPDF.begin(), iPDF.end());
+
+  return iPDF;
 }
 
 // Get the sequence of collectives for a BB

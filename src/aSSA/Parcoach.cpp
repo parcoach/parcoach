@@ -20,7 +20,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-
+#include <llvm/Analysis/LoopInfo.h>
 
 using namespace llvm;
 using namespace std;
@@ -52,6 +52,7 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();
   au.addRequired<CallGraphWrapperPass>();
+  au.addRequired<LoopInfoWrapperPass>();
 }
 
 bool 
@@ -198,30 +199,27 @@ ParcoachInstr::runOnModule(Module &M) {
    *  -> set a function summary with sequence of collectives
    *  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
    */
-	errs() << "BFS\n";
+	errs() << " - BFS\n";
 	scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
 	while(!cgSccIter.isAtEnd()) {
 					const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
 					for (PTACallGraphNode *node : nodeVec) {
 									Function *F = node->getFunction();
-									//if (F == NULL || isIntrinsicDbgFunction(F))
 									if (!F || F->isDeclaration())
 													continue;
 									//DBG: //errs() << "Function: " << F->getName() << "\n";
-									errs() << "Function: " << F->getName() << "\n";
 									BFS(F,&PTACG);
 					}
 					++cgSccIter;
 	}
 
   /* (2) Check collectives */
-	errs() << "CheckCollectives\n";
+	errs() << " - CheckCollectives\n";
 	cgSccIter = scc_begin(&PTACG);
 	while(!cgSccIter.isAtEnd()) {
 					const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
 					for (PTACallGraphNode *node : nodeVec) {
 									Function *F = node->getFunction();
-									//if (F == NULL || isIntrinsicDbgFunction(F))
 									if (!F || F->isDeclaration())
 													continue;
 									//DBG: //errs() << "Function: " << F->getName() << "\n";
@@ -284,7 +282,7 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
 																string Seq = getBBcollSequence(*(BB->getTerminator()));
 																DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
 																//DBG: //errs() << "Seq = " << Seq << " - Line " << BDLoc->getLine() << "\n";
-																if(Seq!="NAVS" && Seq!="empty") continue;
+																if(Seq!="NAVS") continue;
 
 																const Instruction *inst = BB->getTerminator();
 																DebugLoc loc = inst->getDebugLoc();

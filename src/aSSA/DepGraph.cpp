@@ -1240,7 +1240,6 @@ DepGraph::phiElimination() {
 
 	double t2 = gettime();
 	phiElimTime += t2 - t1;
-	errs() << "Exit phi elimination\n";
 }
 
 void

@@ -3,6 +3,7 @@
 #include "Utils.h"
 
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Support/FileSystem.h"
 
 using namespace std;
 using namespace llvm;
@@ -550,31 +551,37 @@ MemorySSA::whichPred(const BasicBlock *pred,
 
 void
 MemorySSA::dumpMSSA(const llvm::Function *F) {
+  string filename = F->getName();
+  filename.append("-assa.ll");
+  errs() << "Writing '" << filename << "' ...\n";
+  error_code EC;
+  raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
+
   // Function header
-  errs() << "define " << *F->getReturnType() << " @" << F->getName() << "(";
+  stream << "define " << *F->getReturnType() << " @" << F->getName() << "(";
   for (const Argument &arg : F->getArgumentList())
-    errs() << arg << ", ";
-  errs() << ") {\n";
+    stream << arg << ", ";
+  stream << ") {\n";
 
   // Dump entry chi
   for (MSSAChi *chi : funToEntryChiMap[F])
-    errs() << chi->region->getName() << chi->var->version << "\n";
+    stream << chi->region->getName() << chi->var->version << "\n";
 
   // For each basic block
   for (auto BI = F->begin(), BE = F->end(); BI != BE; ++BI) {
     const BasicBlock *bb = &*BI;
 
     // BB name
-    errs() << bb->getName() << ":\n";
+    stream << bb->getName() << ":\n";
 
     // Phi functions
     for (MSSAPhi *phi : bbToPhiMap[bb]) {
-      errs() << phi->region->getName() << phi->var->version << " = phi( ";
+      stream << phi->region->getName() << phi->var->version << " = phi( ";
       for (auto I : phi->opsVar)
-	errs() << phi->region->getName() << I.second->version << ", ";
+	stream << phi->region->getName() << I.second->version << ", ";
       for (const Value *v : phi->preds)
-	errs() << getValueLabel(v) << ", ";
-      errs() << ")\n";
+	stream << getValueLabel(v) << ", ";
+      stream << ")\n";
     }
 
     // For each instruction
@@ -583,30 +590,30 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 
       // LLVM Phi node: print predicates
       if (const PHINode *PHI = dyn_cast<PHINode>(inst)) {
-	errs() << getValueLabel(PHI) << " = phi(";
+	stream << getValueLabel(PHI) << " = phi(";
 	for (const Value *incoming : PHI->incoming_values())
-	  errs() << getValueLabel(incoming) << ", ";
+	  stream << getValueLabel(incoming) << ", ";
 	for (const Value *pred : llvmPhiToPredMap[PHI])
-	  errs() << getValueLabel(pred) << ", ";
-	errs() << ")\n";
+	  stream << getValueLabel(pred) << ", ";
+	stream << ")\n";
 	continue;
       }
 
       // Load inst
       if (const LoadInst *LI = dyn_cast<LoadInst>(inst)) {
-	errs() << getValueLabel(LI) << " = mu(";
+	stream << getValueLabel(LI) << " = mu(";
 
 	for (MSSAMu *mu : loadToMuMap[LI])
-	  errs() << mu->region->getName() << mu->var->version << ", ";
+	  stream << mu->region->getName() << mu->var->version << ", ";
 
-	errs() << getValueLabel(LI->getPointerOperand()) << ")\n";
+	stream << getValueLabel(LI->getPointerOperand()) << ")\n";
 	continue;
       }
 
       // Store inst
       if (const StoreInst *SI = dyn_cast<StoreInst>(inst)) {
 	for (MSSAChi *chi : storeToChiMap[SI]) {
-	  errs() << chi->region->getName() << chi->var->version << " = X("
+	  stream << chi->region->getName() << chi->var->version << " = X("
 		 << chi->region->getName() << chi->opVar->version << ", "
 		 << getValueLabel(SI->getValueOperand()) << ", "
 		 << getValueLabel(SI->getPointerOperand()) << ")\n";
@@ -620,32 +627,32 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 	  continue;
 
 	CallSite cs(const_cast<CallInst *>(CI));
-	errs() << *CI << "\n";
+	stream << *CI << "\n";
 	for (MSSAMu *mu : callSiteToMuMap[cs])
-	  errs() << "  mu(" << mu->region->getName() << mu->var->version
+	  stream << "  mu(" << mu->region->getName() << mu->var->version
 		 << ")\n";
 
 	for (MSSAChi *chi : callSiteToChiMap[cs])
-	  errs() << chi->region->getName() << chi->var->version << " = "
+	  stream << chi->region->getName() << chi->var->version << " = "
 		 << "  X(" << chi->region->getName() << chi->opVar->version
 		 << ")\n";
 
 	for (MSSAChi *chi : extCallSiteToCallerRetChi[cs])
-	  errs() << chi->region->getName() << chi->var->version << " = "
+	  stream << chi->region->getName() << chi->var->version << " = "
 		 << "  X(" << chi->region->getName() << chi->opVar->version
 		 << ")\n";
 	continue;
       }
 
-      errs() << *inst << "\n";
+      stream << *inst << "\n";
     }
   }
 
   // Dump return mu
   for (MSSAMu *mu : funToReturnMuMap[F])
-    errs() << "  mu(" << mu->region->getName() << mu->var->version << ")\n";
+    stream << "  mu(" << mu->region->getName() << mu->var->version << ")\n";
 
-  errs() << "}\n";
+  stream << "}\n";
 }
 
 void

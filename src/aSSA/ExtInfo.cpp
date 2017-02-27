@@ -94,6 +94,7 @@ static const funcModPair funcModPairs[] = {
   {"strpbrk", { 2, true, {false, false} } },
   {"strrchr", { 2, true, {false, false} } },
   {"strspn", { 2, false, {false, false} } },
+  {"strstr", { 2, true, {false, false} } },
   {"strtod", { 2, false, {false, true} } },
   {"strtol", { 3, false, {false, true, false} } },
   {"system", { 1, false, {false} } },
@@ -109,6 +110,7 @@ static const funcModPair funcModPairs[] = {
   {"__isoc99_fscanf", { 3, false, {true, false, true} } },
   {"__isoc99_scanf", {2, false, {false, true} } },
   {"__isoc99_sscanf", {3, false, {false, false, true} } },
+  {"__strdup", {1, true, {false} } },
 
   /* MPI */
   {"MPI_Abort", { 2, false, {false, false} } },

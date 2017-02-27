@@ -202,14 +202,14 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
 	assert(callee->isVarArg());
 	if (info->argIsMod[info->nbArgs-1]) {
 	  for (MemReg *r : regs) {
-	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i));
+	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i, inst));
 	    regDefToBBMap[r].insert(inst->getParent());
 	  }
 	}
       } else {
 	if (info->argIsMod[i]) {
 	  for (MemReg *r : regs) {
-	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i));
+	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i, inst));
 	    regDefToBBMap[r].insert(inst->getParent());
 	  }
 	}
@@ -248,7 +248,7 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
     // Create Chi for each region \in mod(callee)
     for (MemReg *r : MRA->getFuncMod(callee)) {
       if (killSet.find(r) == killSet.end()) {
-	callSiteToChiMap[cs].insert(new MSSACallChi(r, callee));
+	callSiteToChiMap[cs].insert(new MSSACallChi(r, callee, inst));
 	regDefToBBMap[r].insert(inst->getParent());
 	usedRegs.insert(r);
       }

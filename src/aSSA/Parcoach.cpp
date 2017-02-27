@@ -25,22 +25,36 @@
 using namespace llvm;
 using namespace std;
 
+static cl::OptionCategory ParcoachCategory("Parcoach options");
+
 static cl::opt<bool> optDumpSSA("dump-ssa",
-				cl::desc("Dump the all-inclusive SSA"));
+				cl::desc("Dump the all-inclusive SSA"),
+				cl::cat(ParcoachCategory));
+static cl::opt<string> optDumpSSAFunc("dump-ssa-func",
+				      cl::desc("Dump the all-inclusive SSA " \
+					       "for a particular function."),
+				      cl::cat(ParcoachCategory));
 static cl::opt<bool> optDotGraph("dot-depgraph",
-				cl::desc("Dot the dependency graph to dg.dot"));
+				 cl::desc("Dot the dependency graph to dg.dot"),
+				 cl::cat(ParcoachCategory));
 static cl::opt<bool> optDumpRegions("dump-regions",
-				cl::desc("Dump the regions found by the "\
-					 "Andersen PTA"));
+				    cl::desc("Dump the regions found by the " \
+					     "Andersen PTA"),
+				    cl::cat(ParcoachCategory));
 static cl::opt<bool> optDumpModRef("dump-modref",
-				cl::desc("Dump the mod/ref analysis"));
+				   cl::desc("Dump the mod/ref analysis"),
+				   cl::cat(ParcoachCategory));
 static cl::opt<bool> optTimeStats("timer",
-				cl::desc("Print timers"));
+				  cl::desc("Print timers"),
+				  cl::cat(ParcoachCategory));
 static cl::opt<bool> optDisablePhiElim("disable-phi-elim",
-				cl::desc("Disable Phi elimination pass"));
+				       cl::desc("Disable Phi elimination pass"),
+				       cl::cat(ParcoachCategory));
 static cl::opt<bool> optDotTaintPaths("dot-taint-paths",
-				cl::desc("Dot taint path of each conditions of" \
-					 "tainted collectives."));
+				      cl::desc("Dot taint path of each " \
+					       "conditions of tainted "	\
+					       "collectives."),
+				      cl::cat(ParcoachCategory));
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
@@ -141,6 +155,8 @@ ParcoachInstr::runOnModule(Module &M) {
 
     MSSA.buildSSA(&F, DT, DF, PDT);
     if (optDumpSSA)
+      MSSA.dumpMSSA(&F);
+    if (F.getName().equals(optDumpSSAFunc))
       MSSA.dumpMSSA(&F);
   }
 

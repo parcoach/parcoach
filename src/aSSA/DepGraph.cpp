@@ -426,15 +426,15 @@ DepGraph::connectCSMus(llvm::CallInst &I) {
   for (MSSAMu *mu : mssa->callSiteToMuMap[CallSite(&I)]) {
     assert(mu && mu->var);
     funcToSSANodesMap[curFunc].insert(mu->var);
-    MSSACallMu *callMu = cast<MSSACallMu>(mu);
-    const Function *called = callMu->called;
+    const Function *called = NULL;
 
     // External Function, we connect call mu to artifical chi of the external
     // function for each argument.
-    if (called->isDeclaration()) {
+    if (isa<MSSAExtCallMu>(mu)) {
       CallSite CS(&I);
 
-      MSSAExtCallMu *extCallMu = cast<MSSAExtCallMu>(callMu);
+      MSSAExtCallMu *extCallMu = cast<MSSAExtCallMu>(mu);
+      called = extCallMu->called;
       unsigned argNo = extCallMu->argNo;
 
       // Case where this is a var arg parameter
@@ -458,6 +458,9 @@ DepGraph::connectCSMus(llvm::CallInst &I) {
       continue;
     }
 
+    MSSACallMu *callMu = cast<MSSACallMu>(mu);
+    called = callMu->called;
+
     auto it = mssa->funRegToEntryChiMap.find(called);
     if (it != mssa->funRegToEntryChiMap.end()) {
       MSSAChi *entryChi = it->second[mu->region];
@@ -477,15 +480,14 @@ DepGraph::connectCSChis(llvm::CallInst &I) {
     funcToSSANodesMap[curFunc].insert(chi->var);
     addEdge(chi->opVar, chi->var); // rule4
 
-    MSSACallChi *callChi = cast<MSSACallChi>(chi);
-    const Function *called = callChi->called;
+    const Function *called = NULL;
 
     // External Function, we connect call chi to artifical chi of the external
     // function for each argument.
-    if (called->isDeclaration()) {
+    if (isa<MSSAExtCallChi>(chi)) {
       CallSite CS(&I);
-
-      MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(callChi);
+      MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(chi);
+      called = extCallChi->called;
       unsigned argNo = extCallChi->argNo;
 
       // Case where this is a var arg parameter.
@@ -507,6 +509,9 @@ DepGraph::connectCSChis(llvm::CallInst &I) {
 
       continue;
     }
+
+    MSSACallChi *callChi = cast<MSSACallChi>(chi);
+    called = callChi->called;
 
     auto it = mssa->funRegToReturnMuMap.find(called);
     if (it != mssa->funRegToReturnMuMap.end()) {

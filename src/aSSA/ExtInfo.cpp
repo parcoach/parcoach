@@ -195,6 +195,17 @@ static const funcModPair funcModPairs[] = {
 	{"llvm.pow.f64",{2, false, {false,false}}},	
 	{"fscanf",{3,false,{false,false,true}}},	
 
+  /* Functions from MPISrc */
+	{"scanf",{2, false, {false, true} }},	
+	{"putc",{2, false, {false, false} }},	
+	{"getc",{1, false, {false} }},	
+	{"islower",{1, false, {false} }},	
+	{"isdigit",{1, false, {false} }},	
+	{"isalpha",{1, false, {false} }},	
+  {"\01_fputs", { 2, false, {false, false} } },
+  {"\01_freopen", { 3, true, {false, false, false} } },
+  {"__strcpy_chk", { 3, false, {true, false, false} } }, // not sure for this one..
+
   {NULL, {0, false, {} } }
 };
 

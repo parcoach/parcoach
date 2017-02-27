@@ -164,8 +164,8 @@ ParcoachInstr::runOnModule(Module &M) {
   errs() << "Dep graph done\n";
 
   // Phi elimination pass.
-  if (!optDisablePhiElim)
-    DG->phiElimination();
+//  if (!optDisablePhiElim)
+//    DG->phiElimination();
 
   errs() << "phi elimination done\n";
 
@@ -190,6 +190,7 @@ ParcoachInstr::runOnModule(Module &M) {
     DG->printTimers();
   }
 
+  errs() << "Starting Parcoach analysis\n";
  
   // Parcoach analysis
 
@@ -197,6 +198,7 @@ ParcoachInstr::runOnModule(Module &M) {
    *  -> set a function summary with sequence of collectives
    *  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
    */
+	errs() << "BFS\n";
 	scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
 	while(!cgSccIter.isAtEnd()) {
 					const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
@@ -206,12 +208,14 @@ ParcoachInstr::runOnModule(Module &M) {
 									if (!F || F->isDeclaration())
 													continue;
 									//DBG: //errs() << "Function: " << F->getName() << "\n";
+									errs() << "Function: " << F->getName() << "\n";
 									BFS(F,&PTACG);
 					}
 					++cgSccIter;
 	}
 
   /* (2) Check collectives */
+	errs() << "CheckCollectives\n";
 	cgSccIter = scc_begin(&PTACG);
 	while(!cgSccIter.isAtEnd()) {
 					const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;

@@ -105,7 +105,6 @@ ParcoachInstr::checkCollectives(Function &F, PostDominatorTree &PDT){
 			ParcoachInstr::nbCollectivesFound++;
 			vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
 			//vector<BasicBlock * > iPDF = {};
-			errs() << "  -> iPDF OK\n";
 
 			if(iPDF.size()==0)
 				continue;
@@ -140,7 +139,6 @@ ParcoachInstr::runOnFunction(Function &F) {
 	ParcoachInstr::nbCollectivesFound = 0;
 	ParcoachInstr::nbWarnings = 0;
 
-	errs() << "\033[0;35m====== STARTING PARCOACH on function " << F.getName().str() << " ======\033[0;0m\n";
 	PostDominatorTree &PDT =
 		getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
@@ -149,9 +147,11 @@ ParcoachInstr::runOnFunction(Function &F) {
 	// (2) Check calls to collectives with PDF+ of each collective node
 	checkCollectives(F,PDT);
 
-	errs() << ParcoachInstr::nbCollectivesFound << " collectives found, and " << ParcoachInstr::nbWarnings << " warnings\n";
-	errs() << "\033[0;35m=================================================\033[0;0m\n\n";
-
+	if(ParcoachInstr::nbCollectivesFound != 0) {
+					errs() << "\033[0;35m====== PARCOACH on function " << F.getName().str() << " ======\033[0;0m\n";
+					errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found, and " << ParcoachInstr::nbWarnings << " warning(s)\n";
+					errs() << "\033[0;35m=================================================\033[0;0m\n\n";
+	}
 	return false;
 }
 

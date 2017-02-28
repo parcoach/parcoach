@@ -66,7 +66,6 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();
   au.addRequired<CallGraphWrapperPass>();
-  au.addRequired<LoopInfoWrapperPass>();
 }
 
 bool 

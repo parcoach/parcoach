@@ -697,6 +697,17 @@ DepGraph::visitInsertElementInst(llvm::InsertElementInst &I) {
 }
 
 void
+DepGraph::visitInsertValueInst(llvm::InsertValueInst &I) {
+  // Connect operands
+  funcToLLVMNodesMap[curFunc].insert(&I);
+
+  for (const Value *v : I.operands()) {
+    addEdge(v, &I);
+    funcToLLVMNodesMap[curFunc].insert(v);
+  }
+}
+
+void
 DepGraph::visitShuffleVectorInst(llvm::ShuffleVectorInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);

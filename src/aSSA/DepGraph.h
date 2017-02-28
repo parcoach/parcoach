@@ -38,6 +38,7 @@ public:
   void visitExtractValueInst(llvm::ExtractValueInst &I);
   void visitExtractElementInst(llvm::ExtractElementInst &I);
   void visitInsertElementInst(llvm::InsertElementInst &I);
+  void visitInsertValueInst(llvm::InsertValueInst &I);
   void visitShuffleVectorInst(llvm::ShuffleVectorInst &I);
   void visitInstruction(llvm::Instruction &I);
 

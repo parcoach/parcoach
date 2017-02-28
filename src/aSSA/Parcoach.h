@@ -22,6 +22,10 @@ namespace {
     static unsigned nbCollectivesFound;
     static unsigned nbCollectivesTainted;
     static unsigned nbWarnings;
+    static unsigned nbConds;
+
+    static unsigned nbWarningsParcoach;
+    static unsigned nbCondsParcoach;
     ParcoachInstr();
 
 		virtual void checkCollectives(llvm::Function *F, DepGraph *DG);

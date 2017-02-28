@@ -55,6 +55,8 @@ static cl::opt<bool> optDotTaintPaths("dot-taint-paths",
 					       "conditions of tainted "	\
 					       "collectives."),
 				      cl::cat(ParcoachCategory));
+static cl::opt<bool> optStats("statistics", cl::desc("print statistics"),
+			      cl::cat(ParcoachCategory));
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
@@ -68,14 +70,21 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.addRequired<CallGraphWrapperPass>();
 }
 
-bool 
+bool
 ParcoachInstr::doFinalization(Module &M){
   errs() << "\n\033[0;36m==========================================\033[0;0m\n";
   errs() << "\033[0;36m==========  PARCOACH STATISTICS ==========\033[0;0m\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
   errs() << "Module name: " << M.getModuleIdentifier() << "\n";
-  errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found, and " << ParcoachInstr::nbCollectivesTainted << " are tainted\n";
+  errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found, and "
+	 << ParcoachInstr::nbCollectivesTainted << " are tainted\n";
   errs() << ParcoachInstr::nbWarnings << " warning(s) issued\n";
+  errs() << ParcoachInstr::nbConds << " cond(s) \n";
+  errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+  errs() << "\033[0;36m============== PARCOACH ONLY =============\033[0;0m\n";
+  errs() << "\033[0;36m==========================================\033[0;0m\n";
+  errs() << ParcoachInstr::nbWarningsParcoach << " warning(s) issued\n";
+  errs() << ParcoachInstr::nbCondsParcoach << " cond(s) \n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
   return true;
 }
@@ -83,7 +92,32 @@ ParcoachInstr::doFinalization(Module &M){
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
-  //errs() << ">>> Module name: " << M.getModuleIdentifier() << "\n";
+  if (optStats) {
+    unsigned nbFunctions = 0;
+    unsigned nbIndirectCalls = 0;
+    unsigned nbDirectCalls = 0;
+    for (const Function &F : M) {
+      nbFunctions++;
+
+      for (const BasicBlock &BB : F) {
+	for( const Instruction &I : BB) {
+	  const CallInst *ci = dyn_cast<CallInst>(&I);
+	  if (!ci)
+	    continue;
+	  if (ci->getCalledFunction())
+	    nbDirectCalls++;
+	  else
+	    nbIndirectCalls++;
+	}
+      }
+    }
+
+    errs() << "nb functions : " << nbFunctions << "\n";
+    errs() << "nb direct calls : " << nbDirectCalls << "\n";
+    errs() << "nb indirect calls : " << nbIndirectCalls << "\n";
+
+    exit(0);
+  }
 
   ExtInfo extInfo(M);
 
@@ -108,7 +142,7 @@ ParcoachInstr::runOnModule(Module &M) {
   for (const Value *r : regions) {
     if (regCounter%100 == 0) {
       errs() << regCounter << " regions created ("
-  	     << ((float) regCounter) / regions.size() * 100<< "%)\n";
+	     << ((float) regCounter) / regions.size() * 100<< "%)\n";
       }
     regCounter++;
     MemReg::createRegion(r);
@@ -199,49 +233,49 @@ ParcoachInstr::runOnModule(Module &M) {
   if (optTimeStats) {
     errs() << "Andersen PTA time : " << (endPTA - startPTA)*1.0e3 << " ms\n";
     errs() << "Create regions time : " << (endCreateReg - startCreateReg)*1.0e3
-  	   << " ms\n";
+	   << " ms\n";
     errs() << "Mod/Ref analysis time : " << (endModRef - startModRef)*1.0e3
-  	   << " ms\n";
+	   << " ms\n";
     MSSA.printTimers();
     DG->printTimers();
   }
 
   errs() << "Starting Parcoach analysis\n";
- 
+
   // Parcoach analysis
 
   /* (1) BFS on each function of the Callgraph in reverse topological order
    *  -> set a function summary with sequence of collectives
    *  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
    */
-	errs() << " - BFS\n";
-	scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
-	while(!cgSccIter.isAtEnd()) {
-					const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
-					for (PTACallGraphNode *node : nodeVec) {
-									Function *F = node->getFunction();
-									if (!F || F->isDeclaration())
-													continue;
-									//DBG: //errs() << "Function: " << F->getName() << "\n";
-									BFS(F,&PTACG);
-					}
-					++cgSccIter;
-	}
+  errs() << " - BFS\n";
+  scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
+  while(!cgSccIter.isAtEnd()) {
+    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
+    for (PTACallGraphNode *node : nodeVec) {
+      Function *F = node->getFunction();
+      if (!F || F->isDeclaration())
+	continue;
+      //DBG: //errs() << "Function: " << F->getName() << "\n";
+      BFS(F,&PTACG);
+    }
+    ++cgSccIter;
+  }
 
   /* (2) Check collectives */
-	errs() << " - CheckCollectives\n";
-	cgSccIter = scc_begin(&PTACG);
-	while(!cgSccIter.isAtEnd()) {
-					const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
-					for (PTACallGraphNode *node : nodeVec) {
-									Function *F = node->getFunction();
-									if (!F || F->isDeclaration())
-													continue;
-									//DBG: //errs() << "Function: " << F->getName() << "\n";
-									checkCollectives(F,DG);
-					}
-					++cgSccIter;
-	}
+  errs() << " - CheckCollectives\n";
+  cgSccIter = scc_begin(&PTACG);
+  while(!cgSccIter.isAtEnd()) {
+    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
+    for (PTACallGraphNode *node : nodeVec) {
+      Function *F = node->getFunction();
+      if (!F || F->isDeclaration())
+	continue;
+      //DBG: //errs() << "Function: " << F->getName() << "\n";
+      checkCollectives(F,DG);
+    }
+    ++cgSccIter;
+  }
 
   errs() << "Parcoach analysis done\n";
 
@@ -249,71 +283,99 @@ ParcoachInstr::runOnModule(Module &M) {
 }
 
 
-// (2) Check MPI collectives 
-void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
+// (2) Check MPI collectives
+void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
-				StringRef FuncSummary;
-				MDNode* mdNode;
+  StringRef FuncSummary;
+  MDNode* mdNode;
 
-				for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I){
-								Instruction *i=&*I;       
-								// Debug info (line in the source code, file)
-								DebugLoc DLoc = i->getDebugLoc();
-								StringRef File=""; unsigned OP_line=0;
-								if(DLoc){
-												OP_line = DLoc.getLine();
-												File=DLoc->getFilename();
-								}
-								// Warning info
-								string WarningMsg;
-								const char *ProgName="PARCOACH";
-								SMDiagnostic Diag;
-								std::string COND_lines;
+  for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+    Instruction *i=&*I;
+    // Debug info (line in the source code, file)
+    DebugLoc DLoc = i->getDebugLoc();
+    StringRef File=""; unsigned OP_line=0;
+    if(DLoc){
+      OP_line = DLoc.getLine();
+      File=DLoc->getFilename();
+    }
+    // Warning info
+    string WarningMsg;
+    const char *ProgName="PARCOACH";
+    SMDiagnostic Diag;
+    std::string COND_lines;
 
-								CallInst *CI = dyn_cast<CallInst>(i);
-								if(!CI) continue;
+    CallInst *CI = dyn_cast<CallInst>(i);
+    if(!CI) continue;
 
-								Function *f = CI->getCalledFunction();
-								if(!f) continue;
+    Function *f = CI->getCalledFunction();
+    if(!f) continue;
 
-								string OP_name = f->getName().str();
-								StringRef funcName = f->getName();
+    string OP_name = f->getName().str();
 
-								// Is it a tainted collective call?
-								for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
-												if (!funcName.equals(*vI)) continue;
-												nbCollectivesFound++;
-												if (!DG->isTaintedCall(&*CI)) continue;
-												nbCollectivesTainted++;
-												//errs() << "!!!!" << OP_name + " line " + to_string(OP_line) + " File " + File + " is tainted! it is  possibly not called by all processes\n";
+    // Is it a collective call?
+    if (!isCollective(f))
+      continue;
+    nbCollectivesFound++;
 
-												// Get tainted conditionals from the callsite
-												set<const BasicBlock *> callIPDF;
-												DG->getTaintedCallInterIPDF(CI, callIPDF);
+    // Is the collective tainted?
+    if (DG->isTaintedCall(&*CI))
+      nbCollectivesTainted++;
 
-												for (const BasicBlock *BB : callIPDF) {
-																const Value *cond = getBasicBlockCond(BB);
-																if (!cond || !DG->isTaintedValue(cond)) continue;
-																string Seq = getBBcollSequence(*(BB->getTerminator()));
-																DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
-																//DBG: //errs() << "Seq = " << Seq << " - Line " << BDLoc->getLine() << "\n";
-																if(Seq!="NAVS") continue;
+    bool isColWarning = false;
+    bool isColWarningParcoach = false;
 
-																const Instruction *inst = BB->getTerminator();
-																DebugLoc loc = inst->getDebugLoc();
-																COND_lines.append(" ").append(to_string(loc.getLine())).append(" (").append(loc->getFilename()).append(")");
-																if (optDotTaintPaths)
-																  DG->dotTaintPath(cond, string("taintpath-").append(loc->getFilename()).append("-").append(to_string(loc.getLine())).append(".dot"), i);
-												}
-												if(COND_lines =="")  continue;
-												ParcoachInstr::nbWarnings ++;
-												WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
-												mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
-												i->setMetadata("inst.warning",mdNode);
-												Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-												Diag.print(ProgName, errs(), 1,1);
-								}
-				}
+    // Get conditionals from the callsite
+    set<const BasicBlock *> callIPDF;
+    DG->getTaintedCallInterIPDF(CI, callIPDF);
+
+    for (const BasicBlock *BB : callIPDF) {
+
+      // Is this node detected as potentially dangerous by parcoach?
+      string Seq = getBBcollSequence(*(BB->getTerminator()));
+      if(Seq!="NAVS") continue;
+
+      isColWarningParcoach = true;
+      nbCondsParcoach++;
+
+      // Is this condition tainted?
+      const Value *cond = getBasicBlockCond(BB);
+      if (!cond || !DG->isTaintedValue(cond)) continue;
+      isColWarning = true;
+      nbConds++;
+
+      DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
+      const Instruction *inst = BB->getTerminator();
+      DebugLoc loc = inst->getDebugLoc();
+      COND_lines.append(" ").append(to_string(loc.getLine()));
+      COND_lines.append(" (").append(loc->getFilename()).append(")");
+
+      if (optDotTaintPaths) {
+	string dotfilename("taintedpath-");
+	dotfilename.append(loc->getFilename()).append("-");
+	dotfilename.append(to_string(loc.getLine())).append(".dot");
+	DG->dotTaintPath(cond, dotfilename, i);
+      }
+    }
+
+    // Is there at least one node from the IPDF+ detected as potentially
+    // dangerous by parcoach
+    if (isColWarningParcoach)
+      nbWarningsParcoach++;
+
+    // Is there at least one node from the IPDF+ tainted
+    if (!isColWarning)
+      continue;
+    nbWarnings++;
+
+    WarningMsg = OP_name + " line " + to_string(OP_line) +
+      " possibly not called by all processes because of conditional(s) " \
+      "line(s) " + COND_lines;
+    mdNode = MDNode::get(i->getContext(),
+			 MDString::get(i->getContext(), WarningMsg));
+    i->setMetadata("inst.warning",mdNode);
+    Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
+    Diag.print(ProgName, errs(), 1,1);
+  }
 }
 
 
@@ -321,5 +383,8 @@ char ParcoachInstr::ID = 0;
 unsigned ParcoachInstr::nbCollectivesFound = 0;
 unsigned ParcoachInstr::nbCollectivesTainted = 0;
 unsigned ParcoachInstr::nbWarnings = 0;
+unsigned ParcoachInstr::nbConds = 0;
+unsigned ParcoachInstr::nbWarningsParcoach = 0;
+unsigned ParcoachInstr::nbCondsParcoach = 0;
 
 static RegisterPass<ParcoachInstr> Z("parcoach", "Module pass");

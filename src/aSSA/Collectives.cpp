@@ -16,3 +16,12 @@ std::vector<const char *> MPI_v_coll = {
   "MPI_Ireduce", "MPI_Iallreduce", "MPI_Ireduce_scatter_block",
   "MPI_Ireduce_scatter", "MPI_Iscan", "MPI_Iexscan","MPI_Ibcast"
 };
+
+bool isCollective(const llvm::Function *F) {
+  for (unsigned i=0; i<MPI_v_coll.size(); ++i) {
+    if (F->getName().equals(MPI_v_coll[i]))
+      return true;
+  }
+
+  return false;
+}

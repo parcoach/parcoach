@@ -3,9 +3,11 @@
 
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <fstream>
 #include <queue>
 
 using namespace llvm;
@@ -1324,7 +1326,8 @@ DepGraph::removeEdge(MSSAVar *s, MSSAVar *d) {
 }
 
 void
-DepGraph::dotTaintPath(const Value *v, string filename) {
+DepGraph::dotTaintPath(const Value *v, string filename,
+		       const Instruction *collective) {
   errs() << "Writing '" << filename << "' ...\n";
 
   // Parcours en largeur
@@ -1444,6 +1447,7 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
   stream << "rankdir=LR;\n";
 
   vector<string> debugMsgs;
+  vector<DGDebugLoc> debugLocs;
 
   visitedSSANodes.clear();
   visitedLLVMNodes.clear();
@@ -1455,6 +1459,9 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
   MSSAVar *lastVar = root;
   assert(root);
   debugMsgs.push_back(getStringMsg(lastVar));
+  DGDebugLoc DL;
+  if (getDGDebugLoc(lastVar, DL))
+    debugLocs.push_back(DL);
 
   const Value *lastValue = NULL;
   bool lastIsVar = true;
@@ -1473,6 +1480,8 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 	lastVar = v;
 	found = true;
 	debugMsgs.push_back(getStringMsg(v));
+	if (getDGDebugLoc(v, DL))
+	  debugLocs.push_back(DL);
 	break;
       }
 
@@ -1490,6 +1499,8 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 	lastIsVar = false;
 	found = true;
 	debugMsgs.push_back(getStringMsg(v));
+	if (getDGDebugLoc(v, DL))
+	  debugLocs.push_back(DL);
 	break;
       }
 
@@ -1509,6 +1520,8 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 	lastIsVar = true;
 	found = true;
 	debugMsgs.push_back(getStringMsg(v));
+	if (getDGDebugLoc(v, DL))
+	  debugLocs.push_back(DL);
 	break;
       }
 
@@ -1526,6 +1539,8 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 	lastIsVar = false;
 	found = true;
 	debugMsgs.push_back(getStringMsg(v));
+	if (getDGDebugLoc(v, DL))
+	  debugLocs.push_back(DL);
 	break;
       }
 
@@ -1585,6 +1600,16 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 
   for (unsigned i=0; i<debugMsgs.size(); i++)
     stream << debugMsgs[i];
+
+
+  // Write trace
+  string trace;
+  if (getDebugTrace(debugLocs, trace, collective)) {
+    string tracefilename = filename + ".trace";
+    errs() << "Writing '" << tracefilename << "' ...\n";
+    raw_fd_ostream tracestream(tracefilename, EC, sys::fs::F_Text);
+    tracestream << trace;
+  }
 }
 
 
@@ -1675,3 +1700,191 @@ DepGraph::getStringMsg(MSSAVar *v) {
   return msg;
 }
 
+bool
+DepGraph::getDGDebugLoc(const Value *v, DGDebugLoc &DL) {
+  DL.F = NULL;
+  DL.line = -1;
+  DL.filename = "unknown";
+
+  DebugLoc loc = NULL;
+
+  const Instruction *inst = dyn_cast<Instruction>(v);
+  if (inst) {
+    loc = inst->getDebugLoc();
+    DL.F = inst->getParent()->getParent();
+  }
+
+  if (loc) {
+    DL.filename = loc->getFilename();
+    DL.line = loc->getLine();
+  } else {
+    return false;
+  }
+
+  return DL.F != NULL;
+}
+
+bool
+DepGraph::getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL) {
+  DL.F = NULL;
+  DL.line = -1;
+  DL.filename = "unknown";
+
+  if (v->bb)
+    DL.F = v->bb->getParent();
+
+  MSSADef *def = v->def;
+  assert(def);
+
+  // Def can be PHI, call, store, chi, entry, extvararg, extarg, extret,
+  // extcall, extretcall
+
+  DebugLoc loc = NULL;
+
+  if (isa<MSSACallChi>(def)) {
+    MSSACallChi *callChi = cast<MSSACallChi>(def);
+    DL.F = callChi->inst->getParent()->getParent();
+    loc = callChi->inst->getDebugLoc();
+  } else if (isa<MSSAStoreChi>(def)) {
+    MSSAStoreChi *storeChi = cast<MSSAStoreChi>(def);
+    DL.F = storeChi->inst->getParent()->getParent();
+    loc = storeChi->inst->getDebugLoc();
+  } else if (isa<MSSAExtCallChi>(def)) {
+    MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(def);
+    DL.F = extCallChi->inst->getParent()->getParent();
+    loc = extCallChi->inst->getDebugLoc();
+  } else if (isa<MSSAExtVarArgChi>(def)) {
+    MSSAExtVarArgChi *varArgChi = cast<MSSAExtVarArgChi>(def);
+    DL.F = varArgChi->func;
+  } else if (isa<MSSAExtArgChi>(def)) {
+    MSSAExtArgChi *extArgChi = cast<MSSAExtArgChi>(def);
+    DL.F = extArgChi->func;
+  } else if (isa<MSSAExtRetChi>(def)) {
+    MSSAExtRetChi *extRetChi = cast<MSSAExtRetChi>(def);
+    DL.F = extRetChi->func;
+  }
+
+  if (loc) {
+    DL.filename = loc->getFilename();
+    DL.line = loc->getLine();
+  } else {
+    return false;
+  }
+
+  return DL.F != NULL;
+}
+
+static bool getStrLine(ifstream &file, int line, string &str)  {
+    // go to line
+    file.seekg(std::ios::beg);
+    for (int i=0; i < line-1; ++i)
+      file.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+
+    getline(file, str);
+
+    return true;
+}
+
+void
+DepGraph::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
+  vector<DGDebugLoc> sameFuncDL;
+  vector<DGDebugLoc> res;
+
+  if (DLs.empty())
+    return;
+
+  const Function *prev = DLs[0].F;
+  while (!DLs.empty()) {
+    // pop front
+    DGDebugLoc DL = DLs.front();
+    DLs.erase(DLs.begin());
+
+    // new function or end
+    if (DL.F != prev || DLs.empty()) {
+      if (!DLs.empty())
+	DLs.insert(DLs.begin(), DL);
+      else
+	sameFuncDL.push_back(DL);
+
+      prev = DL.F;
+
+      // sort
+      sort(sameFuncDL.begin(), sameFuncDL.end());
+
+      // remove duplicates
+      int line_prev = -1;
+      for (unsigned i=0; i<sameFuncDL.size(); ++i) {
+	if (sameFuncDL[i].line == line_prev) {
+	  line_prev = sameFuncDL[i].line;
+	  sameFuncDL.erase(sameFuncDL.begin() + i);
+	  i--;
+	} else {
+	  line_prev = sameFuncDL[i].line;
+	}
+      }
+
+      // append to res
+      res.insert(res.end(), sameFuncDL.begin(), sameFuncDL.end());
+      sameFuncDL.clear();
+    } else {
+      sameFuncDL.push_back(DL);
+    }
+  }
+
+  DLs.clear();
+  DLs.insert(DLs.begin(), res.begin(), res.end());
+}
+
+bool
+DepGraph::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
+			const Instruction *collective) {
+  DGDebugLoc collectiveLoc;
+  if (getDGDebugLoc(collective, collectiveLoc))
+    DLs.push_back(collectiveLoc);
+
+  const Function *prevFunc = NULL;
+  ifstream file;
+
+  reorderAndRemoveDup(DLs);
+
+  for (unsigned i=0; i<DLs.size(); ++i) {
+    string strline;
+    const Function *F = DLs[i].F;
+    if (!F)
+      return false;
+
+    // new function, print filename and protoype
+    if (F != prevFunc) {
+      file.close();
+      prevFunc = F;
+      DISubprogram *DI = F->getSubprogram();
+      if (!DI)
+	return false;
+
+      string filename = DI->getFilename();
+      string dir = DI->getDirectory();
+      string path = dir + "/" + filename;
+      int line = DI->getLine();
+
+
+      file.open(path, ios::in);
+      if (!file.good()) {
+	errs() << "error opening file: " << path << "\n";
+	return false;
+      }
+
+
+      getStrLine(file, line, strline);
+      trace.append("\n" + filename + "\n");
+      trace.append(strline);
+      trace.append(" l." + to_string(line) + "\n");
+    }
+
+    getStrLine(file, DLs[i].line, strline);
+    trace.append("...\n" + strline + " l." + to_string(DLs[i].line) + "\n");
+  }
+
+  file.close();
+
+  return true;
+}

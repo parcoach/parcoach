@@ -20,7 +20,8 @@ public:
 
   void buildFunction(const llvm::Function *F);
   void toDot(std::string filename);
-  void dotTaintPath(const llvm::Value *v, std::string filename);
+  void dotTaintPath(const llvm::Value *v, std::string filename,
+		    const llvm::Instruction *collective);
 
 
   void visitBasicBlock(llvm::BasicBlock &BB);
@@ -152,8 +153,23 @@ private:
   std::string getNodeStyle(const llvm::Function *f);
   std::string getCallNodeStyle(const llvm::Value *v);
 
+  struct DGDebugLoc {
+    const llvm::Function *F;
+    std::string filename;
+    int line;
+
+    bool operator < (const DGDebugLoc &o) {
+      return line < o.line;
+    }
+  };
+
+  bool getDGDebugLoc(const llvm::Value *v, DGDebugLoc &DL);
+  bool getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL);
   std::string getStringMsg(const llvm::Value *v);
   std::string getStringMsg(MSSAVar *v);
+  bool getDebugTrace(std::vector<DGDebugLoc> &DLs, std::string &trace,
+		     const llvm::Instruction *collective);
+  void reorderAndRemoveDup(std::vector<DGDebugLoc> &DLs);
 
   /* stats */
   double buildGraphTime;

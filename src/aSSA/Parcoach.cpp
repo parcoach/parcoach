@@ -303,7 +303,7 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG){
 																DebugLoc loc = inst->getDebugLoc();
 																COND_lines.append(" ").append(to_string(loc.getLine())).append(" (").append(loc->getFilename()).append(")");
 																if (optDotTaintPaths)
-																				DG->dotTaintPath(cond, string("taintpath-").append(loc->getFilename()).append("-").append(to_string(loc.getLine())).append(".dot"));
+																  DG->dotTaintPath(cond, string("taintpath-").append(loc->getFilename()).append("-").append(to_string(loc.getLine())).append(".dot"), i);
 												}
 												if(COND_lines =="")  continue;
 												ParcoachInstr::nbWarnings ++;

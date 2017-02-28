@@ -158,7 +158,7 @@ private:
     std::string filename;
     int line;
 
-    bool operator < (const DGDebugLoc &o) {
+    bool operator < (const DGDebugLoc &o) const {
       return line < o.line;
     }
   };

@@ -9,6 +9,7 @@
 
 #include <fstream>
 #include <queue>
+#include <algorithm>
 
 using namespace llvm;
 using namespace std;

@@ -151,6 +151,9 @@ private:
   std::string getNodeStyle(const llvm::Function *f);
   std::string getCallNodeStyle(const llvm::Value *v);
 
+  std::string getStringMsg(const llvm::Value *v);
+  std::string getStringMsg(MSSAVar *v);
+
   /* stats */
   double buildGraphTime;
   double phiElimTime;

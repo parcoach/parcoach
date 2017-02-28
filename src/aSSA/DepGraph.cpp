@@ -2,6 +2,7 @@
 #include "Utils.h"
 
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -9,6 +10,12 @@
 
 using namespace llvm;
 using namespace std;
+
+static cl::opt<bool> optStrongUpdate("strong-update",
+				     cl::desc("Strong update"));
+static cl::opt<bool> optNoPtrDep("no-ptr-dep",
+				     cl::desc("No dependency with pointer for load/store"));
+
 
 DepGraph::DepGraph(MemorySSA *mssa, PTACallGraph *CG, Pass *pass)
   : mssa(mssa), CG(CG), pass(pass),
@@ -274,7 +281,8 @@ DepGraph::visitLoadInst(llvm::LoadInst &I) {
     addEdge(mu->var, &I);
   }
 
-  addEdge(I.getPointerOperand(), &I);
+  if (!optNoPtrDep)
+    addEdge(I.getPointerOperand(), &I);
 }
 
 void
@@ -288,9 +296,14 @@ DepGraph::visitStoreInst(llvm::StoreInst &I) {
     funcToLLVMNodesMap[curFunc].insert(I.getPointerOperand());
     funcToLLVMNodesMap[curFunc].insert(I.getValueOperand());
 
-    addEdge(chi->opVar, chi->var);
+
     addEdge(I.getValueOperand(), chi->var);
-    addEdge(I.getPointerOperand(), chi->var);
+
+    if (!optStrongUpdate)
+      addEdge(chi->opVar, chi->var);
+
+    if (!optNoPtrDep)
+      addEdge(I.getPointerOperand(), chi->var);
   }
 }
 
@@ -1129,41 +1142,37 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
   ops.clear();
   for (MSSAVar *v :opsSet)
     ops.push_back(v);
- 
 
   // Remove links from predicates to PHI
   for (const Value *v : phi->preds)
     removeEdge(v, phi->var);
 
-
   // Remove links from ops to PHI
   for (MSSAVar *op : ops)
     removeEdge(op, phi->var);
 
+  // For each outgoing edge from PHI to a SSA node N, connect
+  // op1 to N and remove the link from PHI to N.
+  for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
+    addEdge(ops[0], v);
+    removeEdge(phi->var, v);
 
-	// For each outgoing edge from PHI to a SSA node N, connect
-	// op1 to N and remove the link from PHI to N.
-	for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
-					addEdge(ops[0], v);
-					removeEdge(phi->var, v);
+    // If N is a phi replace the phi operand of N with op1
+    if (v->def->type == MSSADef::PHI) {
+      MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
 
-					// If N is a phi replace the phi operand of N with op1
-					if (v->def->type == MSSADef::PHI) {
-									MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
-
-									bool found = false;
-									for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end(); I != E;
-																	++I) {
-													if (I->second == phi->var) {
-																	found = true;
-																	I->second = ops[0];
-																	break;
-													}
-									}
-									assert(found);
-					}
+      bool found = false;
+      for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end(); I != E;
+	   ++I) {
+	if (I->second == phi->var) {
+	  found = true;
+	  I->second = ops[0];
+	  break;
 	}
-
+      }
+      assert(found);
+    }
+  }
 
   // For each outgoing edge from PHI to a LLVM node N, connect
   // connect op1 to N and remove the link from PHI to N.
@@ -1172,14 +1181,12 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
     removeEdge(phi->var, v);
   }
 
-
   // Remove PHI Node
   const Function *F = phi->var->bb->getParent();
   assert(F);
   auto it = funcToSSANodesMap[F].find(phi->var);
   assert(it != funcToSSANodesMap[F].end());
   funcToSSANodesMap[F].erase(it);
-
 
   // Remove edges connected to other operands than op0
   for (unsigned i=1; i<ops.size(); ++i) {
@@ -1197,7 +1204,6 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
     assert(it2 != funcToSSANodesMap[F].end());
     funcToSSANodesMap[F].erase(it2);
   }
-
 }
 
 
@@ -1205,46 +1211,45 @@ void
 DepGraph::phiElimination() {
   double t1 = gettime();
 
+  // For each function, iterate through its basic block and try to eliminate phi
+  // function until reaching a fixed point.
+  for (const Function &F : *mssa->m) {
+    bool changed = true;
 
-	// For each function, iterate through its basic block and try to eliminate phi
-	// function until reaching a fixed point.
-	for (const Function &F : *mssa->m) {
-					bool changed = true;
+    while (changed) {
+      changed = false;
 
-					while (changed) {
-									changed = false;
+      for (const BasicBlock &BB : F) {
+	for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
+	  if (funcToSSANodesMap[&F].count(phi->var) == 0)
+	    continue;
 
-									for (const BasicBlock &BB : F) {
-													for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
-																	if (funcToSSANodesMap[&F].count(phi->var) == 0)
-																					continue;
+	  // For each phi we test if its operands (chi) are not PHI and
+	  // are equivalent
+	  vector<MSSAVar *> phiOperands;
+	  for (auto J : phi->opsVar)
+	    phiOperands.push_back(J.second);
 
-																	// For each phi we test if its operands (chi) are not PHI and
-																	// are equivalent
-																	vector<MSSAVar *> phiOperands;
-																	for (auto J : phi->opsVar)
-																					phiOperands.push_back(J.second);
+	  bool canElim = true;
+	  for (unsigned i=0; i<phiOperands.size() - 1; i++) {
+	    if (!areSSANodesEquivalent(phiOperands[i], phiOperands[i+1])) {
+	      canElim = false;
+	      break;
+	    }
+	  }
+	  if (!canElim)
+	    continue;
 
-																	bool canElim = true;
-																	for (unsigned i=0; i<phiOperands.size() - 1; i++) {
-																					if (!areSSANodesEquivalent(phiOperands[i], phiOperands[i+1])) {
-																									canElim = false;
-																									break;
-																					}
-																	}
-																	if (!canElim)
-																					continue;
-
-																	// PHI Node can be eliminated !
-																	changed = true;
-																	eliminatePhi(phi, phiOperands);
-													}
-									}
-					}
+	  // PHI Node can be eliminated !
+	  changed = true;
+	  eliminatePhi(phi, phiOperands);
 	}
+      }
+    }
+  }
 
-	double t2 = gettime();
-	phiElimTime += t2 - t1;
+  double t2 = gettime();
+  phiElimTime += t2 - t1;
 }
 
 void
@@ -1427,6 +1432,8 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
   stream << "compound=true;\n";
   stream << "rankdir=LR;\n";
 
+  vector<string> debugMsgs;
+
   visitedSSANodes.clear();
   visitedLLVMNodes.clear();
   visitedSSANodes.insert(root);
@@ -1436,6 +1443,8 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 
   MSSAVar *lastVar = root;
   assert(root);
+  debugMsgs.push_back(getStringMsg(lastVar));
+
   const Value *lastValue = NULL;
   bool lastIsVar = true;
 
@@ -1452,6 +1461,7 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 		  << "Node" << ((void *) v) << "\n";
 	lastVar = v;
 	found = true;
+	debugMsgs.push_back(getStringMsg(v));
 	break;
       }
 
@@ -1468,6 +1478,7 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 	lastValue = v;
 	lastIsVar = false;
 	found = true;
+	debugMsgs.push_back(getStringMsg(v));
 	break;
       }
 
@@ -1486,6 +1497,7 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 	lastVar = v;
 	lastIsVar = true;
 	found = true;
+	debugMsgs.push_back(getStringMsg(v));
 	break;
       }
 
@@ -1502,6 +1514,7 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
 	lastValue = v;
 	lastIsVar = false;
 	found = true;
+	debugMsgs.push_back(getStringMsg(v));
 	break;
       }
 
@@ -1558,4 +1571,96 @@ DepGraph::dotTaintPath(const Value *v, string filename) {
   stream << strStream.str();
 
   stream << "}\n";
+
+  for (unsigned i=0; i<debugMsgs.size(); i++)
+    stream << debugMsgs[i];
 }
+
+
+string
+DepGraph::getStringMsg(const Value *v) {
+  string msg;
+  msg.append("# ");
+  msg.append(getValueLabel(v));
+  msg.append(":\n# ");
+
+  DebugLoc loc = NULL;
+  string funcName = "unknown";
+  const Instruction *inst = dyn_cast<Instruction>(v);
+  if (inst) {
+    loc = inst->getDebugLoc();
+    funcName = inst->getParent()->getParent()->getName();
+  }
+
+  msg.append("function: ");
+  msg.append(funcName);
+  if (loc) {
+    msg.append(" file ");
+    msg.append(loc->getFilename());
+    msg.append(" line ");
+    msg.append(to_string(loc.getLine()));
+  } else {
+    msg.append(" no debug loc");
+  }
+  msg.append("\n");
+
+  return msg;
+}
+
+string
+DepGraph::getStringMsg(MSSAVar *v) {
+  string msg;
+  msg.append("# ");
+  msg.append(v->getName());
+  msg.append(":\n# ");
+  string funcName = "unknown";
+  if (v->bb)
+    funcName = v->bb->getParent()->getName();
+
+  MSSADef *def = v->def;
+  assert(def);
+
+  // Def can be PHI, call, store, chi, entry, extvararg, extarg, extret,
+  // extcall, extretcall
+
+  DebugLoc loc = NULL;
+
+  if (isa<MSSACallChi>(def)) {
+    MSSACallChi *callChi = cast<MSSACallChi>(def);
+    funcName = callChi->inst->getParent()->getParent()->getName();
+    loc = callChi->inst->getDebugLoc();
+  } else if (isa<MSSAStoreChi>(def)) {
+    MSSAStoreChi *storeChi = cast<MSSAStoreChi>(def);
+    funcName = storeChi->inst->getParent()->getParent()->getName();
+    loc = storeChi->inst->getDebugLoc();
+  } else if (isa<MSSAExtCallChi>(def)) {
+    MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(def);
+    funcName = extCallChi->inst->getParent()->getParent()->getName();
+    loc = extCallChi->inst->getDebugLoc();
+  } else if (isa<MSSAExtVarArgChi>(def)) {
+    MSSAExtVarArgChi *varArgChi = cast<MSSAExtVarArgChi>(def);
+    funcName = varArgChi->func->getName();
+  } else if (isa<MSSAExtArgChi>(def)) {
+    MSSAExtArgChi *extArgChi = cast<MSSAExtArgChi>(def);
+    funcName = extArgChi->func->getName();
+  } else if (isa<MSSAExtRetChi>(def)) {
+    MSSAExtRetChi *extRetChi = cast<MSSAExtRetChi>(def);
+    funcName = extRetChi->func->getName();
+  }
+
+  msg.append("function: ");
+  msg.append(funcName);
+
+  if (loc) {
+    msg.append(" file ");
+    msg.append(loc->getFilename());
+    msg.append(" line ");
+    msg.append(to_string(loc.getLine()));
+  } else {
+    msg.append(" no debug loc");
+  }
+  msg.append("\n");
+
+  return msg;
+}
+

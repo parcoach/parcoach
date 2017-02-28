@@ -181,8 +181,8 @@ ParcoachInstr::runOnModule(Module &M) {
   errs() << "Dep graph done\n";
 
   // Phi elimination pass.
-//  if (!optDisablePhiElim)
-//    DG->phiElimination();
+  if (!optDisablePhiElim)
+    DG->phiElimination();
 
   errs() << "phi elimination done\n";
 

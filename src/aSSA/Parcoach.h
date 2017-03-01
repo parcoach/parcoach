@@ -26,10 +26,22 @@ namespace {
 
     static unsigned nbWarningsParcoach;
     static unsigned nbCondsParcoach;
+
+    /* timers */
+    static double tstart, tend,
+      tstart_aa, tend_aa,
+      tstart_pta, tend_pta,
+      tstart_regcreation, tend_regcreation,
+      tstart_modref, tend_modref,
+      tstart_assa, tend_assa,
+      tstart_depgraph, tend_depgraph,
+      tstart_flooding, tend_flooding,
+      tstart_parcoach, tend_parcoach;
     ParcoachInstr();
 
 		virtual void checkCollectives(llvm::Function *F, DepGraph *DG);
     virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
+    virtual bool doInitialization(llvm::Module &M);
     virtual bool doFinalization(llvm::Module &M);
     virtual bool runOnModule(llvm::Module &M);
 

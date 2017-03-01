@@ -18,6 +18,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Format.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include <llvm/Analysis/LoopInfo.h>
@@ -75,7 +76,17 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
 }
 
 bool
+ParcoachInstr::doInitialization(Module &M) {
+  tstart = gettime();
+
+  return true;
+}
+
+
+bool
 ParcoachInstr::doFinalization(Module &M){
+  tend = gettime();
+
   errs() << "\n\033[0;36m==========================================\033[0;0m\n";
   errs() << "\033[0;36m==========  PARCOACH STATISTICS ==========\033[0;0m\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
@@ -90,6 +101,39 @@ ParcoachInstr::doFinalization(Module &M){
   errs() << ParcoachInstr::nbWarningsParcoach << " warning(s) issued\n";
   errs() << ParcoachInstr::nbCondsParcoach << " cond(s) \n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
+
+  if (optTimeStats) {
+    errs()  << "AA time : "
+    	    << format("%.3f", (tend_aa - tstart_aa)*1.0e3) << " ms\n";
+    errs() << "Dep Analysis time : "
+    	   << format("%.3f", (tend_flooding - tstart_pta)*1.0e3)
+    	   << " ms\n";
+    errs() << "Parcoach time : "
+    	   << format("%.3f", (tend_parcoach - tstart_parcoach)*1.0e3)
+    	   << " ms\n";
+    errs() << "Total time : "
+    	   << format("%.3f", (tend - tstart)*1.0e3) << " ms\n\n";
+
+    errs() << "detailed timers:\n";
+    errs() << "PTA time : "
+    	   << format("%.3f", (tend_pta - tstart_pta)*1.0e3) << " ms\n";
+    errs() << "Region creation time : "
+    	   << format("%.3f", (tend_regcreation - tstart_regcreation)*1.0e3)
+    	   << " ms\n";
+    errs() << "Modref time : "
+    	   << format("%.3f", (tend_modref - tstart_modref)*1.0e3)
+    	   << " ms\n";
+    errs() << "ASSA generation time : "
+    	   << format("%.3f", (tend_assa- tstart_assa)*1.0e3)
+    	   << " ms\n";
+    errs() << "Dep graph generation time : "
+    	   << format("%.3f", (tend_depgraph - tstart_depgraph)*1.0e3)
+    	   << " ms\n";
+    errs() << "Flooding time : "
+    	   << format("%.3f", (tend_flooding - tstart_flooding)*1.0e3)
+    	   << " ms\n";
+  }
+
   return true;
 }
 
@@ -126,18 +170,20 @@ ParcoachInstr::runOnModule(Module &M) {
   ExtInfo extInfo(M);
 
   // Run Andersen alias analysis.
-  double startPTA = gettime();
+  tstart_aa = gettime();
   Andersen AA(M);
-  double endPTA = gettime();
+  tend_aa = gettime();
 
   errs() << "AA done\n";
 
   // Create PTA call graph
+  tstart_pta = gettime();
   PTACallGraph PTACG(M, &AA);
+  tend_pta = gettime();
   errs() << "PTA Call graph creation done\n";
 
   // Create regions from allocation sites.
-  double startCreateReg = gettime();
+  tstart_regcreation = gettime();
   vector<const Value *> regions;
   AA.getAllAllocationSites(regions);
 
@@ -151,22 +197,23 @@ ParcoachInstr::runOnModule(Module &M) {
     regCounter++;
     MemReg::createRegion(r);
   }
-  double endCreateReg = gettime();
+  tend_regcreation = gettime();
 
   if (optDumpRegions)
     MemReg::dumpRegions();
   errs() << "Regions creation done\n";
 
   // Compute MOD/REF analysis
-  double startModRef = gettime();
+  tstart_modref = gettime();
   ModRefAnalysis MRA(PTACG, &AA, &extInfo);
-  double endModRef = gettime();
+  tend_modref = gettime();
   if (optDumpModRef)
     MRA.dump();
 
   errs() << "Mod/ref done\n";
 
   // Compute all-inclusive SSA.
+  tstart_assa = gettime();
   MemorySSA MSSA(&M, &AA, &PTACG, &MRA, &extInfo);
 
   unsigned nbFunctions = M.getFunctionList().size();
@@ -196,10 +243,11 @@ ParcoachInstr::runOnModule(Module &M) {
     if (F.getName().equals(optDumpSSAFunc))
       MSSA.dumpMSSA(&F);
   }
-
+  tend_assa = gettime();
   errs() << "SSA done\n";
 
   // Compute dep graph.
+  tstart_depgraph = gettime();
   DepGraph *DG = new DepGraph(&MSSA, &PTACG, this);
   counter = 0;
   for (Function &F : M) {
@@ -222,30 +270,24 @@ ParcoachInstr::runOnModule(Module &M) {
     DG->phiElimination();
 
   errs() << "phi elimination done\n";
+  tend_depgraph = gettime();
 
+  tstart_flooding = gettime();
   // Compute tainted values
   DG->computeTaintedValues();
   errs() << "value contamination  done\n";
 
   DG->computeTaintedCalls();
   errs() << "call contamination  done\n";
+  tend_flooding = gettime();
 
   // Dot dep graph.
   if (optDotGraph)
     DG->toDot("dg.dot");
 
-  if (optTimeStats) {
-    errs() << "Andersen PTA time : " << (endPTA - startPTA)*1.0e3 << " ms\n";
-    errs() << "Create regions time : " << (endCreateReg - startCreateReg)*1.0e3
-	   << " ms\n";
-    errs() << "Mod/Ref analysis time : " << (endModRef - startModRef)*1.0e3
-	   << " ms\n";
-    MSSA.printTimers();
-    DG->printTimers();
-  }
-
   errs() << "Starting Parcoach analysis\n";
 
+  tstart_parcoach = gettime();
   // Parcoach analysis
 
   /* (1) BFS on each function of the Callgraph in reverse topological order
@@ -282,6 +324,8 @@ ParcoachInstr::runOnModule(Module &M) {
   }
 
   errs() << "Parcoach analysis done\n";
+
+  tend_parcoach = gettime();
 
   return false;
 }
@@ -384,11 +428,31 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
 
 char ParcoachInstr::ID = 0;
+
 unsigned ParcoachInstr::nbCollectivesFound = 0;
 unsigned ParcoachInstr::nbCollectivesTainted = 0;
 unsigned ParcoachInstr::nbWarnings = 0;
 unsigned ParcoachInstr::nbConds = 0;
 unsigned ParcoachInstr::nbWarningsParcoach = 0;
 unsigned ParcoachInstr::nbCondsParcoach = 0;
+
+double ParcoachInstr::tstart = 0;
+double ParcoachInstr::tend = 0;
+double ParcoachInstr::tstart_aa = 0;
+double ParcoachInstr::tend_aa = 0;
+double ParcoachInstr::tstart_pta = 0;
+double ParcoachInstr::tend_pta = 0;
+double ParcoachInstr::tstart_regcreation = 0;
+double ParcoachInstr::tend_regcreation = 0;
+double ParcoachInstr::tstart_modref = 0;
+double ParcoachInstr::tend_modref = 0;
+double ParcoachInstr::tstart_assa = 0;
+double ParcoachInstr::tend_assa = 0;
+double ParcoachInstr::tstart_depgraph = 0;
+double ParcoachInstr::tend_depgraph = 0;
+double ParcoachInstr::tstart_flooding = 0;
+double ParcoachInstr::tend_flooding = 0;
+double ParcoachInstr::tstart_parcoach = 0;
+double ParcoachInstr::tend_parcoach = 0;
 
 static RegisterPass<ParcoachInstr> Z("parcoach", "Module pass");

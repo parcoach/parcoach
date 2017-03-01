@@ -58,6 +58,10 @@ static cl::opt<bool> optDotTaintPaths("dot-taint-paths",
 static cl::opt<bool> optStats("statistics", cl::desc("print statistics"),
 			      cl::cat(ParcoachCategory));
 
+cl::opt<bool> optNoRegName("no-reg-name",
+				  cl::desc("Do not compute names of regions"),
+				  cl::cat(ParcoachCategory));
+
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
 void

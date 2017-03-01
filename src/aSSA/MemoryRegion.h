@@ -12,11 +12,11 @@ typedef std::set<MemReg *> MemRegSet;
 
 class MemReg {
   std::string name;
+  static unsigned count;
+  unsigned id;
 
 protected:
-  MemReg(const llvm::Value *value) : value(value) {
-    name = getValueLabel(value);
-  }
+  MemReg(const llvm::Value *value);
   ~MemReg() {}
   static llvm::DenseMap<const llvm::Value *, MemReg *> valueToRegMap;
   const llvm::Value *value;

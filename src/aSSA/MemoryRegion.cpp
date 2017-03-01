@@ -7,7 +7,24 @@
 using namespace std;
 using namespace llvm;
 
+extern cl::opt<bool> optNoRegName;
+
 llvm::DenseMap<const llvm::Value *, MemReg *> MemReg::valueToRegMap;
+unsigned MemReg::count = 0;
+
+MemReg::MemReg(const llvm::Value *value) : value(value) {
+  id = count++;
+
+  if (optNoRegName) {
+    name = std::to_string(id);
+    return;
+  }
+
+  name = getValueLabel(value);
+  const llvm::Instruction *inst = llvm::dyn_cast<llvm::Instruction>(value);
+  if (inst)
+    name.append(inst->getParent()->getParent()->getName());
+}
 
 void
 MemReg::createRegion(const llvm::Value *v) {

@@ -240,7 +240,14 @@ ModRefAnalysis::analyze() {
 	    == nodeVec.end()) {
 	  for (MemReg *r : funcLocalMap[callee])
 	    funcKillMap[F].insert(r);
+
+	  // Here we have to use a vector to store regions we want to add into
+	  // the funcKillMap because iterators in a DenseMap are invalidated
+	  // whenever an insertion occurs unlike map.
+	  vector<MemReg *> killToAdd;
 	  for (MemReg *r : funcKillMap[callee])
+	    killToAdd.push_back(r);
+	  for (MemReg *r : killToAdd)
 	    funcKillMap[F].insert(r);
 	}
       }

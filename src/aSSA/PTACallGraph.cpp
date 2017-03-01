@@ -4,8 +4,10 @@
 
 using namespace llvm;
 
+#include <queue>
+
 PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
-  : M(M), AA(AA), Root(nullptr),
+  : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),
     ExternalCallingNode(getOrInsertFunction(nullptr)),
     CallsExternalNode(llvm::make_unique<PTACallGraphNode>(nullptr)) {
 
@@ -14,6 +16,35 @@ PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
 
   if (!Root)
     Root = ExternalCallingNode;
+
+  if (!ProgEntry) {
+    errs() << "Warning: no main function in module\n";
+  } else {
+    // Compute reachable functions from main
+    std::queue<PTACallGraphNode *> toVisit;
+    std::set<PTACallGraphNode *> visited;
+
+    toVisit.push(ProgEntry);
+    visited.insert(ProgEntry);
+
+    while (!toVisit.empty()) {
+      PTACallGraphNode *N = toVisit.front();
+      toVisit.pop();
+
+      Function *F = N->getFunction();
+      if (F)
+	reachableFunctions.insert(F);
+
+      for (auto I = N->begin(), E = N->end(); I != E; ++I) {
+	PTACallGraphNode *calleeNode = I->second;
+	assert(calleeNode);
+	if (visited.find(calleeNode) == visited.end()) {
+	  visited.insert(calleeNode);
+	  toVisit.push(calleeNode);
+	}
+      }
+    }
+  }
 }
 
 PTACallGraph::~PTACallGraph() {
@@ -34,6 +65,8 @@ PTACallGraph::addToCallGraph(Function *F) {
         Root = ExternalCallingNode;
       else
         Root = Node; // Found a main, keep track of it!
+
+      ProgEntry = Node;
     }
   }
 
@@ -96,6 +129,11 @@ PTACallGraph::addToCallGraph(Function *F) {
 	}
       }
     }
+}
+
+bool
+PTACallGraph::isReachableFromEntry(const Function *F) const {
+  return !ProgEntry || reachableFunctions.find(F) != reachableFunctions.end();
 }
 
 PTACallGraphNode *

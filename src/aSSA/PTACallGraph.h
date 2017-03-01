@@ -29,6 +29,10 @@ class PTACallGraph {
   // Must be main
   PTACallGraphNode *Root;
 
+  PTACallGraphNode *ProgEntry;
+
+  std::set<const llvm::Function *> reachableFunctions;
+
   /// \brief This node has edges to all external functions and those internal
   /// functions that have their address taken.
   PTACallGraphNode *ExternalCallingNode;
@@ -82,6 +86,8 @@ public:
   }
 
   PTACallGraphNode *getOrInsertFunction(const llvm::Function *F);
+
+  bool isReachableFromEntry(const llvm::Function *F) const;
 };
 
 class PTACallGraphNode {

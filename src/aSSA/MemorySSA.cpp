@@ -103,7 +103,10 @@ MemorySSA::computeMuChi(const Function *F) {
       vector<MemReg *> regs;
       MemReg::getValuesRegion(ptsSet, regs);
 
-      for (MemReg * r : regs) {
+      for (MemReg *r : regs) {
+	if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+	  continue;
+
 	loadToMuMap[LI].insert(new MSSALoadMu(r, LI));
 	usedRegs.insert(r);
       }
@@ -123,6 +126,9 @@ MemorySSA::computeMuChi(const Function *F) {
       MemReg::getValuesRegion(ptsSet, regs);
 
       for (MemReg * r : regs) {
+	if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+	  continue;
+
 	storeToChiMap[SI].insert(new MSSAStoreChi(r, SI));
 	usedRegs.insert(r);
 	regDefToBBMap[r].insert(inst->getParent());
@@ -192,7 +198,10 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
       MemReg::getValuesRegion(ptsSet, regs);
 
       // Mus
-      for (MemReg * r : regs) {
+      for (MemReg *r : regs) {
+	if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+	  continue;
+
 	callSiteToMuMap[cs].insert(new MSSAExtCallMu(r, callee, i));
 	usedRegs.insert(r);
       }
@@ -202,6 +211,9 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
 	assert(callee->isVarArg());
 	if (info->argIsMod[info->nbArgs-1]) {
 	  for (MemReg *r : regs) {
+	    if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+	      continue;
+
 	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i, inst));
 	    regDefToBBMap[r].insert(inst->getParent());
 	  }
@@ -209,6 +221,9 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
       } else {
 	if (info->argIsMod[i]) {
 	  for (MemReg *r : regs) {
+	    if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+	      continue;
+
 	    callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i, inst));
 	    regDefToBBMap[r].insert(inst->getParent());
 	  }
@@ -224,6 +239,9 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
       MemReg::getValuesRegion(ptsSet, regs);
 
       for (MemReg *r : regs) {
+	if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+	  continue;
+
 	extCallSiteToCallerRetChi[cs].insert(new MSSAExtRetCallChi(r, callee));
 	regDefToBBMap[r].insert(inst->getParent());
 	usedRegs.insert(r);

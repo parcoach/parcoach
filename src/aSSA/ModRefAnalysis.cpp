@@ -28,8 +28,11 @@ ModRefAnalysis::visitLoadInst(LoadInst &I) {
   vector<MemReg *> regs;
   MemReg::getValuesRegion(ptsSet, regs);
 
-  for (MemReg *r : regs)
+  for (MemReg *r : regs) {
+    if (globalKillSet.find(r) != globalKillSet.end())
+      continue;
     funcRefMap[curFunc].insert(r);
+  }
 }
 
 void
@@ -39,8 +42,11 @@ ModRefAnalysis::visitStoreInst(StoreInst &I) {
   vector<MemReg *> regs;
   MemReg::getValuesRegion(ptsSet, regs);
 
-  for (MemReg *r : regs)
+  for (MemReg *r : regs) {
+    if (globalKillSet.find(r) != globalKillSet.end())
+      continue;
     funcModMap[curFunc].insert(r);
+  }
 }
 
 void
@@ -99,8 +105,11 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
     vector<MemReg *> regs;
     MemReg::getValuesRegion(argPtsSet, regs);
 
-    for (MemReg *r : regs)
+    for (MemReg *r : regs) {
+      if (globalKillSet.find(r) != globalKillSet.end())
+	continue;
       funcRefMap[curFunc].insert(r);
+    }
 
     // direct call
     if (callee) {
@@ -113,16 +122,22 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
 	assert(callee->isVarArg());
 
 	if (info->argIsMod[info->nbArgs-1]) {
-	  for (MemReg *r : regs)
+	  for (MemReg *r : regs) {
+	    if (globalKillSet.find(r) != globalKillSet.end())
+	      continue;
 	    funcModMap[curFunc].insert(r);
+	  }
 	}
       }
 
       // Normal argument
       else {
 	if (info->argIsMod[i]) {
-	  for (MemReg *r : regs)
+	  for (MemReg *r : regs) {
+	    if (globalKillSet.find(r) != globalKillSet.end())
+	      continue;
 	    funcModMap[curFunc].insert(r);
+	  }
 	}
       }
     }
@@ -141,16 +156,22 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
 	  assert(mayCallee->isVarArg());
 
 	  if (info->argIsMod[info->nbArgs-1]) {
-	    for (MemReg *r : regs)
+	    for (MemReg *r : regs) {
+	      if (globalKillSet.find(r) != globalKillSet.end())
+		continue;
 	      funcModMap[curFunc].insert(r);
+	    }
 	  }
 	}
 
 	// Normal argument
 	else {
 	  if (info->argIsMod[i]) {
-	    for (MemReg *r : regs)
+	    for (MemReg *r : regs) {
+	      if (globalKillSet.find(r) != globalKillSet.end())
+		continue;
 	      funcModMap[curFunc].insert(r);
+	    }
 	  }
 	}
       }
@@ -167,12 +188,18 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
       assert(PTA->getPointsToSet(CI, retPtsSet));
       vector<MemReg *> regs;
       MemReg::getValuesRegion(retPtsSet, regs);
-      for (MemReg *r : regs)
+      for (MemReg *r : regs) {
+	if (globalKillSet.find(r) != globalKillSet.end())
+	  continue;
 	funcRefMap[curFunc].insert(r);
+      }
 
       if (info->retIsMod) {
-	for (MemReg *r : regs)
+	for (MemReg *r : regs) {
+	  if (globalKillSet.find(r) != globalKillSet.end())
+	    continue;
 	  funcModMap[curFunc].insert(r);
+	}
       }
     }
   }
@@ -190,12 +217,18 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
 	assert(PTA->getPointsToSet(CI, retPtsSet));
 	vector<MemReg *> regs;
 	MemReg::getValuesRegion(retPtsSet, regs);
-	for (MemReg *r : regs)
+	for (MemReg *r : regs) {
+	  if (globalKillSet.find(r) != globalKillSet.end())
+	    continue;
 	  funcRefMap[curFunc].insert(r);
+	}
 
 	if (info->retIsMod) {
-	  for (MemReg *r : regs)
+	  for (MemReg *r : regs) {
+	    if (globalKillSet.find(r) != globalKillSet.end())
+	      continue;
 	    funcModMap[curFunc].insert(r);
+	  }
 	}
       }
     }
@@ -207,10 +240,26 @@ ModRefAnalysis::analyze() {
   unsigned nbFunctions  = CG.getModule().getFunctionList().size();
   unsigned counter = 0;
 
+  // Compute global kill set containing regions whose allocation sites are
+  // in functions not reachable from prog entry.
+  vector<const Value *> allocSites;
+  PTA->getAllAllocationSites(allocSites);
+  for (const Value *v : allocSites) {
+    const Instruction *inst = dyn_cast<Instruction>(v);
+    if (!inst)
+      continue;
+    if (CG.isReachableFromEntry(inst->getParent()->getParent()))
+      continue;
+    globalKillSet.insert(MemReg::getValueRegion(v));
+  }
+
   // First compute the mod/ref sets of each function from its load/store
   // instructions and calls to external functions.
 
   for (Function &F : CG.getModule()) {
+    if (!CG.isReachableFromEntry(&F))
+      continue;
+
     curFunc = &F;
     visit(&F);
   }

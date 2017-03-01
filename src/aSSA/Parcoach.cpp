@@ -219,6 +219,9 @@ ParcoachInstr::runOnModule(Module &M) {
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
   for (Function &F : M) {
+    if (!PTACG.isReachableFromEntry(&F))
+      continue;
+
     if (counter % 100 == 0)
       errs() << "MSSA: visited " << counter << " functions over " << nbFunctions
 	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
@@ -251,6 +254,9 @@ ParcoachInstr::runOnModule(Module &M) {
   DepGraph *DG = new DepGraph(&MSSA, &PTACG, this);
   counter = 0;
   for (Function &F : M) {
+    if (!PTACG.isReachableFromEntry(&F))
+      continue;
+
     if (counter % 100 == 0)
       errs() << "DepGraph: visited " << counter << " functions over " << nbFunctions
 	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
@@ -300,7 +306,7 @@ ParcoachInstr::runOnModule(Module &M) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
-      if (!F || F->isDeclaration())
+      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
 	continue;
       //DBG: //errs() << "Function: " << F->getName() << "\n";
       BFS(F,&PTACG);
@@ -315,7 +321,7 @@ ParcoachInstr::runOnModule(Module &M) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
-      if (!F || F->isDeclaration())
+      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
 	continue;
       //DBG: //errs() << "Function: " << F->getName() << "\n";
       checkCollectives(F,DG);

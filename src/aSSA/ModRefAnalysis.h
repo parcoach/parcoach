@@ -24,6 +24,8 @@ public:
 
   void dump();
 
+  MemRegSet globalKillSet;
+
 private:
   void analyze();
 

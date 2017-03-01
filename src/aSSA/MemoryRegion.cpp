@@ -26,6 +26,7 @@ MemReg::getValueRegion(const llvm::Value *v) {
     auto I = valueToRegMap.find(v);
     if (I == valueToRegMap.end())
       return NULL;
+
     return I->second;
 }
 
@@ -35,8 +36,9 @@ MemReg::getValuesRegion(std::vector<const Value *> &ptsSet,
   std::set<MemReg *> regions;
   for (const Value *v : ptsSet) {
     MemReg *r = getValueRegion(v);
-    assert(r);
-    regions.insert(r);
+
+    if (r)
+      regions.insert(r);
   }
 
   regs.insert(regs.begin(), regions.begin(), regions.end());

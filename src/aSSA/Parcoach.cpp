@@ -405,7 +405,11 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
       if (optDotTaintPaths) {
 	string dotfilename("taintedpath-");
-	dotfilename.append(loc->getFilename()).append("-");
+	string cfilename = loc->getFilename();
+	size_t lastpos_slash = cfilename.find_last_of('/');
+	if (lastpos_slash != cfilename.npos)
+	  cfilename = cfilename.substr(lastpos_slash+1, cfilename.size());
+	dotfilename.append(cfilename).append("-");
 	dotfilename.append(to_string(loc.getLine())).append(".dot");
 	DG->dotTaintPath(cond, dotfilename, i);
       }

@@ -20,6 +20,27 @@ static cl::opt<bool> optNoPtrDep("no-ptr-dep",
 				     cl::desc("No dependency with pointer for load/store"));
 
 
+struct functionArg {
+  string name;
+  unsigned arg;
+};
+
+vector<functionArg> sourceFunctions =
+  { {"MPI_Comm_rank", 1},
+    {"MPI_Group_rank", 1},
+  };
+
+vector<functionArg> resetFunctions =
+  { {"MPI_Bcast", 0},
+    {"MPI_Allgather", 3},
+    {"MPI_Allgatherv", 3},
+    {"MPI_Alltoall", 3},
+    {"MPI_Alltoallv", 4},
+    {"MPI_Alltoallw", 4},
+    {"MPI_Allreduce", 1},
+  };
+
+
 DepGraph::DepGraph(MemorySSA *mssa, PTACallGraph *CG, Pass *pass)
   : mssa(mssa), CG(CG), pass(pass),
     buildGraphTime(0), phiElimTime(0),
@@ -103,26 +124,8 @@ DepGraph::buildFunction(const llvm::Function *F) {
       }
     }
 
-    // If the function is MPI_Comm_rank set the address-taken ssa of the
-    // second argument as a contamination source.
-    if (F->getName().equals("MPI_Comm_rank")) {
-      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
-	assert(I.second[1]);
-	ssaSources.insert(I.second[1]->var);
-      }
-    }
-
-    // If the function is MPI_Group_rank set the address-taken ssa of the
-    // second argument as a contamination source.
-    else if (F->getName().equals("MPI_Group_rank")) {
-      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
-	assert(I.second[1]);
-	ssaSources.insert(I.second[1]->var);
-      }
-    }
-
     // memcpy
-    else if (F->getName().find("memcpy") != StringRef::npos) {
+    if (F->getName().find("memcpy") != StringRef::npos) {
       for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
 	CallSite CS = I.first;
 	MSSAChi *srcEntryChi = mssa->extCallSiteToArgEntryChi[F][CS][1];
@@ -171,16 +174,6 @@ DepGraph::buildFunction(const llvm::Function *F) {
       }
     }
 
-
-    else if (F->getName().find("MPI_Bcast") != StringRef::npos) {
-      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
-	CallSite CS = I.first;
-
-	MSSAChi *arg0OutChi = mssa->extCallSiteToArgExitChi[F][CS][0];
-	taintResetSSANodes.insert(arg0OutChi->var);
-      }
-    }
-
     // Unknown external function, we have to connect every input to every
     // output.
     else {
@@ -224,6 +217,30 @@ DepGraph::buildFunction(const llvm::Function *F) {
       // 	  addEdge(&arg, out);
       // 	}
       // }
+    }
+
+    // Source functions
+    for (unsigned i=0; i<sourceFunctions.size(); ++i) {
+      if (!F->getName().equals(sourceFunctions[i].name))
+	continue;
+      unsigned argNo = sourceFunctions[i].arg;
+      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
+	assert(I.second[argNo]);
+	ssaSources.insert(I.second[argNo]->var);
+      }
+    }
+
+    // Reset functions
+    for (unsigned i=0; i<resetFunctions.size(); ++i) {
+      if (!F->getName().equals(resetFunctions[i].name))
+	continue;
+      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
+	CallSite CS = I.first;
+	unsigned argNo = resetFunctions[i].arg;
+	MSSAChi *argOutChi = mssa->extCallSiteToArgExitChi[F][CS][argNo];
+	taintResetSSANodes.insert(argOutChi->var);
+      }
+      break;
     }
   }
 

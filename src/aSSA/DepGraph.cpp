@@ -177,46 +177,48 @@ DepGraph::buildFunction(const llvm::Function *F) {
     // Unknown external function, we have to connect every input to every
     // output.
     else {
-      // std::set<MSSAVar *> ssaOutputs;
-      // std::set<MSSAVar *> ssaInputs;
+      for (CallSite cs : mssa->extFuncToCSMap[F]) {
+	std::set<MSSAVar *> ssaOutputs;
+	std::set<MSSAVar *> ssaInputs;
 
-      // // Compute SSA outputs
-      // for (auto I : mssa->extArgExitChi[F]) {
-      // 	MSSAChi *argExitChi = I.second;
-      // 	ssaOutputs.insert(argExitChi->var);
-      // }
-      // if (F->isVarArg()) {
-      // 	MSSAChi *varArgExitChi = mssa->extVarArgExitChi[F];
-      // 	ssaOutputs.insert(varArgExitChi->var);
-      // }
-      // if (F->getReturnType()->isPointerTy()) {
-      // 	MSSAChi *retChi = mssa->extRetChi[F];
-      // 	ssaOutputs.insert(retChi->var);
-      // }
+	// Compute SSA outputs
+	for (auto I : mssa->extCallSiteToArgExitChi[F][cs]) {
+	  MSSAChi *argExitChi = I.second;
+	  ssaOutputs.insert(argExitChi->var);
+	}
+	if (F->isVarArg()) {
+	  MSSAChi *varArgExitChi = mssa->extCallSiteToVarArgExitChi[F][cs];
+	  ssaOutputs.insert(varArgExitChi->var);
+	}
+	if (F->getReturnType()->isPointerTy()) {
+	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][cs];
+	  ssaOutputs.insert(retChi->var);
+	}
 
-      // // Compute SSA inputs
-      // for (auto I : mssa->extArgEntryChi[F]) {
-      // 	MSSAChi *argEntryChi = I.second;
-      // 	ssaInputs.insert(argEntryChi->var);
-      // }
-      // if (F->isVarArg()) {
-      // 	MSSAChi *varArgEntryChi = mssa->extVarArgEntryChi[F];
-      // 	ssaInputs.insert(varArgEntryChi->var);
-      // }
+	// Compute SSA inputs
+	for (auto I : mssa->extCallSiteToArgEntryChi[F][cs]) {
+	  MSSAChi *argEntryChi = I.second;
+	  ssaInputs.insert(argEntryChi->var);
+	}
+	if (F->isVarArg()) {
+	  MSSAChi *varArgEntryChi = mssa->extCallSiteToVarArgEntryChi[F][cs];
+	  ssaInputs.insert(varArgEntryChi->var);
+	}
 
-      // // Connect SSA inputs to SSA outputs
-      // for (MSSAVar *in : ssaInputs) {
-      // 	for (MSSAVar *out : ssaOutputs) {
-      // 	  addEdge(in, out);
-      // 	}
-      // }
+	// Connect SSA inputs to SSA outputs
+	for (MSSAVar *in : ssaInputs) {
+	  for (MSSAVar *out : ssaOutputs) {
+	    addEdge(in, out);
+	  }
+	}
 
-      // // Connect LLVM arguments to SSA outputs
-      // for (const Argument &arg : F->getArgumentList()) {
-      // 	for (MSSAVar *out : ssaOutputs) {
-      // 	  addEdge(&arg, out);
-      // 	}
-      // }
+	// Connect LLVM arguments to SSA outputs
+	for (const Argument &arg : F->getArgumentList()) {
+	  for (MSSAVar *out : ssaOutputs) {
+	    addEdge(&arg, out);
+	  }
+	}
+      }
     }
 
     // Source functions

@@ -35,6 +35,7 @@ static const funcModPair funcModPairs[] = {
 
   /* libc */
   {"abort", { 0, false, {} } },
+  {"abs", { 1, false, {false} } },
   {"atof", { 1, false, {false} } },
   {"atoi", { 1, false, {false} } },
   {"calloc", { 2, true, {false, false} } },
@@ -70,6 +71,7 @@ static const funcModPair funcModPairs[] = {
   {"gethostname", { 2, false, {true, false} } },
   {"getrusage", { 2, false, {false, true} } },
   {"ldexp", {2, false, {false, false} } },
+  {"localtime", {1, true, {false} } },
   {"log", {1, false, {false} } },
   {"malloc", { 1, true, {false} } },
   {"mkdir", { 2, false, {false, false} } },
@@ -91,6 +93,7 @@ static const funcModPair funcModPairs[] = {
   {"strcmp", { 2, false, {false, false} } },
   {"strcpy", { 2, true, {true, false} } },
   {"strcspn", { 2, false, {false, false} } },
+  {"strftime", { 4, false, {true, false, false, false} } },
   {"strerror", { 1, true, {false} } },
   {"strlen", { 1, false, {false} } },
   {"strncmp", { 3, false, {false, false, false} } },

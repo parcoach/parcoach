@@ -226,7 +226,7 @@ static const funcModPair funcModPairs[] = {
 	{"llvm.pow.f64",{2, false, {false,false}}},	
 	{"fscanf",{3,false,{false,false,true}}},	
 
-  /* Functions from MPISrc */
+  /* Functions from MPI-PHYLIP */
 	{"scanf",{2, false, {false, true} }},	
 	{"putc",{2, false, {false, false} }},	
 	{"getc",{1, false, {false} }},	
@@ -236,6 +236,10 @@ static const funcModPair funcModPairs[] = {
   {"\01_fputs", { 2, false, {false, false} } },
   {"\01_freopen", { 3, true, {false, false, false} } },
   {"__strcpy_chk", { 3, false, {true, false, false} } }, // not sure for this one..
+  {"__memset_chk", { 4, false, {true, false, false, false} } }, // not sure for this one..
+	{"uppercase",{1, false, {true} }},	
+	{"isupper",{1, false, {true} }},	
+   
 
   {NULL, {0, false, {} } }
 };

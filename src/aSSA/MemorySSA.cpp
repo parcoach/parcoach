@@ -167,6 +167,7 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
   if (callee->isDeclaration()) {
     assert(isa<CallInst>(inst)); // InvokeInst are not handled yet
     const CallInst *CI = cast<CallInst>(inst);
+    extFuncToCSMap[callee].insert(cs);
 
     const extModInfo *info = extInfo->getExtModInfo(callee);
     assert(info);

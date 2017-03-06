@@ -138,6 +138,7 @@ protected:
   FuncCallSiteToArgChiMap extCallSiteToArgEntryChi;
   FuncCallSiteToArgChiMap extCallSiteToArgExitChi;
   FuncCallSiteToChiMap extCallSiteToCalleeRetChi;
+  std::map<const llvm::Function *, std::set<llvm::CallSite> > extFuncToCSMap;
 };
 
 #endif /* MEMORYSSA_H */

@@ -20,6 +20,27 @@ static cl::opt<bool> optNoPtrDep("no-ptr-dep",
 				     cl::desc("No dependency with pointer for load/store"));
 
 
+struct functionArg {
+  string name;
+  unsigned arg;
+};
+
+vector<functionArg> sourceFunctions =
+  { {"MPI_Comm_rank", 1},
+    {"MPI_Group_rank", 1},
+  };
+
+vector<functionArg> resetFunctions =
+  { {"MPI_Bcast", 0},
+    {"MPI_Allgather", 3},
+    {"MPI_Allgatherv", 3},
+    {"MPI_Alltoall", 3},
+    {"MPI_Alltoallv", 4},
+    {"MPI_Alltoallw", 4},
+    {"MPI_Allreduce", 1},
+  };
+
+
 DepGraph::DepGraph(MemorySSA *mssa, PTACallGraph *CG, Pass *pass)
   : mssa(mssa), CG(CG), pass(pass),
     buildGraphTime(0), phiElimTime(0),
@@ -103,26 +124,8 @@ DepGraph::buildFunction(const llvm::Function *F) {
       }
     }
 
-    // If the function is MPI_Comm_rank set the address-taken ssa of the
-    // second argument as a contamination source.
-    if (F->getName().equals("MPI_Comm_rank")) {
-      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
-	assert(I.second[1]);
-	ssaSources.insert(I.second[1]->var);
-      }
-    }
-
-    // If the function is MPI_Group_rank set the address-taken ssa of the
-    // second argument as a contamination source.
-    else if (F->getName().equals("MPI_Group_rank")) {
-      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
-	assert(I.second[1]);
-	ssaSources.insert(I.second[1]->var);
-      }
-    }
-
     // memcpy
-    else if (F->getName().find("memcpy") != StringRef::npos) {
+    if (F->getName().find("memcpy") != StringRef::npos) {
       for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
 	CallSite CS = I.first;
 	MSSAChi *srcEntryChi = mssa->extCallSiteToArgEntryChi[F][CS][1];
@@ -171,59 +174,75 @@ DepGraph::buildFunction(const llvm::Function *F) {
       }
     }
 
-
-    else if (F->getName().find("MPI_Bcast") != StringRef::npos) {
-      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
-	CallSite CS = I.first;
-
-	MSSAChi *arg0OutChi = mssa->extCallSiteToArgExitChi[F][CS][0];
-	taintResetSSANodes.insert(arg0OutChi->var);
-      }
-    }
-
     // Unknown external function, we have to connect every input to every
     // output.
     else {
-       std::set<MSSAVar *> ssaOutputs;
-       std::set<MSSAVar *> ssaInputs;
+      for (CallSite cs : mssa->extFuncToCSMap[F]) {
+	std::set<MSSAVar *> ssaOutputs;
+	std::set<MSSAVar *> ssaInputs;
 
-       // Compute SSA outputs
-       for (auto I : mssa->extArgExitChi[F]) {
-       	MSSAChi *argExitChi = I.second;
-       	ssaOutputs.insert(argExitChi->var);
-       }
-       if (F->isVarArg()) {
-       	MSSAChi *varArgExitChi = mssa->extVarArgExitChi[F];
-       	ssaOutputs.insert(varArgExitChi->var);
-       }
-       if (F->getReturnType()->isPointerTy()) {
-       	MSSAChi *retChi = mssa->extRetChi[F];
-       	ssaOutputs.insert(retChi->var);
-       }
+	// Compute SSA outputs
+	for (auto I : mssa->extCallSiteToArgExitChi[F][cs]) {
+	  MSSAChi *argExitChi = I.second;
+	  ssaOutputs.insert(argExitChi->var);
+	}
+	if (F->isVarArg()) {
+	  MSSAChi *varArgExitChi = mssa->extCallSiteToVarArgExitChi[F][cs];
+	  ssaOutputs.insert(varArgExitChi->var);
+	}
+	if (F->getReturnType()->isPointerTy()) {
+	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][cs];
+	  ssaOutputs.insert(retChi->var);
+	}
 
-       // Compute SSA inputs
-       for (auto I : mssa->extArgEntryChi[F]) {
-       	MSSAChi *argEntryChi = I.second;
-       	ssaInputs.insert(argEntryChi->var);
-       }
-       if (F->isVarArg()) {
-       	MSSAChi *varArgEntryChi = mssa->extVarArgEntryChi[F];
-       	ssaInputs.insert(varArgEntryChi->var);
-       }
+	// Compute SSA inputs
+	for (auto I : mssa->extCallSiteToArgEntryChi[F][cs]) {
+	  MSSAChi *argEntryChi = I.second;
+	  ssaInputs.insert(argEntryChi->var);
+	}
+	if (F->isVarArg()) {
+	  MSSAChi *varArgEntryChi = mssa->extCallSiteToVarArgEntryChi[F][cs];
+	  ssaInputs.insert(varArgEntryChi->var);
+	}
 
-       // Connect SSA inputs to SSA outputs
-       for (MSSAVar *in : ssaInputs) {
-       	for (MSSAVar *out : ssaOutputs) {
-       	  addEdge(in, out);
-       	}
-       }
+	// Connect SSA inputs to SSA outputs
+	for (MSSAVar *in : ssaInputs) {
+	  for (MSSAVar *out : ssaOutputs) {
+	    addEdge(in, out);
+	  }
+	}
 
-      // // Connect LLVM arguments to SSA outputs
-      // for (const Argument &arg : F->getArgumentList()) {
-      // 	for (MSSAVar *out : ssaOutputs) {
-      // 	  addEdge(&arg, out);
-      // 	}
-      // }
+	// Connect LLVM arguments to SSA outputs
+	for (const Argument &arg : F->getArgumentList()) {
+	  for (MSSAVar *out : ssaOutputs) {
+	    addEdge(&arg, out);
+	  }
+	}
+      }
+    }
+
+    // Source functions
+    for (unsigned i=0; i<sourceFunctions.size(); ++i) {
+      if (!F->getName().equals(sourceFunctions[i].name))
+	continue;
+      unsigned argNo = sourceFunctions[i].arg;
+      for (auto I : mssa->extCallSiteToArgExitChi[F]) {
+	assert(I.second[argNo]);
+	ssaSources.insert(I.second[argNo]->var);
+      }
+    }
+
+    // Reset functions
+    for (unsigned i=0; i<resetFunctions.size(); ++i) {
+      if (!F->getName().equals(resetFunctions[i].name))
+	continue;
+      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
+	CallSite CS = I.first;
+	unsigned argNo = resetFunctions[i].arg;
+	MSSAChi *argOutChi = mssa->extCallSiteToArgExitChi[F][CS][argNo];
+	taintResetSSANodes.insert(argOutChi->var);
+      }
+      break;
     }
   }
 

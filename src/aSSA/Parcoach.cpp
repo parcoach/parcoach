@@ -386,6 +386,7 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
       // Is this node detected as potentially dangerous by parcoach?
       string Seq = getBBcollSequence(*(BB->getTerminator()));
+      //errs() << "DANGEROUS COND? Seq = " << Seq << "\n";
       if(Seq!="NAVS") continue;
 
       isColWarningParcoach = true;

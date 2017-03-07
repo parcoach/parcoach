@@ -8,6 +8,9 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "hello"
 
 using namespace llvm;
 
@@ -351,7 +354,7 @@ void Andersen::addConstraintForCall(ImmutableCallSite cs)
 				return;
 			else	// Unresolved library call: ruin everything!
 			{
-				errs() << "Unresolved ext function: " << f->getName() << "\n";
+				DEBUG(errs() << "Unresolved ext function: " << f->getName() << "\n");
 				if (cs.getType()->isPointerTy())
 				{
 					NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());

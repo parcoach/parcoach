@@ -7,6 +7,8 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
 
+#define DEBUG_TYPE "hello"
+
 using namespace llvm;
 using namespace std;
 
@@ -307,38 +309,52 @@ string getCollectivesInBB(BasicBlock *BB,PTACallGraph *PTACG){
      Function *callee = const_cast<Function *>(mayCallee);
      // Is it a function containing a collective?
      if(getFuncSummary(*callee)!="no summary" && getFuncSummary(*callee)!="empty"){
-      if(CollSequence=="empty")
+      if(CollSequence=="empty"){
        CollSequence=getFuncSummary(*callee);
-      else
-       CollSequence.append(" ").append(getFuncSummary(*callee));
+      }else{
+       // To avoid a summary like NAVS NAVS
+       if(CollSequence=="NAVS" || getFuncSummary(*callee) == "NAVS"){
+        CollSequence="NAVS";
+       }else{
+        CollSequence.append(" ").append(getFuncSummary(*callee));
+       }
+      }
      }
      // Is it a collective operation?
      if(isCollective(callee)){
-      if(CollSequence=="empty")
+      if(CollSequence=="empty"){
        CollSequence=callee->getName().str();
-      else
-       CollSequence.append(" ").append(callee->getName().str());
+      }else{
+        if(CollSequence!="NAVS")
+         CollSequence.append(" ").append(callee->getName().str());
+      }
      }
     }
    //// Direct calls
    }else{
     // Is it a function containing a collective?
-    if(getFuncSummary(*callee)!="no summary" && getFuncSummary(*callee)!="empty"){         
-     if(CollSequence=="empty")
+    if(getFuncSummary(*callee)!="no summary" && getFuncSummary(*callee)!="empty"){        
+ 
+     if(CollSequence=="empty"){
       CollSequence=getFuncSummary(*callee);
-     else
-      CollSequence.append(" ").append(getFuncSummary(*callee));
+     }else{
+      if(CollSequence=="NAVS" || getFuncSummary(*callee) == "NAVS"){
+       CollSequence="NAVS";
+      }else{
+        CollSequence.append(" ").append(getFuncSummary(*callee));
+      }
+     }
     }
-
     // Is it a collective operation?
     if(isCollective(callee)){
-     if(CollSequence=="empty")
+     if(CollSequence=="empty"){
       CollSequence=callee->getName().str();
-     else
-      CollSequence.append(" ").append(callee->getName().str());
+     }else{
+      if(CollSequence!="NAVS")
+       CollSequence.append(" ").append(callee->getName().str());
+     }
     }
    }
-
   }
  }
  return CollSequence;
@@ -407,37 +423,33 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
     if(CollSequence_Header.str()=="empty"){
      N=getCollectivesInBB(Pred, PTACG);
     }else{
-     if(getCollectivesInBB(Pred, PTACG)!="empty")
+     if(getCollectivesInBB(Pred, PTACG)!="empty" && N!="NAVS")
       N.append(" ").append(getCollectivesInBB(Pred,PTACG)); 
     }
     CollSequence=StringRef(N);
-    // Set the metadata with the collectibve sequence
+   // Set the metadata with the collective sequence
     mdNode = MDNode::get(TI->getContext(),MDString::get(TI->getContext(),CollSequence));
     TI->setMetadata("inst.collSequence",mdNode);
     Unvisited.push_back(Pred);
+    
     // BB ALREADY SEEN
    }else{
     string seq_temp = CollSequence_Header.str();
     if(CollSequence_Header.str()=="empty"){
      seq_temp=getCollectivesInBB(Pred, PTACG);
     }else{
-     if(getCollectivesInBB(Pred, PTACG)!="empty")
+     if(getCollectivesInBB(Pred, PTACG)!="empty" && seq_temp!="NAVS")
       seq_temp.append(" ").append(getCollectivesInBB(Pred, PTACG));
     }
     StringRef CollSequence_temp=StringRef(seq_temp);
 
     // Check if CollSequence_temp and sequence in BB are equals. If not set the metadata as NAVS
-    //DBG: //errs() << " >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n";
-    if(CollSequence_temp.str() != getBBcollSequence(*TI) || CollSequence_temp.str()=="NAVS" || getBBcollSequence(*TI)=="NAVS"){
+    DEBUG(errs() << " >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n");
+    if(CollSequence_temp.str() != getBBcollSequence(*TI)){
      mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
      TI->setMetadata("inst.collSequence",mdNode);
      DebugLoc BDLoc = TI->getDebugLoc();
-     //DBG: //errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n";
-    }
-    else{
-     mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),seq_temp));
-     TI->setMetadata("inst.collSequence",mdNode);
-     //DBG: //errs() << "  ===>>> Line " << TI->getDebugLoc().getLine() << " -> " << getBBcollSequence(*TI) << "\n";
+     DEBUG(errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n");
     }
    }
   }
@@ -445,13 +457,16 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
  // Keep a metadata for the summary of the function
  BasicBlock &entry = F->getEntryBlock();
  StringRef FuncSummary="";
+
  if(getBBcollSequence(*entry.getTerminator()) != "white")
   FuncSummary=getBBcollSequence(*entry.getTerminator());
-
+ else
+  errs() << F->getName() << " has white summary!\n";
  if(FuncSummary.find("NAVS")!=std::string::npos)
   FuncSummary="NAVS";
 
+
  mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
  F->setMetadata("func.summary",mdNode);
- //DBG: //errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
+ DEBUG(errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n");
 }

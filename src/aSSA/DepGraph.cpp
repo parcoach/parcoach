@@ -1184,28 +1184,28 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
   for (MSSAVar *op : ops)
     removeEdge(op, phi->var);
 
-  // For each outgoing edge from PHI to a SSA node N, connect
-  // op1 to N and remove the link from PHI to N.
-  for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
+   // For each outgoing edge from PHI to a SSA node N, connect
+   // op1 to N and remove the link from PHI to N.
+   for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
     addEdge(ops[0], v);
     removeEdge(phi->var, v);
 
     // If N is a phi replace the phi operand of N with op1
     if (v->def->type == MSSADef::PHI) {
-      MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
+     MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
 
-      bool found = false;
-      for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end(); I != E;
-	   ++I) {
-	if (I->second == phi->var) {
-	  found = true;
-	  I->second = ops[0];
-	  break;
-	}
+     bool found = false;
+     for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end(); I != E;
+       ++I) {
+      if (I->second == phi->var) {
+       found = true;
+       I->second = ops[0];
+       break;
       }
-      assert(found);
+     }
+     assert(found);
     }
-  }
+   }
 
   // For each outgoing edge from PHI to a LLVM node N, connect
   // connect op1 to N and remove the link from PHI to N.
@@ -1242,47 +1242,47 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
 
 void
 DepGraph::phiElimination() {
-  double t1 = gettime();
+ double t1 = gettime();
 
-  // For each function, iterate through its basic block and try to eliminate phi
-  // function until reaching a fixed point.
-  for (const Function &F : *mssa->m) {
-    bool changed = true;
+ // For each function, iterate through its basic block and try to eliminate phi
+ // function until reaching a fixed point.
+ for (const Function &F : *mssa->m) {
+  bool changed = true;
 
-    while (changed) {
-      changed = false;
+  while (changed) {
+   changed = false;
 
-      for (const BasicBlock &BB : F) {
-	for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
-	  if (funcToSSANodesMap[&F].count(phi->var) == 0)
-	    continue;
+   for (const BasicBlock &BB : F) {
+    for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
+     if (funcToSSANodesMap[&F].count(phi->var) == 0)
+      continue;
 
-	  // For each phi we test if its operands (chi) are not PHI and
-	  // are equivalent
-	  vector<MSSAVar *> phiOperands;
-	  for (auto J : phi->opsVar)
-	    phiOperands.push_back(J.second);
+     // For each phi we test if its operands (chi) are not PHI and
+     // are equivalent
+     vector<MSSAVar *> phiOperands;
+     for (auto J : phi->opsVar)
+      phiOperands.push_back(J.second);
 
-	  bool canElim = true;
-	  for (unsigned i=0; i<phiOperands.size() - 1; i++) {
-	    if (!areSSANodesEquivalent(phiOperands[i], phiOperands[i+1])) {
-	      canElim = false;
-	      break;
-	    }
-	  }
-	  if (!canElim)
-	    continue;
-
-	  // PHI Node can be eliminated !
-	  changed = true;
-	  eliminatePhi(phi, phiOperands);
-	}
+     bool canElim = true;
+     for (unsigned i=0; i<phiOperands.size() - 1; i++) {
+      if (!areSSANodesEquivalent(phiOperands[i], phiOperands[i+1])) {
+       canElim = false;
+       break;
       }
-    }
-  }
+     }
+     if (!canElim)
+      continue;
 
-  double t2 = gettime();
-  phiElimTime += t2 - t1;
+     // PHI Node can be eliminated !
+     changed = true;
+     eliminatePhi(phi, phiOperands);
+    }
+   }
+  }
+ }
+
+ double t2 = gettime();
+ phiElimTime += t2 - t1;
 }
 
 void

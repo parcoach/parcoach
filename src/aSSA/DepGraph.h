@@ -85,19 +85,27 @@ private:
   /* Graph edges */
 
   // top-level to top-level edges
-  llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMChildren;
-  llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMParents;
+  //llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMChildren;
+  //llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMParents;
+  std::map<const llvm::Value *, ValueSet> llvmToLLVMChildren;
+  std::map<const llvm::Value *, ValueSet> llvmToLLVMParents;
 
   // top-level to address-taken ssa edges
-  llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAChildren;
-  llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAParents;
+  //llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAChildren;
+  //llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAParents;
+  std::map<const llvm::Value *, VarSet> llvmToSSAChildren;
+  std::map<const llvm::Value *, VarSet> llvmToSSAParents;
   // address-taken ssa to top-level edges
-  llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMChildren;
-  llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMParents;
+  //llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMChildren;
+  //llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMParents;
+  std::map<MSSAVar *, ValueSet> ssaToLLVMChildren;
+  std::map<MSSAVar *, ValueSet> ssaToLLVMParents;
 
   // address-top ssa to address-taken ssa edges
-  llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAChildren;
-  llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAParents;
+  //llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAChildren;
+  //llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAParents;
+  std::map<MSSAVar *, VarSet> ssaToSSAChildren;
+  std::map<MSSAVar *, VarSet> ssaToSSAParents;
 
   void addEdge(const llvm::Value *s, const llvm::Value *d);
   void addEdge(const llvm::Value *s, MSSAVar *d);

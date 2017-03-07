@@ -386,7 +386,6 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
       // Is this node detected as potentially dangerous by parcoach?
       string Seq = getBBcollSequence(*(BB->getTerminator()));
-      //errs() << "DANGEROUS COND? Seq = " << Seq << "\n";
       if(Seq!="NAVS") continue;
 
       isColWarningParcoach = true;
@@ -405,14 +404,14 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
       COND_lines.append(" (").append(loc->getFilename()).append(")");
 
       if (optDotTaintPaths) {
-	string dotfilename("taintedpath-");
-	string cfilename = loc->getFilename();
-	size_t lastpos_slash = cfilename.find_last_of('/');
-	if (lastpos_slash != cfilename.npos)
-	  cfilename = cfilename.substr(lastpos_slash+1, cfilename.size());
-	dotfilename.append(cfilename).append("-");
-	dotfilename.append(to_string(loc.getLine())).append(".dot");
-	DG->dotTaintPath(cond, dotfilename, i);
+       string dotfilename("taintedpath-");
+       string cfilename = loc->getFilename();
+       size_t lastpos_slash = cfilename.find_last_of('/');
+       if (lastpos_slash != cfilename.npos)
+        cfilename = cfilename.substr(lastpos_slash+1, cfilename.size());
+       dotfilename.append(cfilename).append("-");
+       dotfilename.append(to_string(loc.getLine())).append(".dot");
+       DG->dotTaintPath(cond, dotfilename, i);
       }
     }
 

@@ -20,7 +20,6 @@ namespace {
   public:
     static char ID;
     static unsigned nbCollectivesFound;
-    static unsigned nbCollectivesTainted;
     static unsigned nbWarnings;
     static unsigned nbConds;
 
@@ -46,6 +45,9 @@ namespace {
     virtual bool runOnModule(llvm::Module &M);
 
   private:
+    std::set<const llvm::BasicBlock *> parcoachOnlyNodes;
+    std::set<const llvm::BasicBlock *> parcoachNodes;
+
   };
 }
 

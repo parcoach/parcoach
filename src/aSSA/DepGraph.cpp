@@ -31,7 +31,8 @@ vector<functionArg> sourceFunctions =
   };
 
 vector<functionArg> resetFunctions =
-  { {"MPI_Bcast", 0},
+  {
+    {"MPI_Bcast", 0},
     {"MPI_Allgather", 3},
     {"MPI_Allgatherv", 3},
     {"MPI_Alltoall", 3},
@@ -924,21 +925,17 @@ DepGraph::getNodeStyle(const MSSAVar *v) {
 
 std::string
 DepGraph::getNodeStyle(const Function *f) {
-  if (taintedFunctions.count(f) != 0)
-    return "style=filled, color=red";
   return "style=filled, color=white";
 }
 
 std::string
 DepGraph::getCallNodeStyle(const llvm::Value *v) {
-  if (taintedCallNodes.count(v) != 0)
-    return "style=filled, color=red";
   return "style=filled, color=white";
 }
 
 
 void
-DepGraph::computeTaintedValues() {
+DepGraph::computeTaintedValuesContextInsensitive() {
   double t1 = gettime();
 
   std::queue<MSSAVar *> varToVisit;
@@ -1003,42 +1000,13 @@ DepGraph::computeTaintedValues() {
 
   double t2 = gettime();
 
+  for (const Value *v : taintedLLVMNodes) {
+    taintedConditions.insert(v);
+  }
+
   floodDepTime += t2 - t1;
 }
 
-void
-DepGraph::computeTaintedCalls() {
-  double t1 = gettime();
-
-  queue<const Function *> funcToVisit;
-
-  for (auto I : condToCallEdges) {
-    const Value *cond = I.first;
-    if (taintedLLVMNodes.count(cond) == 0)
-      continue;
-
-    for (const Value *call : I.second) {
-      taintedCallNodes.insert(call);
-      funcToVisit.push(callToFuncEdges[call]);
-    }
-  }
-
- while (funcToVisit.size() > 0) {
-   const Function *s = funcToVisit.front();
-   funcToVisit.pop();
-
-   for (const Value *d : funcToCallNodes[s]) {
-     if (taintedCallNodes.count(d) != 0)
-       continue;
-     taintedCallNodes.insert(d);
-     funcToVisit.push(callToFuncEdges[d]);
-   }
- }
-
- double t2 = gettime();
-
- floodCallTime += t2 - t1;
-}
 
 void
 DepGraph::printTimers() const {
@@ -1050,45 +1018,12 @@ DepGraph::printTimers() const {
 }
 
 bool
-DepGraph::isTaintedCall(const CallInst *CI) {
-  return taintedCallNodes.count(CI) != 0;
-}
-
-bool
 DepGraph::isTaintedValue(const Value *v){
-	if (taintedLLVMNodes.count(v) != 0)
-	//	errs() << getCallValueLabel(v) << " IS tainted 1\n";
-		return true;
-	return false;
+  return taintedConditions.find(v) != taintedConditions.end();
 }
 
 void
-DepGraph::getTaintedCallConditions(const llvm::CallInst *call,
-				   std::set<const llvm::Value *> &conditions) {
-  std::set<const llvm::CallInst *> visitedCallSites;
-  queue<const CallInst *> callsitesToVisit;
-  callsitesToVisit.push(call);
-
-  while (callsitesToVisit.size() > 0) {
-    const CallInst *CS = callsitesToVisit.front();
-    const Function *F = CS->getParent()->getParent();
-    callsitesToVisit.pop();
-    visitedCallSites.insert(CS);
-
-    for (const Value *cond : callsiteToConds[CS])
-      conditions.insert(cond);
-
-    for (const Value *v : funcToCallSites[F]) {
-      const CallInst *CS2 = cast<CallInst>(v);
-      if (visitedCallSites.count(CS2) != 0)
-	continue;
-      callsitesToVisit.push(CS2);
-    }
-  }
-}
-
-void
-DepGraph::getTaintedCallInterIPDF(const llvm::CallInst *call,
+DepGraph::getCallInterIPDF(const llvm::CallInst *call,
 				  std::set<const llvm::BasicBlock *> &ipdf) {
   std::set<const llvm::CallInst *> visitedCallSites;
   queue<const CallInst *> callsitesToVisit;
@@ -1963,4 +1898,254 @@ DepGraph::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
   file.close();
 
   return true;
+}
+
+void
+DepGraph::floodFunction(const Function *F) {
+  std::queue<MSSAVar *> varToVisit;
+  std::queue<const Value *> valueToVisit;
+
+  // 1) taint SSA sources
+  for (const MSSAVar *s : ssaSources) {
+    if (funcToSSANodesMap[F].find(const_cast<MSSAVar *>(s)) !=
+	funcToSSANodesMap[F].end())
+      taintedSSANodes.insert(s);
+  }
+
+
+  // 2) Add tainted variables of the function to the queue.
+  for (MSSAVar *v : funcToSSANodesMap[F]) {
+    if (taintedSSANodes.find(v) != taintedSSANodes.end())
+      varToVisit.push(v);
+  }
+  for (const Value *v : funcToLLVMNodesMap[F]) {
+    if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end())
+      valueToVisit.push(v);
+  }
+
+  // 3) flood function
+  while (varToVisit.size() > 0 || valueToVisit.size() > 0) {
+    if (varToVisit.size() > 0) {
+      MSSAVar *s = varToVisit.front();
+      varToVisit.pop();
+
+      for (MSSAVar *d : ssaToSSAChildren[s]) {
+	if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
+	  continue;
+	if (taintedSSANodes.count(d) != 0)
+	  continue;
+
+	bool isReset = false;
+	for (const MSSAVar *resetVar : taintResetSSANodes) {
+	  if (ssaToSSAParents[d].find(const_cast<MSSAVar *>(resetVar))
+	      != ssaToSSAParents[d].end())
+	    isReset = true;
+	}
+	if (isReset)
+	  continue;
+
+	taintedSSANodes.insert(d);
+	varToVisit.push(d);
+      }
+
+      for (const Value *d : ssaToLLVMChildren[s]) {
+	if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
+	  continue;
+
+	if (taintedLLVMNodes.count(d) != 0)
+	  continue;
+
+	taintedLLVMNodes.insert(d);
+	valueToVisit.push(d);
+      }
+    }
+
+    if (valueToVisit.size() > 0) {
+      const Value *s = valueToVisit.front();
+      valueToVisit.pop();
+
+      for (const Value *d : llvmToLLVMChildren[s]) {
+	if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
+	  continue;
+
+	if (taintedLLVMNodes.count(d) != 0)
+	  continue;
+
+	taintedLLVMNodes.insert(d);
+	valueToVisit.push(d);
+      }
+
+      for (MSSAVar *d : llvmToSSAChildren[s]) {
+	if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
+	  continue;
+
+	if (taintedSSANodes.count(d) != 0)
+	  continue;
+	taintedSSANodes.insert(d);
+	varToVisit.push(d);
+      }
+    }
+  }
+}
+
+void
+DepGraph::floodFunctionFromFunction(const Function *to, const Function *from) {
+  for (MSSAVar *s : funcToSSANodesMap[from]) {
+    if (taintedSSANodes.find(s) == taintedSSANodes.end())
+      continue;
+    if (taintResetSSANodes.find(s) != taintResetSSANodes.end()) {
+      for (MSSAVar *d : ssaToSSAChildren[s]) {
+	if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+	  continue;
+	taintedSSANodes.erase(d);
+      }
+
+      for (const Value *d : ssaToLLVMChildren[s]) {
+	if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+	  continue;
+	taintedLLVMNodes.erase(d);
+      }
+
+      continue;
+    }
+
+    for (MSSAVar *d : ssaToSSAChildren[s]) {
+      if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+	continue;
+      taintedSSANodes.insert(d);
+    }
+
+    for (const Value *d : ssaToLLVMChildren[s]) {
+      if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+	continue;
+      taintedLLVMNodes.insert(d);
+    }
+  }
+
+  for (const Value *s : funcToLLVMNodesMap[from]) {
+    if (taintedLLVMNodes.find(s) == taintedLLVMNodes.end())
+      continue;
+
+    for (MSSAVar *d : llvmToSSAChildren[s]) {
+      if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+	continue;
+      taintedSSANodes.insert(d);
+    }
+
+    for (const Value *d : llvmToLLVMChildren[s]) {
+      if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+	continue;
+      taintedLLVMNodes.insert(d);
+    }
+  }
+}
+
+void
+DepGraph::resetFunctionTaint(const Function *F) {
+  for (MSSAVar *v: funcToSSANodesMap[F])
+    taintedSSANodes.erase(v);
+  for (const Value *v : funcToLLVMNodesMap[F])
+    taintedLLVMNodes.erase(v);
+}
+
+void
+DepGraph::computeFunctionCSTaintedConds(const llvm::Function *F) {
+  for (const BasicBlock &BB : *F) {
+    for (const Instruction &I : BB) {
+      if (!isa<CallInst>(I))
+	continue;
+
+      for (const Value *v : callsiteToConds[cast<Value>(&I)]) {
+	if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
+	  taintedConditions.insert(v);
+	}
+      }
+    }
+  }
+}
+
+void
+DepGraph::computeTaintedValuesContextSensitive() {
+  vector<PTACallGraphNode *> S;
+
+  map<PTACallGraphNode *, set<PTACallGraphNode *> > node2VisitedChildrenMap;
+  PTACallGraphNode *entry = CG->getEntry();
+  S.push_back(entry);
+
+  bool goingDown = true;
+  const Function *prev = NULL;
+
+  while (!S.empty()) {
+    PTACallGraphNode *N = S.back();
+    bool foundChildren = false;
+
+    if (N->getFunction())
+      errs() << "current =" << N->getFunction()->getName() << "\n";
+
+    if (goingDown)
+      errs() << "down\n";
+    else
+      errs() << "up\n";
+
+    if (prev) {
+      if (goingDown) {
+	errs() << "tainting " << N->getFunction()->getName() << " from "
+	       << prev->getName() << "\n";
+	floodFunctionFromFunction(N->getFunction(), prev);
+
+	errs() << "tainting " << N->getFunction()->getName() << "\n";
+	floodFunction(N->getFunction());
+
+	errs() << "for each call site get PDF+ and save tainted conditions\n";
+	computeFunctionCSTaintedConds(N->getFunction());
+      } else {
+	errs() << "tainting " << N->getFunction()->getName() << " from "
+	       << prev->getName() << "\n";
+	floodFunctionFromFunction(N->getFunction(), prev);
+
+	errs() << "tainting " << N->getFunction()->getName() << "\n";
+	floodFunction(N->getFunction());
+
+	errs() << "for each call site get PDF+ and save tainted conditions\n";
+	computeFunctionCSTaintedConds(N->getFunction());
+
+	errs() << "untainting " << prev->getName() << "\n";
+	resetFunctionTaint(prev);
+      }
+    } else {
+      errs() << "tainting " << N->getFunction()->getName() << "\n";
+      floodFunction(N->getFunction());
+
+      errs() << "for each call site get PDF+ and save tainted conditions\n";
+      	computeFunctionCSTaintedConds(N->getFunction());
+    }
+
+    errs() << "stack : ";
+    for (PTACallGraphNode *node : S)
+      errs() << node->getFunction()->getName() << " ";
+    errs() << "\n";
+
+    // Add first unvisited callee to stack if any
+    for (auto I = N->begin(), E = N->end(); I != E; ++I) {
+      PTACallGraphNode *calleeNode = I->second;
+      if (node2VisitedChildrenMap[N].find(calleeNode) ==
+	  node2VisitedChildrenMap[N].end()) {
+	foundChildren = true;
+	node2VisitedChildrenMap[N].insert(calleeNode);
+	if (calleeNode->getFunction()) {
+	  S.push_back(calleeNode);
+	  break;
+	}
+      }
+    }
+
+    if (!foundChildren) {
+      S.pop_back();
+      goingDown = false;
+    } else {
+      goingDown = true;
+    }
+
+    prev = N->getFunction();
+  }
 }

@@ -49,6 +49,10 @@ public:
   explicit PTACallGraph(llvm::Module &M, Andersen *AA);
   ~PTACallGraph();
 
+  PTACallGraphNode *getEntry() const {
+    return ProgEntry;
+  }
+
   std::map<const llvm::Instruction *, std::set<const llvm::Function *> >
   indirectCallMap;
 

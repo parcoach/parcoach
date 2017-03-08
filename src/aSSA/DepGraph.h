@@ -54,14 +54,11 @@ public:
   //   a = 0;
   void phiElimination();
 
-  void computeTaintedValues();
-  void computeTaintedCalls();
-
-  bool isTaintedCall(const llvm::CallInst *CI);
+  void computeTaintedValuesContextInsensitive();
+  void computeTaintedValuesContextSensitive();
   bool isTaintedValue(const llvm::Value *v);
-  void getTaintedCallConditions(const llvm::CallInst *call,
-				std::set<const llvm::Value *> &conditions);
-  void getTaintedCallInterIPDF(const llvm::CallInst *call,
+
+  void getCallInterIPDF(const llvm::CallInst *call,
 			       std::set<const llvm::BasicBlock *> &ipdf);
 
   void printTimers() const;
@@ -132,11 +129,18 @@ private:
 
   /* tainted nodes */
   ValueSet taintedLLVMNodes;
-  ValueSet taintedCallNodes;
-  std::set<const llvm::Function *> taintedFunctions;
   ConstVarSet taintedSSANodes;
+
   ConstVarSet taintResetSSANodes;
   ConstVarSet ssaSources;
+
+  void floodFunction(const llvm::Function *F);
+  void floodFunctionFromFunction(const llvm::Function *to,
+				 const llvm::Function *from);
+  void resetFunctionTaint(const llvm::Function *F);
+  void computeFunctionCSTaintedConds(const llvm::Function *F);
+  ValueSet taintedConditions;
+
 
   /* Graph construction for call sites*/
   void connectCSMus(llvm::CallInst &I);

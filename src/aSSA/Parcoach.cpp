@@ -62,6 +62,10 @@ static cl::opt<bool> optStats("statistics", cl::desc("print statistics"),
 cl::opt<bool> optNoRegName("no-reg-name",
 				  cl::desc("Do not compute names of regions"),
 				  cl::cat(ParcoachCategory));
+cl::opt<bool> optContextSensitive("context-sensitive",
+				  cl::desc("Context sensitive version of " \
+					   "flooding."),
+				  cl::cat(ParcoachCategory));
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
@@ -91,15 +95,17 @@ ParcoachInstr::doFinalization(Module &M){
   errs() << "\033[0;36m==========  PARCOACH STATISTICS ==========\033[0;0m\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
   errs() << "Module name: " << M.getModuleIdentifier() << "\n";
-  errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found, and "
-	 << ParcoachInstr::nbCollectivesTainted << " are tainted\n";
+  errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found\n";
   errs() << ParcoachInstr::nbWarnings << " warning(s) issued\n";
   errs() << ParcoachInstr::nbConds << " cond(s) \n";
+  errs() << parcoachNodes.size() << " different cond(s)\n";
+
   errs() << "\n\033[0;36m==========================================\033[0;0m\n";
   errs() << "\033[0;36m============== PARCOACH ONLY =============\033[0;0m\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
   errs() << ParcoachInstr::nbWarningsParcoach << " warning(s) issued\n";
   errs() << ParcoachInstr::nbCondsParcoach << " cond(s) \n";
+  errs() << parcoachOnlyNodes.size() << " different cond(s)\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
 
   if (optTimeStats) {
@@ -137,9 +143,14 @@ ParcoachInstr::doFinalization(Module &M){
   return true;
 }
 
-
 bool
 ParcoachInstr::runOnModule(Module &M) {
+  if (optContextSensitive && optDotTaintPaths) {
+    errs() << "Error: you cannot use -dot-taint-paths option in context "
+	   << "sensitive mode.\n";
+    exit(0);
+  }
+
   if (optStats) {
     unsigned nbFunctions = 0;
     unsigned nbIndirectCalls = 0;
@@ -279,13 +290,14 @@ ParcoachInstr::runOnModule(Module &M) {
   tend_depgraph = gettime();
 
   tstart_flooding = gettime();
-  // Compute tainted values
-  DG->computeTaintedValues();
-  errs() << "value contamination  done\n";
 
-  DG->computeTaintedCalls();
-  errs() << "call contamination  done\n";
+  // Compute tainted values
+  if (optContextSensitive)
+    DG->computeTaintedValuesContextSensitive();
+  else
+    DG->computeTaintedValuesContextInsensitive();
   tend_flooding = gettime();
+  errs() << "value contamination  done\n";
 
   // Dot dep graph.
   if (optDotGraph)
@@ -339,7 +351,6 @@ ParcoachInstr::runOnModule(Module &M) {
 
 // (2) Check MPI collectives
 void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
-
   StringRef FuncSummary;
   MDNode* mdNode;
 
@@ -371,16 +382,12 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
       continue;
     nbCollectivesFound++;
 
-    // Is the collective tainted?
-    if (DG->isTaintedCall(&*CI))
-      nbCollectivesTainted++;
-
     bool isColWarning = false;
     bool isColWarningParcoach = false;
 
     // Get conditionals from the callsite
     set<const BasicBlock *> callIPDF;
-    DG->getTaintedCallInterIPDF(CI, callIPDF);
+    DG->getCallInterIPDF(CI, callIPDF);
 
     for (const BasicBlock *BB : callIPDF) {
 
@@ -390,12 +397,15 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
       isColWarningParcoach = true;
       nbCondsParcoach++;
+      parcoachOnlyNodes.insert(BB);
 
       // Is this condition tainted?
       const Value *cond = getBasicBlockCond(BB);
       if (!cond || !DG->isTaintedValue(cond)) continue;
       isColWarning = true;
       nbConds++;
+
+      parcoachNodes.insert(BB);
 
       DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
       const Instruction *inst = BB->getTerminator();
@@ -440,7 +450,6 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 char ParcoachInstr::ID = 0;
 
 unsigned ParcoachInstr::nbCollectivesFound = 0;
-unsigned ParcoachInstr::nbCollectivesTainted = 0;
 unsigned ParcoachInstr::nbWarnings = 0;
 unsigned ParcoachInstr::nbConds = 0;
 unsigned ParcoachInstr::nbWarningsParcoach = 0;

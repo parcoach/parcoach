@@ -243,6 +243,14 @@ static const funcModPair funcModPairs[] = {
 	{"uppercase",{1, false, {true} }},	
 	{"isupper",{1, false, {true} }},	
    
+ /* Functions from Gadget2 */
+  {"\01_fwrite", { 4, false, {false, false, false, true} } },
+  {"\01_strerror", { 1, true, {false} } },
+  {"\01_system", { 1, false, {true} } },
+  {"__strcat_chk", { 3, true, {true, true, false} } },
+  {"__error", { 0, false, {} } },
+  {"__memmove_chk", { 4, true, {true,true,false,false} } },
+
 
   {NULL, {0, false, {} } }
 };

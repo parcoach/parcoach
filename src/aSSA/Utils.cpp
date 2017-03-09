@@ -392,14 +392,14 @@ getFuncSummary(llvm::Function &F){
 // BFS in reverse topological order
 void BFS(llvm::Function *F, PTACallGraph *PTACG){
  MDNode* mdNode;
- StringRef CollSequence_Header;
- StringRef CollSequence=StringRef();
+ string CollSequence_Header;
+ string CollSequence=string();
  std::vector<BasicBlock *> Unvisited;
 
  // GET ALL EXIT NODES AND SET THE COLLECTIVE SEQUENCE
  for(BasicBlock &I : *F){
   if(isa<ReturnInst>(I.getTerminator())){
-   StringRef return_coll = StringRef(getCollectivesInBB(&I, PTACG));
+   string return_coll = string(getCollectivesInBB(&I, PTACG));
    mdNode = MDNode::get(I.getContext(),MDString::get(I.getContext(),return_coll));
    I.getTerminator()->setMetadata("inst.collSequence",mdNode);
    Unvisited.push_back(&I);
@@ -419,14 +419,14 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
 
    // BB NOT SEEN BEFORE
    if(getBBcollSequence(*TI)=="white"){
-    string N=CollSequence_Header.str();
-    if(CollSequence_Header.str()=="empty"){
+    string N=CollSequence_Header;
+    if(CollSequence_Header=="empty"){
      N=getCollectivesInBB(Pred, PTACG);
     }else{
      if(getCollectivesInBB(Pred, PTACG)!="empty" && N!="NAVS")
       N.append(" ").append(getCollectivesInBB(Pred,PTACG)); 
     }
-    CollSequence=StringRef(N);
+    CollSequence=string(N);
    // Set the metadata with the collective sequence
     mdNode = MDNode::get(TI->getContext(),MDString::get(TI->getContext(),CollSequence));
     TI->setMetadata("inst.collSequence",mdNode);
@@ -434,18 +434,18 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
     
     // BB ALREADY SEEN
    }else{
-    string seq_temp = CollSequence_Header.str();
-    if(CollSequence_Header.str()=="empty"){
+    string seq_temp = CollSequence_Header;
+    if(CollSequence_Header=="empty"){
      seq_temp=getCollectivesInBB(Pred, PTACG);
     }else{
      if(getCollectivesInBB(Pred, PTACG)!="empty" && seq_temp!="NAVS")
       seq_temp.append(" ").append(getCollectivesInBB(Pred, PTACG));
     }
-    StringRef CollSequence_temp=StringRef(seq_temp);
+    string CollSequence_temp=string(seq_temp);
 
     // Check if CollSequence_temp and sequence in BB are equals. If not set the metadata as NAVS
-    DEBUG(errs() << " >>> " << CollSequence_temp.str() << " = " << getBBcollSequence(*TI) << " ?\n");
-    if(CollSequence_temp.str() != getBBcollSequence(*TI)){
+    DEBUG(errs() << " >>> " << CollSequence_temp << " = " << getBBcollSequence(*TI) << " ?\n");
+    if(CollSequence_temp != getBBcollSequence(*TI)){
      mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
      TI->setMetadata("inst.collSequence",mdNode);
      DebugLoc BDLoc = TI->getDebugLoc();
@@ -456,7 +456,7 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
  }
  // Keep a metadata for the summary of the function
  BasicBlock &entry = F->getEntryBlock();
- StringRef FuncSummary="";
+ string FuncSummary="";
 
  if(getBBcollSequence(*entry.getTerminator()) != "white")
   FuncSummary=getBBcollSequence(*entry.getTerminator());

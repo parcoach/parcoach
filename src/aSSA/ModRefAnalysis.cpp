@@ -209,7 +209,7 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
       if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
 	continue;
 
-      const extModInfo *info = extInfo->getExtModInfo(callee);
+      const extModInfo *info = extInfo->getExtModInfo(mayCallee);
       assert(info);
 
       if (mayCallee->getReturnType()->isPointerTy()) {

@@ -936,6 +936,23 @@ DepGraph::getCallNodeStyle(const llvm::Value *v) {
 
 void
 DepGraph::computeTaintedValuesContextInsensitive() {
+  unsigned funcToLLVMNodesMapSize = funcToLLVMNodesMap.size();
+  unsigned funcToSSANodesMapSize = funcToSSANodesMap.size();
+  unsigned varArgNodeSize = varArgNodes.size();
+  unsigned llvmToLLVMChildrenSize = llvmToLLVMChildren.size();
+  unsigned llvmToLLVMParentsSize = llvmToLLVMParents.size();
+  unsigned llvmToSSAChildrenSize = llvmToSSAChildren.size();
+  unsigned llvmToSSAParentsSize = llvmToSSAParents.size();
+  unsigned ssaToLLVMChildrenSize = ssaToLLVMChildren.size();
+  unsigned ssaToLLVMParentsSize = ssaToLLVMParents.size();
+  unsigned ssaToSSAChildrenSize = ssaToSSAChildren.size();
+  unsigned ssaToSSAParentsSize = ssaToSSAParents.size();
+  unsigned funcToCallNodesSize = funcToCallNodes.size();
+  unsigned callToFuncEdgesSize = callToFuncEdges.size();
+  unsigned condToCallEdgesSize = condToCallEdges.size();
+  unsigned funcToCallSitesSize = funcToCallSites.size();
+  unsigned callsiteToCondsSize = callsiteToConds.size();
+
   double t1 = gettime();
 
   std::queue<MSSAVar *> varToVisit;
@@ -951,29 +968,35 @@ DepGraph::computeTaintedValuesContextInsensitive() {
       MSSAVar *s = varToVisit.front();
       varToVisit.pop();
 
-      for (MSSAVar *d : ssaToSSAChildren[s]) {
-	if (taintedSSANodes.count(d) != 0)
-	  continue;
+      if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
+	for (MSSAVar *d : ssaToSSAChildren[s]) {
+	  if (taintedSSANodes.count(d) != 0)
+	    continue;
 
-	bool isReset = false;
-	for (const MSSAVar *resetVar : taintResetSSANodes) {
-	  if (ssaToSSAParents[d].find(const_cast<MSSAVar *>(resetVar))
-	      != ssaToSSAParents[d].end())
-	    isReset = true;
+	  bool isReset = false;
+	  for (const MSSAVar *resetVar : taintResetSSANodes) {
+	    if (ssaToSSAParents.find(d) == ssaToSSAParents.end())
+	      continue;
+	    if (ssaToSSAParents[d].find(const_cast<MSSAVar *>(resetVar))
+		!= ssaToSSAParents[d].end())
+	      isReset = true;
+	  }
+	  if (isReset)
+	    continue;
+
+	  taintedSSANodes.insert(d);
+	  varToVisit.push(d);
 	}
-	if (isReset)
-	  continue;
-
-	taintedSSANodes.insert(d);
-	varToVisit.push(d);
       }
 
-      for (const Value *d : ssaToLLVMChildren[s]) {
-	if (taintedLLVMNodes.count(d) != 0)
-	  continue;
+      if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
+	for (const Value *d : ssaToLLVMChildren[s]) {
+	  if (taintedLLVMNodes.count(d) != 0)
+	    continue;
 
-	taintedLLVMNodes.insert(d);
-	valueToVisit.push(d);
+	  taintedLLVMNodes.insert(d);
+	  valueToVisit.push(d);
+	}
       }
     }
 
@@ -981,19 +1004,23 @@ DepGraph::computeTaintedValuesContextInsensitive() {
       const Value *s = valueToVisit.front();
       valueToVisit.pop();
 
-      for (const Value *d : llvmToLLVMChildren[s]) {
-	if (taintedLLVMNodes.count(d) != 0)
-	  continue;
+      if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
+	for (const Value *d : llvmToLLVMChildren[s]) {
+	  if (taintedLLVMNodes.count(d) != 0)
+	    continue;
 
-	taintedLLVMNodes.insert(d);
-	valueToVisit.push(d);
+	  taintedLLVMNodes.insert(d);
+	  valueToVisit.push(d);
+	}
       }
 
-      for (MSSAVar *d : llvmToSSAChildren[s]) {
-	if (taintedSSANodes.count(d) != 0)
-	  continue;
-	taintedSSANodes.insert(d);
-	varToVisit.push(d);
+      if (llvmToSSAChildren.find(s) != llvmToSSAChildren.end()) {
+	for (MSSAVar *d : llvmToSSAChildren[s]) {
+	  if (taintedSSANodes.count(d) != 0)
+	    continue;
+	  taintedSSANodes.insert(d);
+	  varToVisit.push(d);
+	}
       }
     }
   }
@@ -1005,6 +1032,23 @@ DepGraph::computeTaintedValuesContextInsensitive() {
   }
 
   floodDepTime += t2 - t1;
+  assert(funcToLLVMNodesMapSize == funcToLLVMNodesMap.size());
+  assert(funcToSSANodesMapSize == funcToSSANodesMap.size());
+  assert(varArgNodeSize == varArgNodes.size());
+  assert(llvmToLLVMChildrenSize == llvmToLLVMChildren.size());
+  assert(llvmToLLVMParentsSize == llvmToLLVMParents.size());
+  assert(llvmToSSAChildrenSize == llvmToSSAChildren.size());
+  assert(llvmToSSAParentsSize == llvmToSSAParents.size());
+  assert(ssaToLLVMChildrenSize == ssaToLLVMChildren.size());
+  assert(ssaToLLVMParentsSize == ssaToLLVMParents.size());
+  assert(ssaToSSAChildrenSize == ssaToSSAChildren.size());
+  assert(ssaToSSAParentsSize == ssaToSSAParents.size());
+  assert(funcToCallNodesSize == funcToCallNodes.size());
+  assert(callToFuncEdgesSize == callToFuncEdges.size());
+  assert(condToCallEdgesSize == condToCallEdges.size());
+  assert(funcToCallSitesSize == funcToCallSites.size());
+  assert(callsiteToCondsSize == callsiteToConds.size());
+
 }
 
 
@@ -1041,11 +1085,13 @@ DepGraph::getCallInterIPDF(const llvm::CallInst *call,
     vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
     ipdf.insert(funcIPDF.begin(), funcIPDF.end());
 
-    for (const Value *v : funcToCallSites[F]) {
-      const CallInst *CS2 = cast<CallInst>(v);
-      if (visitedCallSites.count(CS2) != 0)
-	continue;
-      callsitesToVisit.push(CS2);
+    if (funcToCallSites.find(F) != funcToCallSites.end()) {
+      for (const Value *v : funcToCallSites[F]) {
+	const CallInst *CS2 = cast<CallInst>(v);
+	if (visitedCallSites.count(CS2) != 0)
+	  continue;
+	callsitesToVisit.push(CS2);
+      }
     }
   }
 }
@@ -1064,38 +1110,71 @@ DepGraph::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
   ValueSet incomingValuesVar1;
   ValueSet incomingValuesVar2;
 
+  bool foundVar1 = false, foundVar2 = false;
+  foundVar1 = ssaToSSAChildren.find(var1) != ssaToSSAChildren.end();
+  foundVar2 = ssaToSSAChildren.find(var2) != ssaToSSAChildren.end();
+  if (foundVar1 != foundVar2)
+    return false;
+
   // Check whether number of edges are the same for both nodes.
-  if (ssaToSSAChildren[var1].size() != ssaToSSAChildren[var2].size())
-    return false;
-
-  if (ssaToLLVMChildren[var1].size() != ssaToLLVMChildren[var2].size())
-    return false;
-
-  if (ssaToSSAParents[var1].size() != ssaToSSAParents[var2].size())
-    return false;
-
-  if (ssaToLLVMParents[var1].size() != ssaToLLVMParents[var2].size())
-    return false;
-
-
-  // Check whether outgoing edges are the same for both nodes.
-  for (MSSAVar *v : ssaToSSAChildren[var1]) {
-    if (ssaToSSAChildren[var2].find(v) == ssaToSSAChildren[var2].end())
+  if (foundVar1 && foundVar2) {
+    if (ssaToSSAChildren[var1].size() != ssaToSSAChildren[var2].size())
       return false;
   }
-  for (const Value *v : ssaToLLVMChildren[var1]) {
-    if (ssaToLLVMChildren[var2].find(v) == ssaToLLVMChildren[var2].end())
+
+  foundVar1 = ssaToLLVMChildren.find(var1) != ssaToLLVMChildren.end();
+  foundVar2 = ssaToLLVMChildren.find(var2) != ssaToLLVMChildren.end();
+  if (foundVar1 != foundVar2)
+    return false;
+  if (foundVar1 && foundVar2) {
+    if (ssaToLLVMChildren[var1].size() != ssaToLLVMChildren[var2].size())
       return false;
+  }
+
+  foundVar1 = ssaToSSAParents.find(var1) != ssaToSSAParents.end();
+  foundVar2 = ssaToSSAParents.find(var2) != ssaToSSAParents.end();
+  if (foundVar1 != foundVar2)
+    return false;
+  if (foundVar1 && foundVar2) {
+    if (ssaToSSAParents[var1].size() != ssaToSSAParents[var2].size())
+      return false;
+  }
+
+  foundVar1 = ssaToLLVMParents.find(var1) != ssaToLLVMParents.end();
+  foundVar2 = ssaToLLVMParents.find(var2) != ssaToLLVMParents.end();
+  if (foundVar1 != foundVar2)
+    return false;
+  if (foundVar1 && foundVar2) {
+    if (ssaToLLVMParents[var1].size() != ssaToLLVMParents[var2].size())
+      return false;
+  }
+
+  // Check whether outgoing edges are the same for both nodes.
+  if (ssaToSSAChildren.find(var1) != ssaToSSAChildren.end()) {
+    for (MSSAVar *v : ssaToSSAChildren[var1]) {
+      if (ssaToSSAChildren[var2].find(v) == ssaToSSAChildren[var2].end())
+	return false;
+    }
+  }
+  if (ssaToLLVMChildren.find(var1) != ssaToLLVMChildren.end()) {
+    for (const Value *v : ssaToLLVMChildren[var1]) {
+      if (ssaToLLVMChildren[var2].find(v) == ssaToLLVMChildren[var2].end())
+	return false;
+    }
   }
 
   // Check whether incoming edges are the same for both nodes.
-  for (MSSAVar *v : ssaToSSAParents[var1]) {
-    if (ssaToSSAParents[var2].find(v) == ssaToSSAParents[var2].end())
-      return false;
+  if (ssaToSSAParents.find(var1) != ssaToSSAParents.end()) {
+    for (MSSAVar *v : ssaToSSAParents[var1]) {
+      if (ssaToSSAParents[var2].find(v) == ssaToSSAParents[var2].end())
+	return false;
+    }
   }
-  for (const Value *v : ssaToLLVMParents[var1]) {
-    if (ssaToLLVMParents[var2].find(v) == ssaToLLVMParents[var2].end())
-      return false;
+  if (ssaToLLVMParents.find(var1) != ssaToLLVMParents.end()) {
+    for (const Value *v : ssaToLLVMParents[var1]) {
+      if (ssaToLLVMParents[var2].find(v) == ssaToLLVMParents[var2].end())
+	return false;
+    }
   }
 
   return true;
@@ -1146,24 +1225,26 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
   {
     vector<ssa2SSAEdge> edgesToAdd;
     vector<ssa2SSAEdge> edgesToRemove;
-    for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
-      edgesToAdd.push_back(ssa2SSAEdge(ops[0], v));
-      edgesToRemove.push_back(ssa2SSAEdge(phi->var, v));
+    if (ssaToSSAChildren.find(phi->var) != ssaToSSAChildren.end()) {
+      for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
+	edgesToAdd.push_back(ssa2SSAEdge(ops[0], v));
+	edgesToRemove.push_back(ssa2SSAEdge(phi->var, v));
 
-      // If N is a phi replace the phi operand of N with op1
-      if (v->def->type == MSSADef::PHI) {
-	MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
+	// If N is a phi replace the phi operand of N with op1
+	if (v->def->type == MSSADef::PHI) {
+	  MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
 
-	bool found = false;
-	for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end(); I != E;
-	     ++I) {
-	  if (I->second == phi->var) {
-	    found = true;
-	    I->second = ops[0];
-	    break;
+	  bool found = false;
+	  for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end(); I != E;
+	       ++I) {
+	    if (I->second == phi->var) {
+	      found = true;
+	      I->second = ops[0];
+	      break;
+	    }
 	  }
+	  assert(found);
 	}
-	assert(found);
       }
     }
     for (ssa2SSAEdge e : edgesToAdd)
@@ -1178,11 +1259,13 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
 
     // For each outgoing edge from PHI to a LLVM node N, connect
     // connect op1 to N and remove the link from PHI to N.
-    for (const Value *v : ssaToLLVMChildren[phi->var]) {
-      // addEdge(ops[0], v);
-      // removeEdge(phi->var, v);
-      edgesToAdd.push_back(ssa2LLVMEdge(ops[0], v));
-      edgesToRemove.push_back(ssa2LLVMEdge(phi->var, v));
+    if (ssaToLLVMChildren.find(phi->var) != ssaToLLVMChildren.end()) {
+      for (const Value *v : ssaToLLVMChildren[phi->var]) {
+	// addEdge(ops[0], v);
+	// removeEdge(phi->var, v);
+	edgesToAdd.push_back(ssa2LLVMEdge(ops[0], v));
+	edgesToRemove.push_back(ssa2LLVMEdge(phi->var, v));
+      }
     }
     for (ssa2LLVMEdge e : edgesToAdd)
       addEdge(e.s, e.d);
@@ -1203,14 +1286,22 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
     vector<ssa2LLVMEdge> toRemove2;
     vector<llvm2SSAEdge> toRemove3;
     for (unsigned i=1; i<ops.size(); ++i) {
-      for (MSSAVar *v : ssaToSSAParents[ops[i]])
-	toRemove1.push_back(ssa2SSAEdge(v, ops[i]));
-      for (const Value *v : ssaToLLVMParents[ops[i]])
-	toRemove3.push_back(llvm2SSAEdge(v, ops[i]));
-      for (MSSAVar *v : ssaToSSAChildren[ops[i]])
-	toRemove1.push_back(ssa2SSAEdge(ops[i], v));
-      for (const Value *v : ssaToLLVMChildren[ops[i]])
-	toRemove2.push_back(ssa2LLVMEdge(ops[i], v));
+      if (ssaToSSAParents.find(ops[i]) != ssaToSSAParents.end()) {
+	for (MSSAVar *v : ssaToSSAParents[ops[i]])
+	  toRemove1.push_back(ssa2SSAEdge(v, ops[i]));
+      }
+      if (ssaToLLVMParents.find(ops[i]) != ssaToLLVMParents.end()) {
+	for (const Value *v : ssaToLLVMParents[ops[i]])
+	  toRemove3.push_back(llvm2SSAEdge(v, ops[i]));
+      }
+      if (ssaToSSAChildren.find(ops[i]) != ssaToSSAChildren.end()) {
+	for (MSSAVar *v : ssaToSSAChildren[ops[i]])
+	  toRemove1.push_back(ssa2SSAEdge(ops[i], v));
+      }
+      if (ssaToLLVMChildren.find(ops[i]) != ssaToLLVMChildren.end()) {
+	for (const Value *v : ssaToLLVMChildren[ops[i]])
+	  toRemove2.push_back(ssa2LLVMEdge(ops[i], v));
+      }
     }
     for (ssa2SSAEdge e : toRemove1)
       removeEdge(e.s, e.d);
@@ -1228,7 +1319,6 @@ DepGraph::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
   }
 }
 
-
 void
 DepGraph::phiElimination() {
   double t1 = gettime();
@@ -1242,7 +1332,12 @@ DepGraph::phiElimination() {
       changed = false;
 
       for (const BasicBlock &BB : F) {
+	if (mssa->bbToPhiMap.find(&BB) == mssa->bbToPhiMap.end())
+	  continue;
+
 	for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
+
+	  assert(funcToSSANodesMap.find(&F) != funcToSSANodesMap.end());
 
 	  // Has the phi node been removed already ?
 	  if (funcToSSANodesMap[&F].count(phi->var) == 0)
@@ -1907,20 +2002,27 @@ DepGraph::floodFunction(const Function *F) {
 
   // 1) taint SSA sources
   for (const MSSAVar *s : ssaSources) {
+    if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
+      continue;
+
     if (funcToSSANodesMap[F].find(const_cast<MSSAVar *>(s)) !=
-	funcToSSANodesMap[F].end())
+  	funcToSSANodesMap[F].end())
       taintedSSANodes.insert(s);
   }
 
 
   // 2) Add tainted variables of the function to the queue.
-  for (MSSAVar *v : funcToSSANodesMap[F]) {
-    if (taintedSSANodes.find(v) != taintedSSANodes.end())
-      varToVisit.push(v);
+  if (funcToSSANodesMap.find(F) != funcToSSANodesMap.end()) {
+    for (MSSAVar *v : funcToSSANodesMap[F]) {
+      if (taintedSSANodes.find(v) != taintedSSANodes.end())
+	varToVisit.push(v);
+    }
   }
-  for (const Value *v : funcToLLVMNodesMap[F]) {
-    if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end())
-      valueToVisit.push(v);
+  if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
+    for (const Value *v : funcToLLVMNodesMap[F]) {
+      if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end())
+	valueToVisit.push(v);
+    }
   }
 
   // 3) flood function
@@ -1929,34 +2031,41 @@ DepGraph::floodFunction(const Function *F) {
       MSSAVar *s = varToVisit.front();
       varToVisit.pop();
 
-      for (MSSAVar *d : ssaToSSAChildren[s]) {
-	if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
-	  continue;
-	if (taintedSSANodes.count(d) != 0)
-	  continue;
+      if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
+	for (MSSAVar *d : ssaToSSAChildren[s]) {
+	  if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
+	    continue;
 
-	bool isReset = false;
-	for (const MSSAVar *resetVar : taintResetSSANodes) {
-	  if (ssaToSSAParents[d].find(const_cast<MSSAVar *>(resetVar))
-	      != ssaToSSAParents[d].end())
-	    isReset = true;
+	  if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
+	    continue;
+	  if (taintedSSANodes.count(d) != 0)
+	    continue;
+
+	  bool isReset = false;
+	  for (const MSSAVar *resetVar : taintResetSSANodes) {
+	    if (ssaToSSAParents[d].find(const_cast<MSSAVar *>(resetVar))
+		!= ssaToSSAParents[d].end())
+	      isReset = true;
+	  }
+	  if (isReset)
+	    continue;
+
+	  taintedSSANodes.insert(d);
+	  varToVisit.push(d);
 	}
-	if (isReset)
-	  continue;
-
-	taintedSSANodes.insert(d);
-	varToVisit.push(d);
       }
 
-      for (const Value *d : ssaToLLVMChildren[s]) {
-	if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
-	  continue;
+      if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
+	for (const Value *d : ssaToLLVMChildren[s]) {
+	  if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
+	    continue;
 
-	if (taintedLLVMNodes.count(d) != 0)
-	  continue;
+	  if (taintedLLVMNodes.count(d) != 0)
+	    continue;
 
-	taintedLLVMNodes.insert(d);
-	valueToVisit.push(d);
+	  taintedLLVMNodes.insert(d);
+	  valueToVisit.push(d);
+	}
       }
     }
 
@@ -1964,25 +2073,34 @@ DepGraph::floodFunction(const Function *F) {
       const Value *s = valueToVisit.front();
       valueToVisit.pop();
 
-      for (const Value *d : llvmToLLVMChildren[s]) {
-	if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
-	  continue;
+      if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
+	for (const Value *d : llvmToLLVMChildren[s]) {
+	  if (funcToLLVMNodesMap.find(F) == funcToLLVMNodesMap.end())
+	    continue;
 
-	if (taintedLLVMNodes.count(d) != 0)
-	  continue;
+	  if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
+	    continue;
 
-	taintedLLVMNodes.insert(d);
-	valueToVisit.push(d);
+	  if (taintedLLVMNodes.count(d) != 0)
+	    continue;
+
+	  taintedLLVMNodes.insert(d);
+	  valueToVisit.push(d);
+	}
       }
 
-      for (MSSAVar *d : llvmToSSAChildren[s]) {
-	if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
-	  continue;
+      if (llvmToSSAChildren.find(s) != llvmToSSAChildren.end()) {
+	for (MSSAVar *d : llvmToSSAChildren[s]) {
+	  if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
+	    continue;
+	  if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
+	    continue;
 
-	if (taintedSSANodes.count(d) != 0)
-	  continue;
-	taintedSSANodes.insert(d);
-	varToVisit.push(d);
+	  if (taintedSSANodes.count(d) != 0)
+	    continue;
+	  taintedSSANodes.insert(d);
+	  varToVisit.push(d);
+	}
       }
     }
   }
@@ -1990,62 +2108,105 @@ DepGraph::floodFunction(const Function *F) {
 
 void
 DepGraph::floodFunctionFromFunction(const Function *to, const Function *from) {
-  for (MSSAVar *s : funcToSSANodesMap[from]) {
-    if (taintedSSANodes.find(s) == taintedSSANodes.end())
-      continue;
-    if (taintResetSSANodes.find(s) != taintResetSSANodes.end()) {
-      for (MSSAVar *d : ssaToSSAChildren[s]) {
-	if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
-	  continue;
-	taintedSSANodes.erase(d);
+  if (funcToSSANodesMap.find(from) != funcToSSANodesMap.end()) {
+    for (MSSAVar *s : funcToSSANodesMap[from]) {
+      if (taintedSSANodes.find(s) == taintedSSANodes.end())
+	continue;
+      if (taintResetSSANodes.find(s) != taintResetSSANodes.end()) {
+	if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
+	  for (MSSAVar *d : ssaToSSAChildren[s]) {
+	    if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
+	      continue;
+	    if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+	      continue;
+	    taintedSSANodes.erase(d);
+	  }
+	}
+
+	if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
+	  for (const Value *d : ssaToLLVMChildren[s]) {
+	    if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
+	      continue;
+
+	    if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+	      continue;
+	    taintedLLVMNodes.erase(d);
+	  }
+	}
+
+	continue;
       }
 
-      for (const Value *d : ssaToLLVMChildren[s]) {
-	if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
-	  continue;
-	taintedLLVMNodes.erase(d);
+      if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
+	for (MSSAVar *d : ssaToSSAChildren[s]) {
+	  if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
+	    continue;
+	  if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+	    continue;
+	  taintedSSANodes.insert(d);
+	}
       }
 
-      continue;
-    }
+      if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
+	for (const Value *d : ssaToLLVMChildren[s]) {
+	  if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
+	    continue;
 
-    for (MSSAVar *d : ssaToSSAChildren[s]) {
-      if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
-	continue;
-      taintedSSANodes.insert(d);
-    }
-
-    for (const Value *d : ssaToLLVMChildren[s]) {
-      if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
-	continue;
-      taintedLLVMNodes.insert(d);
+	  if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+	    continue;
+	  taintedLLVMNodes.insert(d);
+	}
+      }
     }
   }
 
-  for (const Value *s : funcToLLVMNodesMap[from]) {
-    if (taintedLLVMNodes.find(s) == taintedLLVMNodes.end())
-      continue;
-
-    for (MSSAVar *d : llvmToSSAChildren[s]) {
-      if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+  if (funcToLLVMNodesMap.find(from) != funcToLLVMNodesMap.end()) {
+    for (const Value *s : funcToLLVMNodesMap[from]) {
+      if (taintedLLVMNodes.find(s) == taintedLLVMNodes.end())
 	continue;
-      taintedSSANodes.insert(d);
-    }
 
-    for (const Value *d : llvmToLLVMChildren[s]) {
-      if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
-	continue;
-      taintedLLVMNodes.insert(d);
+      if (llvmToSSAChildren.find(s) != llvmToSSAChildren.end()) {
+	for (MSSAVar *d : llvmToSSAChildren[s]) {
+	  if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
+	    continue;
+	  if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+	    continue;
+	  taintedSSANodes.insert(d);
+	}
+      }
+
+      if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
+	for (const Value *d : llvmToLLVMChildren[s]) {
+	  if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
+	    continue;
+	  if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+	    continue;
+	  taintedLLVMNodes.insert(d);
+	}
+      }
     }
   }
 }
 
 void
 DepGraph::resetFunctionTaint(const Function *F) {
-  for (MSSAVar *v: funcToSSANodesMap[F])
-    taintedSSANodes.erase(v);
-  for (const Value *v : funcToLLVMNodesMap[F])
-    taintedLLVMNodes.erase(v);
+  assert(CG->isReachableFromEntry(F));
+  // assert(funcToSSANodesMap.find(F) != funcToSSANodesMap.end());
+  if (funcToSSANodesMap.find(F) != funcToSSANodesMap.end()) {
+    for (MSSAVar *v: funcToSSANodesMap[F]) {
+      if (taintedSSANodes.find(v) != taintedSSANodes.end()) {
+	taintedSSANodes.erase(v);
+      }
+    }
+  }
+
+  if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
+    for (const Value *v : funcToLLVMNodesMap[F]) {
+      if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
+	taintedLLVMNodes.erase(v);
+      }
+    }
+  }
 }
 
 void
@@ -2053,11 +2214,13 @@ DepGraph::computeFunctionCSTaintedConds(const llvm::Function *F) {
   for (const BasicBlock &BB : *F) {
     for (const Instruction &I : BB) {
       if (!isa<CallInst>(I))
-	continue;
+  	continue;
 
-      for (const Value *v : callsiteToConds[cast<Value>(&I)]) {
-	if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
-	  taintedConditions.insert(v);
+      if (callsiteToConds.find(cast<Value>(&I)) != callsiteToConds.end()) {
+	for (const Value *v : callsiteToConds[cast<Value>(&I)]) {
+	  if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
+	    taintedConditions.insert(v);
+	  }
 	}
       }
     }
@@ -2066,6 +2229,23 @@ DepGraph::computeFunctionCSTaintedConds(const llvm::Function *F) {
 
 void
 DepGraph::computeTaintedValuesContextSensitive() {
+  unsigned funcToLLVMNodesMapSize = funcToLLVMNodesMap.size();
+  unsigned funcToSSANodesMapSize = funcToSSANodesMap.size();
+  unsigned varArgNodeSize = varArgNodes.size();
+  unsigned llvmToLLVMChildrenSize = llvmToLLVMChildren.size();
+  unsigned llvmToLLVMParentsSize = llvmToLLVMParents.size();
+  unsigned llvmToSSAChildrenSize = llvmToSSAChildren.size();
+  unsigned llvmToSSAParentsSize = llvmToSSAParents.size();
+  unsigned ssaToLLVMChildrenSize = ssaToLLVMChildren.size();
+  unsigned ssaToLLVMParentsSize = ssaToLLVMParents.size();
+  unsigned ssaToSSAChildrenSize = ssaToSSAChildren.size();
+  unsigned ssaToSSAParentsSize = ssaToSSAParents.size();
+  unsigned funcToCallNodesSize = funcToCallNodes.size();
+  unsigned callToFuncEdgesSize = callToFuncEdges.size();
+  unsigned condToCallEdgesSize = condToCallEdges.size();
+  unsigned funcToCallSitesSize = funcToCallSites.size();
+  unsigned callsiteToCondsSize = callsiteToConds.size();
+
   vector<PTACallGraphNode *> S;
 
   map<PTACallGraphNode *, set<PTACallGraphNode *> > node2VisitedChildrenMap;
@@ -2148,4 +2328,21 @@ DepGraph::computeTaintedValuesContextSensitive() {
 
     prev = N->getFunction();
   }
+
+  assert(funcToLLVMNodesMapSize == funcToLLVMNodesMap.size());
+  assert(funcToSSANodesMapSize == funcToSSANodesMap.size());
+  assert(varArgNodeSize == varArgNodes.size());
+  assert(llvmToLLVMChildrenSize == llvmToLLVMChildren.size());
+  assert(llvmToLLVMParentsSize == llvmToLLVMParents.size());
+  assert(llvmToSSAChildrenSize == llvmToSSAChildren.size());
+  assert(llvmToSSAParentsSize == llvmToSSAParents.size());
+  assert(ssaToLLVMChildrenSize == ssaToLLVMChildren.size());
+  assert(ssaToLLVMParentsSize == ssaToLLVMParents.size());
+  assert(ssaToSSAChildrenSize == ssaToSSAChildren.size());
+  assert(ssaToSSAParentsSize == ssaToSSAParents.size());
+  assert(funcToCallNodesSize == funcToCallNodes.size());
+  assert(callToFuncEdgesSize == callToFuncEdges.size());
+  assert(condToCallEdgesSize == condToCallEdges.size());
+  assert(funcToCallSitesSize == funcToCallSites.size());
+  assert(callsiteToCondsSize == callsiteToConds.size());
 }

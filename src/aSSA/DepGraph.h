@@ -74,33 +74,25 @@ private:
   /* Graph nodes */
 
   // Map from a function to all its top-level variables nodes.
-  llvm::DenseMap<const llvm::Function *, ValueSet> funcToLLVMNodesMap;
+  std::map<const llvm::Function *, ValueSet> funcToLLVMNodesMap;
   // Map from a function to all its address taken ssa nodes.
-  llvm::DenseMap<const llvm::Function *, VarSet> funcToSSANodesMap;
+  std::map<const llvm::Function *, VarSet> funcToSSANodesMap;
   std::set<const llvm::Function *> varArgNodes;
 
   /* Graph edges */
 
   // top-level to top-level edges
-  //llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMChildren;
-  //llvm::DenseMap<const llvm::Value *, ValueSet> llvmToLLVMParents;
   std::map<const llvm::Value *, ValueSet> llvmToLLVMChildren;
   std::map<const llvm::Value *, ValueSet> llvmToLLVMParents;
 
   // top-level to address-taken ssa edges
-  //llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAChildren;
-  //llvm::DenseMap<const llvm::Value *, VarSet> llvmToSSAParents;
   std::map<const llvm::Value *, VarSet> llvmToSSAChildren;
   std::map<const llvm::Value *, VarSet> llvmToSSAParents;
   // address-taken ssa to top-level edges
-  //llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMChildren;
-  //llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMParents;
   std::map<MSSAVar *, ValueSet> ssaToLLVMChildren;
   std::map<MSSAVar *, ValueSet> ssaToLLVMParents;
 
   // address-top ssa to address-taken ssa edges
-  //llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAChildren;
-  //llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAParents;
   std::map<MSSAVar *, VarSet> ssaToSSAChildren;
   std::map<MSSAVar *, VarSet> ssaToSSAParents;
 
@@ -116,16 +108,16 @@ private:
   /* PDF+ call nodes and edges */
 
   // map from a function to all its call instructions
-  llvm::DenseMap<const llvm::Function *, ValueSet> funcToCallNodes;
+  std::map<const llvm::Function *, ValueSet> funcToCallNodes;
   // map from call instructions to called functions
-  llvm::DenseMap<const llvm::Value *, const llvm::Function *> callToFuncEdges;
+  std::map<const llvm::Value *, const llvm::Function *> callToFuncEdges;
   // map from a condition to call instructions depending on that condition.
-  llvm::DenseMap<const llvm::Value *, ValueSet> condToCallEdges;
+  std::map<const llvm::Value *, ValueSet> condToCallEdges;
 
   // map from a function to all the call sites calling this function.
-  llvm::DenseMap<const llvm::Function *, ValueSet> funcToCallSites;
+  std::map<const llvm::Function *, ValueSet> funcToCallSites;
   // map from a callsite to all its conditions.
-  llvm::DenseMap<const llvm::Value *, ValueSet> callsiteToConds;
+  std::map<const llvm::Value *, ValueSet> callsiteToConds;
 
   /* tainted nodes */
   ValueSet taintedLLVMNodes;

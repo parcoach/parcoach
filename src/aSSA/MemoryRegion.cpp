@@ -9,7 +9,7 @@ using namespace llvm;
 
 extern cl::opt<bool> optNoRegName;
 
-llvm::DenseMap<const llvm::Value *, MemReg *> MemReg::valueToRegMap;
+map<const llvm::Value *, MemReg *> MemReg::valueToRegMap;
 unsigned MemReg::count = 0;
 
 MemReg::MemReg(const llvm::Value *value) : value(value) {

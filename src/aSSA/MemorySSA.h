@@ -27,35 +27,35 @@ class MemorySSA {
   typedef std::set<MemReg *> MemRegSet;
 
   // Chi and Mu annotations
-  typedef llvm::DenseMap<const llvm::LoadInst *, MuSet> LoadToMuMap;
-  typedef llvm::DenseMap<const llvm::StoreInst *, ChiSet> StoreToChiMap;
+  typedef std::map<const llvm::LoadInst *, MuSet> LoadToMuMap;
+  typedef std::map<const llvm::StoreInst *, ChiSet> StoreToChiMap;
   typedef std::map<llvm::CallSite, MuSet> CallSiteToMuSetMap;
   typedef std::map<llvm::CallSite, ChiSet> CallSiteToChiSetMap;
   typedef std::map<const llvm::Function *,
 		   std::map<llvm::CallSite, MSSAChi *> > FuncCallSiteToChiMap;
   typedef std::map<const llvm::Function *,
-		   std::map<llvm::CallSite, llvm::DenseMap<unsigned, MSSAChi *> > >
+		   std::map<llvm::CallSite, std::map<unsigned, MSSAChi *> > >
   FuncCallSiteToArgChiMap;
 
   // Phis
-  typedef llvm::DenseMap<const llvm::BasicBlock *, PhiSet> BBToPhiMap;
-  typedef llvm::DenseMap<MemReg *, BBSet> MemRegToBBMap;
-  typedef llvm::DenseMap<const llvm::PHINode *, ValueSet> LLVMPhiToPredMap;
+  typedef std::map<const llvm::BasicBlock *, PhiSet> BBToPhiMap;
+  typedef std::map<MemReg *, BBSet> MemRegToBBMap;
+  typedef std::map<const llvm::PHINode *, ValueSet> LLVMPhiToPredMap;
 
   // Map functions to entry Chi set and return Mu set
-  typedef llvm::DenseMap<const llvm::Function *, ChiSet> FunToEntryChiMap;
-  typedef llvm::DenseMap<const llvm::Function *, MuSet> FunToReturnMuMap;
+  typedef std::map<const llvm::Function *, ChiSet> FunToEntryChiMap;
+  typedef std::map<const llvm::Function *, MuSet> FunToReturnMuMap;
 
-  typedef llvm::DenseMap<const llvm::Function *,
-			 llvm::DenseMap<MemReg *, MSSAChi *> >
+  typedef std::map<const llvm::Function *,
+			 std::map<MemReg *, MSSAChi *> >
   FunRegToEntryChiMap;
-  typedef llvm::DenseMap<const llvm::Function *,
-			 llvm::DenseMap<MemReg *, MSSAMu *> >
+  typedef std::map<const llvm::Function *,
+			 std::map<MemReg *, MSSAMu *> >
   FunRegToReturnMuMap;
 
-  typedef llvm::DenseMap<const llvm::Function *, MSSAChi *> FuncToChiMap;
-  typedef llvm::DenseMap<const llvm::Function *,
-			 llvm::DenseMap<unsigned, MSSAChi *> > FuncToArgChiMap;
+  typedef std::map<const llvm::Function *, MSSAChi *> FuncToChiMap;
+  typedef std::map<const llvm::Function *,
+			 std::map<unsigned, MSSAChi *> > FuncToArgChiMap;
 
 public:
   MemorySSA(llvm::Module *m, Andersen *PTA, PTACallGraph *CG,
@@ -89,8 +89,8 @@ private:
   void computePhi(const llvm::Function *F);
   void rename(const llvm::Function *F);
   void renameBB(const llvm::Function *F, const llvm::BasicBlock *X,
-		llvm::DenseMap<MemReg *, unsigned> &C,
-		llvm::DenseMap<MemReg *, std::vector<MSSAVar *> > &S);
+		std::map<MemReg *, unsigned> &C,
+		std::map<MemReg *, std::vector<MSSAVar *> > &S);
 
   void computePhiPredicates(const llvm::Function *F);
   void computeLLVMPhiPredicates(const llvm::PHINode *phi);

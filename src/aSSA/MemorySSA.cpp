@@ -320,8 +320,8 @@ MemorySSA::computePhi(const Function *F) {
 
 void
 MemorySSA::rename(const Function *F) {
-  DenseMap<MemReg *, unsigned> C;
-  DenseMap<MemReg *, vector<MSSAVar *> > S;
+  map<MemReg *, unsigned> C;
+  map<MemReg *, vector<MSSAVar *> > S;
 
   // Initialization:
 
@@ -343,8 +343,8 @@ MemorySSA::rename(const Function *F) {
 
 void
 MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
-		    DenseMap<MemReg *, unsigned> &C,
-		    DenseMap<MemReg *, vector<MSSAVar *> > &S) {
+		    map<MemReg *, unsigned> &C,
+		    map<MemReg *, vector<MSSAVar *> > &S) {
   // Compute LHS for PHI
   for (MSSAPhi *phi : bbToPhiMap[X]) {
     MemReg *V = phi->region;

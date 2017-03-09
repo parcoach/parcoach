@@ -18,7 +18,7 @@ class MemReg {
 protected:
   MemReg(const llvm::Value *value);
   ~MemReg() {}
-  static llvm::DenseMap<const llvm::Value *, MemReg *> valueToRegMap;
+  static std::map<const llvm::Value *, MemReg *> valueToRegMap;
   const llvm::Value *value;
 
 public:

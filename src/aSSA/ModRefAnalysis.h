@@ -33,10 +33,10 @@ private:
   PTACallGraph &CG;
   Andersen *PTA;
   ExtInfo *extInfo;
-  llvm::DenseMap<const llvm::Function *, MemRegSet> funcModMap;
-  llvm::DenseMap<const llvm::Function *, MemRegSet> funcRefMap;
-  llvm::DenseMap<const llvm::Function *, MemRegSet> funcLocalMap;
-  llvm::DenseMap<const llvm::Function *, MemRegSet> funcKillMap;
+  std::map<const llvm::Function *, MemRegSet> funcModMap;
+  std::map<const llvm::Function *, MemRegSet> funcRefMap;
+  std::map<const llvm::Function *, MemRegSet> funcLocalMap;
+  std::map<const llvm::Function *, MemRegSet> funcKillMap;
 };
 
 #endif /* MODREFANALYSIS */

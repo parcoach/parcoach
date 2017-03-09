@@ -59,7 +59,7 @@ class MSSAPhi : public MSSADef {
 public:
   MSSAPhi(MemReg *region) : MSSADef(region, PHI) {}
 
-  llvm::DenseMap<int, MSSAVar *> opsVar;
+  std::map<int, MSSAVar *> opsVar;
   std::set<const llvm::Value *> preds;
 
   static inline bool classof(const MSSADef *m) {

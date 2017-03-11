@@ -14,6 +14,9 @@ struct funcModPair {
 static const funcModPair funcModPairs[] = {
   // {"func_name", { <nb_params>, <retval_is_pointer>, { <param_1_is_modified_pointer, ..., <param_n-1_is_modified_pointer> } } }
 
+  // MILC HACK
+  {"myrand", { 1, false, {false} } },
+
   /* LLVM intrinsics */
   {"llvm.bswap.v4i32", { 1, false, {false} } },
   {"llvm.bswap.i32", { 1, false, {false} } },
@@ -41,12 +44,16 @@ static const funcModPair funcModPairs[] = {
   /* libc */
   {"abort", { 0, false, {} } },
   {"abs", { 1, false, {false} } },
+  {"acos", { 1, false, {false} } },
   {"access", { 2, false, {false, false} } },
   {"asprintf", { 3, false, {true, false, false} } },
+  {"atan", { 1, false, {false} } },
+  {"atanf", { 1, false, {false} } },
   {"atan2", { 2, false, {false, false} } },
   {"atof", { 1, false, {false} } },
   {"atoi", { 1, false, {false} } },
   {"atol", { 1, false, {false} } },
+  {"asctime", { 1, true, {false} } },
   {"calloc", { 2, true, {false, false} } },
   {"ceil", { 1, false, {false} } },
   {"clock", { 0, false, {} } },
@@ -54,6 +61,7 @@ static const funcModPair funcModPairs[] = {
   {"close", { 1, false, {false} } },
   {"ctime", { 1, true, {false} } },
   {"cos", { 1, false, {false} } },
+  {"cosh", { 1, false, {false} } },
   {"erfc", { 1, false, {false} } },
   {"exit", { 1, false, {false} } },
   {"exp", { 1, false, {false} } },
@@ -87,6 +95,7 @@ static const funcModPair funcModPairs[] = {
   {"getpagesize", { 0, false, {} } },
   {"getrusage", { 2, false, {false, true} } },
   {"gettimeofday", { 2, false, {true, true} } },
+  {"gmtime", { 1, true, {false} } },
   {"hypot", { 2, false, {false, false} } },
   {"ldexp", {2, false, {false, false} } },
   {"localtime", {1, true, {false} } },
@@ -116,6 +125,7 @@ static const funcModPair funcModPairs[] = {
   {"snprintf", { 4, false, {true, false, false, false} } },
   {"sprintf", { 3, false, {true, false, false} } },
   {"sqrt", { 1, false, {false} } },
+  {"sqrtf", { 1, false, {false} } },
   {"srand", { 1, false, {false} } },
   {"srandom", { 1, false, {false} } },
   {"strcasecmp", { 2, false, {false, false} } },
@@ -128,6 +138,7 @@ static const funcModPair funcModPairs[] = {
   {"strerror", { 1, true, {false} } },
   {"strlen", { 1, false, {false} } },
   {"strncasecmp", { 3, false, {false, false, false} } },
+  {"strncat", { 3, true, {true, false, false} } },
   {"strncmp", { 3, false, {false, false, false} } },
   {"strncpy", { 3, true, {true, false, false} } },
   {"strpbrk", { 2, true, {false, false} } },
@@ -138,6 +149,7 @@ static const funcModPair funcModPairs[] = {
   {"strtok", { 2, true, {true, false} } },
   {"strtol", { 3, false, {false, true, false} } },
   {"system", { 1, false, {false} } },
+  {"tanh", { 1, false, {false} } },
   {"time", { 1, false, {true} } },
   {"tolower", { 1, false, {false} } },
   {"toupper", { 1, false, {false} } },
@@ -151,6 +163,8 @@ static const funcModPair funcModPairs[] = {
   {"__assert_fail", { 4, false, {false, false, false, false} } },
   {"__ctype_b_loc", { 0, true, {} } },
   {"__errno_location", { 0, true, {} } },
+  {"__isnan", { 1, false, {false} } },
+  {"__isnanf", { 1, false, {false} } },
   {"__isoc99_fscanf", { 3, false, {true, false, true} } },
   {"__isoc99_scanf", {2, false, {false, true} } },
   {"__isoc99_sscanf", {3, false, {false, false, true} } },
@@ -159,6 +173,7 @@ static const funcModPair funcModPairs[] = {
 
   {"fopen64", { 2, true, {false, false} } },
   {"freopen64", { 3, true, {false, false, false} } },
+  {"fseeko64", { 3, false, {false, false, false} } },
   {"open64", {3, false, {false, false, false} } },
   {"lseek64", {3, false, {false, false, false} } },
   {"stat64", {2, false, {false, true} } },
@@ -180,6 +195,7 @@ static const funcModPair funcModPairs[] = {
   {"MPI_Barrier", { 1, false, {false} } },
   {"MPI_Bcast", { 5, false, {true, false, false, false, false} } },
   {"MPI_Comm_create", { 3, false, {false, false, true} } },
+  {"MPI_Comm_dup", { 2, false, {false, true} } },
   {"MPI_Comm_free", { 1, false, {true} } },
   {"MPI_Comm_group", { 2, false, {false, true} } },
   {"MPI_Comm_group_incl", { 4, false, {false, false, false, true} } },

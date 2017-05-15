@@ -18,7 +18,8 @@ static cl::opt<bool> optStrongUpdate("strong-update",
 				     cl::desc("Strong update"));
 static cl::opt<bool> optNoPtrDep("no-ptr-dep",
 				     cl::desc("No dependency with pointer for load/store"));
-
+static cl::opt<bool> optNoPred("no-phi-pred",
+				     cl::desc("No dependency with phi predicatesd"));
 
 struct functionArg {
   string name;
@@ -264,9 +265,11 @@ DepGraph::visitBasicBlock(llvm::BasicBlock &BB) {
       addEdge(I.second, phi->var);
     }
 
-    for (const Value *pred : phi->preds) {
-      funcToLLVMNodesMap[curFunc].insert(pred);
-      addEdge(pred, phi->var);
+    if (!optNoPred) {
+      for (const Value *pred : phi->preds) {
+	funcToLLVMNodesMap[curFunc].insert(pred);
+	addEdge(pred, phi->var);
+      }
     }
   }
 }
@@ -350,9 +353,11 @@ DepGraph::visitPHINode(llvm::PHINode &I) {
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 
-  for (const Value *v : mssa->llvmPhiToPredMap[&I]) {
-    addEdge(v, &I);
-    funcToLLVMNodesMap[curFunc].insert(v);
+  if (!optNoPred) {
+    for (const Value *v : mssa->llvmPhiToPredMap[&I]) {
+      addEdge(v, &I);
+      funcToLLVMNodesMap[curFunc].insert(v);
+    }
   }
 }
 void

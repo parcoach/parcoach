@@ -155,6 +155,8 @@ ParcoachInstr::runOnFunction(Function &F) {
 	if(ParcoachInstr::nbCollectivesFound != 0) {
 					errs() << "\033[0;35m====== PARCOACH on function " << F.getName().str() << " ======\033[0;0m\n";
 					errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found, and " << ParcoachInstr::nbWarnings << " warning(s)\n";
+	}
+	if(ParcoachInstr::nbWarnings !=0){;
 					// Instrument the code
 					errs() << "\033[0;35m=> Instrumentation of the function ...\033[0;0m\n";
 					instrumentFunction(&F);

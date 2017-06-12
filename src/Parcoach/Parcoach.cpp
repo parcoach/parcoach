@@ -95,12 +95,17 @@ ParcoachInstr::checkCollectives(Function &F, PostDominatorTree &PDT){
 		if(!f) continue;
 
 		string OP_name = f->getName().str();
-		StringRef funcName = f->getName();
+		//StringRef funcName = f->getName();
 
 		// Is it a collective?
-		for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
-			if (!funcName.equals(*vI))
-				continue;
+		//FOR MPI: 
+		//for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
+		if(isCollective(f)<0)
+			continue;
+
+		//for (vector<const char *>::iterator vI =v_coll.begin(), E = v_coll.end(); vI != E; ++vI) {
+			//if (!funcName.equals(*vI))
+				//continue;
 			//errs() << "\n -> Found a collective : " << funcName << "\n";
 			ParcoachInstr::nbCollectivesFound++;
 			vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
@@ -128,7 +133,7 @@ ParcoachInstr::checkCollectives(Function &F, PostDominatorTree &PDT){
 				Diag.print(ProgName, errs(), 1,1);
 				issue_warning=0;
 			}
-		}
+		//}
 	}
 }
 
@@ -150,6 +155,9 @@ ParcoachInstr::runOnFunction(Function &F) {
 	if(ParcoachInstr::nbCollectivesFound != 0) {
 					errs() << "\033[0;35m====== PARCOACH on function " << F.getName().str() << " ======\033[0;0m\n";
 					errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found, and " << ParcoachInstr::nbWarnings << " warning(s)\n";
+					// Instrument the code
+					errs() << "\033[0;35m=> Instrumentation of the function ...\033[0;0m\n";
+					instrumentFunction(&F);
 					errs() << "\033[0;35m=================================================\033[0;0m\n\n";
 	}
 	return false;

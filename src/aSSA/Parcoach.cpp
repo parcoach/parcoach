@@ -312,7 +312,7 @@ ParcoachInstr::runOnModule(Module &M) {
    *  -> set a function summary with sequence of collectives
    *  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
    */
-  errs() << " - BFS\n";
+  //errs() << " - BFS\n";
   scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
   while(!cgSccIter.isAtEnd()) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
@@ -327,7 +327,7 @@ ParcoachInstr::runOnModule(Module &M) {
   }
 
   /* (2) Check collectives */
-  errs() << " - CheckCollectives\n";
+  //errs() << " - CheckCollectives\n";
   cgSccIter = scc_begin(&PTACG);
   while(!cgSccIter.isAtEnd()) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
@@ -341,7 +341,7 @@ ParcoachInstr::runOnModule(Module &M) {
     ++cgSccIter;
   }
 
-  errs() << "Parcoach analysis done\n";
+  //errs() << "Parcoach analysis done\n";
 
   tend_parcoach = gettime();
 

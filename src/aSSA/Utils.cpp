@@ -444,12 +444,12 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
     string CollSequence_temp=string(seq_temp);
 
     // Check if CollSequence_temp and sequence in BB are equals. If not set the metadata as NAVS
-    DEBUG(errs() << " >>> " << CollSequence_temp << " = " << getBBcollSequence(*TI) << " ?\n");
+    //DEBUG(errs() << " >>> " << CollSequence_temp << " = " << getBBcollSequence(*TI) << " ?\n");
     if(CollSequence_temp != getBBcollSequence(*TI)){
      mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
      TI->setMetadata("inst.collSequence",mdNode);
      DebugLoc BDLoc = TI->getDebugLoc();
-     DEBUG(errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n");
+     //DEBUG(errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n");
     }
    }
   }

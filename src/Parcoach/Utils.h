@@ -35,4 +35,18 @@ std::string
 getBBcollSequence(llvm::Instruction &inst);
 
 
+/*
+ * INSTRUMENTATION
+ */
+
+
+void
+instrumentFunction(llvm::Function *F);
+
+void
+instrumentCC(llvm::Module *M, llvm::Instruction *I, int OP_color,
+       std::string OP_name, int OP_line, llvm::StringRef WarningMsg,
+       llvm::StringRef File);
+
+
 #endif /* UTILS_H */

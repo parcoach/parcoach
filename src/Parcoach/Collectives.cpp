@@ -16,3 +16,51 @@ std::vector<const char *> MPI_v_coll = {
   "MPI_Ireduce", "MPI_Iallreduce", "MPI_Ireduce_scatter_block",
   "MPI_Ireduce_scatter", "MPI_Iscan", "MPI_Iexscan","MPI_Ibcast"
 };
+
+
+/*
+ * OMP COLLECTIVES
+ */
+
+std::vector<const char *> OMP_v_coll = {"__kmpc_barrier"};
+// TODO: Add all OpenMP collectives
+
+
+/*
+ * ALL COLLECTIVES
+ */
+
+//std::vector<const char *> v_coll(MPI_v_coll.size() + OMP_v_coll.size());
+std::vector<const char *> v_coll = {
+  "MPI_Barrier", "MPI_Bcast", "MPI_Scatter", "MPI_Scatterv", "MPI_Gather",
+  "MPI_Gatherv", "MPI_Allgather", "MPI_Allgatherv", "MPI_Alltoall",
+  "MPI_Alltoallv", "MPI_Alltoallw", "MPI_Reduce", "MPI_Allreduce",
+  "MPI_Reduce_scatter", "MPI_Scan", "MPI_Comm_split", "MPI_Comm_create",
+  "MPI_Comm_dup", "MPI_Comm_dup_with_info", "MPI_Ibarrier", "MPI_Igather",
+  "MPI_Igatherv", "MPI_Iscatter", "MPI_Iscatterv", "MPI_Iallgather",
+  "MPI_Iallgatherv", "MPI_Ialltoall", "MPI_Ialltoallv", "MPI_Ialltoallw",
+  "MPI_Ireduce", "MPI_Iallreduce", "MPI_Ireduce_scatter_block",
+  "MPI_Ireduce_scatter", "MPI_Iscan", "MPI_Iexscan","MPI_Ibcast",
+	"__kmpc_barrier"
+};
+// TODO: add OMP_v_coll
+
+
+
+int isMPIcollective(const llvm::Function *F) {
+  for (unsigned i=0; i<MPI_v_coll.size(); ++i) {
+    if (F->getName().equals(MPI_v_coll[i]))
+      return i;
+  }
+
+  return -1;
+}
+
+int isCollective(const llvm::Function *F) {
+  for (unsigned i=0; i<v_coll.size(); ++i) {
+    if (F->getName().equals(v_coll[i]))
+      return i;
+  }
+
+  return -1;
+}

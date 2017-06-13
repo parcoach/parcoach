@@ -178,6 +178,7 @@ ParcoachInstr::runOnModule(Module &M) {
     exit(0);
   }
 
+
   ExtInfo extInfo(M);
 
   // Run Andersen alias analysis.
@@ -193,10 +194,13 @@ ParcoachInstr::runOnModule(Module &M) {
   tend_pta = gettime();
   errs() << "* PTA Call graph creation done\n";
 
+
   // Create regions from allocation sites.
   tstart_regcreation = gettime();
   vector<const Value *> regions;
   AA.getAllAllocationSites(regions);
+
+
 
   errs() << regions.size() << " regions\n";
   unsigned regCounter = 0;
@@ -318,7 +322,8 @@ ParcoachInstr::runOnModule(Module &M) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
-      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
+      //if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
+      if (!F || F->isDeclaration())
 				continue;
       //DBG: //errs() << "Function: " << F->getName() << "\n";
       BFS(F,&PTACG);
@@ -333,15 +338,16 @@ ParcoachInstr::runOnModule(Module &M) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
-      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
-	continue;
+      //if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F)){
+      if (!F || F->isDeclaration())
+				continue;
       //DBG: //errs() << "Function: " << F->getName() << "\n";
       checkCollectives(F,DG);
     }
     ++cgSccIter;
   }
 
-  errs() << "* Parcoach analysis done\n";
+  errs() << " ... Parcoach analysis done\n";
 
   tend_parcoach = gettime();
 
@@ -372,11 +378,6 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
     CallInst *CI = dyn_cast<CallInst>(i);
     if(!CI) continue;
 
-		// EMMA
-		const Value *val = CI->getCalledValue();
-		errs() << "EMMA: ValueLabel = " << getValueLabel(val) << "\n";
-	
-
     Function *f = CI->getCalledFunction();
     if(!f) continue;
 
@@ -384,11 +385,9 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
     // Is it a collective call?
     if (!isCollective(f)){
-			errs() << "EMMA: Not a collective: " << OP_name << "\n";
       continue;
 		}
 
-		errs() << "EMMA: Found a collective ! " << OP_name << "\n";
     nbCollectivesFound++;
 
     bool isColWarning = false;

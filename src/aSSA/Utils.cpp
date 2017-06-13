@@ -300,17 +300,14 @@ string getCollectivesInBB(BasicBlock *BB,PTACallGraph *PTACG){
   const Instruction *inst = &*i;					
 
   if(CallInst *CI = dyn_cast<CallInst>(i)) {
-	 errs() << "EMMA: callInst\n"; 
    Function *callee = CI->getCalledFunction();
 
    //// Indirect calls
    if(callee == NULL)
 	 {
-		 errs() << "EMMA: Indirect call , callee NULL\n"; 
     for (const Function *mayCallee : PTACG->indirectCallMap[inst]) {
      if (isIntrinsicDbgFunction(mayCallee))  continue;
      Function *callee = const_cast<Function *>(mayCallee);
-		 errs() << "EMMA: Indirect call " << callee->getName().str() << "\n"; 
      // Is it a function containing a collective?
      if(getFuncSummary(*callee)!="no summary" && getFuncSummary(*callee)!="empty"){
       if(CollSequence=="empty"){
@@ -336,7 +333,6 @@ string getCollectivesInBB(BasicBlock *BB,PTACallGraph *PTACG){
     }
    //// Direct calls
    }else{
-		errs() << "EMMA: Direct call " << callee->getName().str() << "\n"; 
     // Is it a function containing a collective?
     if(getFuncSummary(*callee)!="no summary" && getFuncSummary(*callee)!="empty"){        
  

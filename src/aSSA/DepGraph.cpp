@@ -31,8 +31,9 @@ vector<functionArg> sourceFunctions =
     {"MPI_Comm_rank", 1},
     {"MPI_Group_rank", 1},
     // OMP
+		{"__kmpc_global_thread_num", 0}, 
+		{"_omp_get_thread_num", 0}, 
 		{"omp_get_thread_num", 0}, 
-
   };
 
 vector<functionArg> resetFunctions =

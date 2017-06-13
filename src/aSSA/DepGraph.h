@@ -125,6 +125,7 @@ private:
 
   ConstVarSet taintResetSSANodes;
   ConstVarSet ssaSources;
+  ValueSet valueSources;
 
   void floodFunction(const llvm::Function *F);
   void floodFunctionFromFunction(const llvm::Function *to,

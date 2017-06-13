@@ -23,17 +23,22 @@ static cl::opt<bool> optNoPred("no-phi-pred",
 
 struct functionArg {
   string name;
-  unsigned arg;
+  int arg;
 };
 
-vector<functionArg> sourceFunctions =
-  { // MPI
+vector<functionArg> ssaSourceFunctions =
+  {
+    // MPI
     {"MPI_Comm_rank", 1},
-    {"MPI_Group_rank", 1},
+    {"MPI_Group_rank", 1}
+  };
+
+vector<functionArg> valueSourceFunctions =
+  {
     // OMP
-		{"__kmpc_global_thread_num", 0}, 
-		{"_omp_get_thread_num", 0}, 
-		{"omp_get_thread_num", 0}, 
+    {"__kmpc_global_thread_num", -1},
+    {"_omp_get_thread_num", -1},
+    {"omp_get_thread_num", -1},
   };
 
 vector<functionArg> resetFunctions =
@@ -228,11 +233,11 @@ DepGraph::buildFunction(const llvm::Function *F) {
       }
     }
 
-    // Source functions
-    for (unsigned i=0; i<sourceFunctions.size(); ++i) {
-      if (!F->getName().equals(sourceFunctions[i].name))
+    // SSA Source functions
+    for (unsigned i=0; i<ssaSourceFunctions.size(); ++i) {
+      if (!F->getName().equals(ssaSourceFunctions[i].name))
 	continue;
-      unsigned argNo = sourceFunctions[i].arg;
+      unsigned argNo = ssaSourceFunctions[i].arg;
       for (auto I : mssa->extCallSiteToArgExitChi[F]) {
 	assert(I.second[argNo]);
 	ssaSources.insert(I.second[argNo]->var);
@@ -455,6 +460,18 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
   if (callee) {
     callToFuncEdges[&I] = callee;
     funcToCallSites[callee].insert(&I);
+
+    // Return value source
+    for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
+      if (!callee->getName().equals(valueSourceFunctions[i].name))
+	continue;
+
+      int argNo = valueSourceFunctions[i].arg;
+      if (argNo != -1)
+	continue;
+
+      valueSources.insert(&I);
+    }
   }
 
   // indirect call
@@ -462,6 +479,18 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
       callToFuncEdges[&I] = mayCallee;
       funcToCallSites[mayCallee].insert(&I);
+
+      // Return value source
+      for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
+	if (!mayCallee->getName().equals(valueSourceFunctions[i].name))
+	  continue;
+
+	int argNo = valueSourceFunctions[i].arg;
+	if (argNo != -1)
+	  continue;
+
+	valueSources.insert(&I);
+      }
     }
   }
 }
@@ -968,9 +997,16 @@ DepGraph::computeTaintedValuesContextInsensitive() {
   std::queue<MSSAVar *> varToVisit;
   std::queue<const Value *> valueToVisit;
 
+  // SSA sources
   for(const MSSAVar *src : ssaSources) {
     taintedSSANodes.insert(src);
     varToVisit.push(const_cast<MSSAVar *>(src));
+  }
+
+  // Value sources
+  for(const Value *src : valueSources) {
+    taintedLLVMNodes.insert(src);
+    valueToVisit.push(src);
   }
 
   while (varToVisit.size() > 0 || valueToVisit.size() > 0) {
@@ -1479,7 +1515,8 @@ DepGraph::dotTaintPath(const Value *v, string filename,
   }
 
   bool stop = false;
-  MSSAVar *root = NULL;
+  MSSAVar *ssaRoot = NULL;
+  const Value *llvmRoot = NULL;
 
   while (true) {
     if (curDist >= curSize) {
@@ -1490,6 +1527,14 @@ DepGraph::dotTaintPath(const Value *v, string filename,
 
     // Visit parents of llvm values
     for (const Value *v : visitedLLVMNodesByDist[curDist]) {
+      if (valueSources.find(v) != valueSources.end()) {
+	llvmRoot = v;
+	visitedLLVMNodes.insert(v);
+	errs() << "found a path of size " << curDist << "\n";
+	stop = true;
+	break;
+      }
+
       visitedLLVMNodes.insert(v);
 
       for (const Value *p : llvmToLLVMParents[v]) {
@@ -1512,10 +1557,13 @@ DepGraph::dotTaintPath(const Value *v, string filename,
       }
     }
 
+    if (stop)
+      break;
+
     // Visit parents of ssa variables
     for (MSSAVar *v : visitedSSANodesByDist[curDist]) {
       if (ssaSources.find(v) != ssaSources.end()) {
-	root = v;
+	ssaRoot = v;
 	visitedSSANodes.insert(v);
 	errs() << "found a path of size " << curDist << "\n";
 	stop = true;
@@ -1567,20 +1615,33 @@ DepGraph::dotTaintPath(const Value *v, string filename,
 
   visitedSSANodes.clear();
   visitedLLVMNodes.clear();
-  visitedSSANodes.insert(root);
+
+  assert(llvmRoot || ssaRoot);
+
+  if (ssaRoot)
+    visitedSSANodes.insert(ssaRoot);
+  else
+    visitedLLVMNodes.insert(llvmRoot);
 
   string tmpStr;
   raw_string_ostream strStream(tmpStr);
 
-  MSSAVar *lastVar = root;
-  assert(root);
-  debugMsgs.push_back(getStringMsg(lastVar));
+  MSSAVar *lastVar = ssaRoot;
+  const Value *lastValue = llvmRoot;
   DGDebugLoc DL;
-  if (getDGDebugLoc(lastVar, DL))
-    debugLocs.push_back(DL);
 
-  const Value *lastValue = NULL;
-  bool lastIsVar = true;
+  if (lastVar) {
+    debugMsgs.push_back(getStringMsg(lastVar));
+
+    if (getDGDebugLoc(lastVar, DL))
+      debugLocs.push_back(DL);
+  } else {
+    debugMsgs.push_back(getStringMsg(lastValue));
+    if (getDGDebugLoc(lastValue, DL))
+      debugLocs.push_back(DL);
+  }
+
+  bool lastIsVar = lastVar != NULL;
 
   // Compute edges of the shortest path to strStream
   for (unsigned i=curDist-1; i>0; i--) {
@@ -2010,7 +2071,7 @@ DepGraph::floodFunction(const Function *F) {
   std::queue<MSSAVar *> varToVisit;
   std::queue<const Value *> valueToVisit;
 
-  // 1) taint SSA sources
+  // 1) taint LLVM and SSA sources
   for (const MSSAVar *s : ssaSources) {
     if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
       continue;
@@ -2020,6 +2081,13 @@ DepGraph::floodFunction(const Function *F) {
       taintedSSANodes.insert(s);
   }
 
+  for (const Value *s : valueSources) {
+    const Instruction *inst = dyn_cast<Instruction>(s);
+    if (!inst || inst->getParent()->getParent() != F)
+      continue;
+
+    taintedLLVMNodes.insert(s);
+  }
 
   // 2) Add tainted variables of the function to the queue.
   if (funcToSSANodesMap.find(F) != funcToSSANodesMap.end()) {

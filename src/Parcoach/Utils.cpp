@@ -266,6 +266,20 @@ instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name,
 }
 
 
+string
+getWarning(Instruction &inst) {
+  string warning = " ";
+  if (MDNode *node = inst.getMetadata("inst.warning")) {
+    if (Metadata *value = node->getOperand(0)) {
+      MDString *mdstring = cast<MDString>(value);
+      warning = mdstring->getString();
+    }
+  }else {
+    //errs() << "Did not find metadata\n";
+  }
+  return warning;
+}
+
 
 void instrumentFunction(Function *F)
 {
@@ -276,8 +290,8 @@ void instrumentFunction(Function *F)
 								for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i)
 								{
 												Instruction *Inst=&*i;
-												//string Warning = getWarning(*Inst);
-												string Warning = " ";
+												string Warning = getWarning(*Inst);
+												//string Warning = " ";
 												// Debug info (line in the source code, file)
 												DebugLoc DLoc = i->getDebugLoc();
 												string File="o"; int OP_line = -1;

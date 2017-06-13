@@ -409,7 +409,15 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
       // Is this condition tainted?
       const Value *cond = getBasicBlockCond(BB);
-      if (!cond || !DG->isTaintedValue(cond)) continue;
+
+      //if (!cond || !DG->isTaintedValue(cond)) continue;
+			// DEBUG INFO
+      if (!cond || !DG->isTaintedValue(cond)){
+					const Instruction *instE = BB->getTerminator();
+      		DebugLoc locE = instE->getDebugLoc();
+					errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";
+				 continue;
+			}
       isColWarning = true;
       nbConds++;
 

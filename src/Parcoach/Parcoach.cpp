@@ -44,9 +44,6 @@
 #include "llvm/IR/DataLayout.h"
 
 
-
-
-
 #include <vector>
 
 using namespace llvm;
@@ -95,18 +92,11 @@ ParcoachInstr::checkCollectives(Function &F, PostDominatorTree &PDT){
 		if(!f) continue;
 
 		string OP_name = f->getName().str();
-		//StringRef funcName = f->getName();
 
 		// Is it a collective?
-		//FOR MPI: 
-		//for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
 		if(isCollective(f)<0)
 			continue;
 
-		//for (vector<const char *>::iterator vI =v_coll.begin(), E = v_coll.end(); vI != E; ++vI) {
-			//if (!funcName.equals(*vI))
-				//continue;
-			//errs() << "\n -> Found a collective : " << funcName << "\n";
 			ParcoachInstr::nbCollectivesFound++;
 			vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
 			//vector<BasicBlock * > iPDF = {};

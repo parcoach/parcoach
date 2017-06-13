@@ -283,6 +283,11 @@ static const funcModPair funcModPairs[] = {
   {"omp_get_num_threads", { 0, false, {} } },
   {"omp_get_thread_num", { 0, false, {} } },
   {"__kmpc_fork_call", { 4, false, {false, false, false, false} } },
+  {"__kmpc_barrier", { 2, false, {false,false} } },
+  {"__kmpc_single", { 2, false, {false,false} } },
+  {"__kmpc_end_single", { 2, false, {false,false} } },
+  {"__kmpc_for_static_init_4", { 9, false, {false,false,false,false,false,false,false,false,false} } },
+  {"__kmpc_for_static_fini", { 2, false, {false,false}} },
 
   /* gsl */
   {"gsl_integration_qag", { 10, true, {false, false, false, false, false, false,
@@ -486,6 +491,11 @@ static const funcDepPair funcDepPairs[] = {
   {"omp_get_num_threads", { 0 , {}, {} } },
   {"omp_get_thread_num", { 0 , {}, {} } },
   {"__kmpc_fork_call", { 4, {}, {} } },
+  {"__kmpc_barrier", { 2, {}, {} } },
+  {"__kmpc_single", { 2, {}, {} } },
+  {"__kmpc_end_single", { 2, {}, {} } },
+  {"__kmpc_for_static_init_4", { 9, {}, {} } },
+  {"__kmpc_for_static_fini", { 2, {}, {}} },
 
   /* gsl */
   {"gsl_integration_qag", { 10, {}, {} } },

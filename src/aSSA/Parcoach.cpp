@@ -185,13 +185,13 @@ ParcoachInstr::runOnModule(Module &M) {
   Andersen AA(M);
   tend_aa = gettime();
 
-  errs() << "AA done\n";
+  errs() << "* AA done\n";
 
   // Create PTA call graph
   tstart_pta = gettime();
   PTACallGraph PTACG(M, &AA);
   tend_pta = gettime();
-  errs() << "PTA Call graph creation done\n";
+  errs() << "* PTA Call graph creation done\n";
 
   // Create regions from allocation sites.
   tstart_regcreation = gettime();
@@ -212,7 +212,7 @@ ParcoachInstr::runOnModule(Module &M) {
 
   if (optDumpRegions)
     MemReg::dumpRegions();
-  errs() << "Regions creation done\n";
+  errs() << "* Regions creation done\n";
 
   // Compute MOD/REF analysis
   tstart_modref = gettime();
@@ -221,7 +221,7 @@ ParcoachInstr::runOnModule(Module &M) {
   if (optDumpModRef)
     MRA.dump();
 
-  errs() << "Mod/ref done\n";
+  errs() << "* Mod/ref done\n";
 
   // Compute all-inclusive SSA.
   tstart_assa = gettime();
@@ -258,7 +258,7 @@ ParcoachInstr::runOnModule(Module &M) {
       MSSA.dumpMSSA(&F);
   }
   tend_assa = gettime();
-  errs() << "SSA done\n";
+  errs() << "* SSA done\n";
 
   // Compute dep graph.
   tstart_depgraph = gettime();
@@ -280,13 +280,13 @@ ParcoachInstr::runOnModule(Module &M) {
     DG->buildFunction(&F);
   }
 
-  errs() << "Dep graph done\n";
+  errs() << "* Dep graph done\n";
 
   // Phi elimination pass.
   if (!optDisablePhiElim)
     DG->phiElimination();
 
-  errs() << "phi elimination done\n";
+  errs() << "* phi elimination done\n";
   tend_depgraph = gettime();
 
   tstart_flooding = gettime();
@@ -297,13 +297,13 @@ ParcoachInstr::runOnModule(Module &M) {
   else
     DG->computeTaintedValuesContextInsensitive();
   tend_flooding = gettime();
-  errs() << "value contamination  done\n";
+  errs() << "* value contamination  done\n";
 
   // Dot dep graph.
   if (optDotGraph)
     DG->toDot("dg.dot");
 
-  errs() << "Starting Parcoach analysis\n";
+  errs() << "* Starting Parcoach analysis ...\n";
 
   tstart_parcoach = gettime();
   // Parcoach analysis
@@ -312,14 +312,14 @@ ParcoachInstr::runOnModule(Module &M) {
    *  -> set a function summary with sequence of collectives
    *  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
    */
-  //errs() << " - BFS\n";
+  errs() << " (1) BFS\n";
   scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
   while(!cgSccIter.isAtEnd()) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
       if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
-	continue;
+				continue;
       //DBG: //errs() << "Function: " << F->getName() << "\n";
       BFS(F,&PTACG);
     }
@@ -327,7 +327,7 @@ ParcoachInstr::runOnModule(Module &M) {
   }
 
   /* (2) Check collectives */
-  //errs() << " - CheckCollectives\n";
+  errs() << " (2) CheckCollectives\n";
   cgSccIter = scc_begin(&PTACG);
   while(!cgSccIter.isAtEnd()) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
@@ -341,7 +341,7 @@ ParcoachInstr::runOnModule(Module &M) {
     ++cgSccIter;
   }
 
-  //errs() << "Parcoach analysis done\n";
+  errs() << "* Parcoach analysis done\n";
 
   tend_parcoach = gettime();
 
@@ -349,7 +349,7 @@ ParcoachInstr::runOnModule(Module &M) {
 }
 
 
-// (2) Check MPI collectives
+// (2) Check collectives
 void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
   StringRef FuncSummary;
   MDNode* mdNode;
@@ -372,14 +372,23 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
     CallInst *CI = dyn_cast<CallInst>(i);
     if(!CI) continue;
 
+		// EMMA
+		const Value *val = CI->getCalledValue();
+		errs() << "EMMA: ValueLabel = " << getValueLabel(val) << "\n";
+	
+
     Function *f = CI->getCalledFunction();
     if(!f) continue;
 
     string OP_name = f->getName().str();
 
     // Is it a collective call?
-    if (!isCollective(f))
+    if (!isCollective(f)){
+			errs() << "EMMA: Not a collective: " << OP_name << "\n";
       continue;
+		}
+
+		errs() << "EMMA: Found a collective ! " << OP_name << "\n";
     nbCollectivesFound++;
 
     bool isColWarning = false;

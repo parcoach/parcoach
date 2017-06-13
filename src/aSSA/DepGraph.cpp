@@ -27,8 +27,12 @@ struct functionArg {
 };
 
 vector<functionArg> sourceFunctions =
-  { {"MPI_Comm_rank", 1},
+  { // MPI
+    {"MPI_Comm_rank", 1},
     {"MPI_Group_rank", 1},
+    // OMP
+		{"omp_get_thread_num", 0}, 
+
   };
 
 vector<functionArg> resetFunctions =
@@ -641,9 +645,9 @@ DepGraph::connectCSCalledReturnValue(llvm::CallInst &I) {
   else {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
       if (!mayCallee->isDeclaration() &&
-	  !mayCallee->getReturnType()->isVoidTy()) {
-	funcToLLVMNodesMap[curFunc].insert(&I);
-	addEdge(getReturnValue(mayCallee), &I); // rule2
+	        !mayCallee->getReturnType()->isVoidTy()) {
+				funcToLLVMNodesMap[curFunc].insert(&I);
+				addEdge(getReturnValue(mayCallee), &I); // rule2
       }
     }
   }

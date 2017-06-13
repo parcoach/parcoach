@@ -23,7 +23,6 @@ std::vector<const char *> MPI_v_coll = {
  */
 
 std::vector<const char *> OMP_v_coll = {"__kmpc_barrier"};
-// TODO: Add all OpenMP collectives
 
 
 /*
@@ -43,7 +42,6 @@ std::vector<const char *> v_coll = {
   "MPI_Ireduce_scatter", "MPI_Iscan", "MPI_Iexscan","MPI_Ibcast",
 	"__kmpc_barrier"
 };
-// TODO: add OMP_v_coll
 
 
 

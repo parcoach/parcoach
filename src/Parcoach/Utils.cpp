@@ -108,34 +108,25 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
 
 // Get the sequence of collectives for a BB
 string getCollectivesInBB(BasicBlock *BB){
-	//string CollSequence=string();
 	string CollSequence="empty";
 
-
 	for(BasicBlock::iterator i = BB->begin(), e = BB->end(); i != e; ++i){
-  //const Instruction *inst = &*i;
 
 		if(CallInst *CI = dyn_cast<CallInst>(i)){
 			Function *callee = CI->getCalledFunction();
 			if(!callee) continue;
 
    		// Is it a collective?
-   		// FOR MPI: 
-			//for (vector<const char *>::iterator vI = MPI_v_coll.begin(), E = MPI_v_coll.end(); vI != E; ++vI) {
-   		//for (vector<const char *>::iterator vI = v_coll.begin(), E = v_coll.end(); vI != E; ++vI) {
-    		//if (!(callee->getName()).equals(*vI))
-    		if (isCollective((callee))<0)
-     			continue;
+    	if (isCollective((callee))<0)
+     		continue;
 	
-
-				if(CollSequence=="empty"){
+			if(CollSequence=="empty"){
 					CollSequence=callee->getName().str();
-				}else{
+			}else{
     			if(CollSequence!="NAVS"){ 
       			CollSequence.append(" ").append(callee->getName().str());
 					}
-				}
-			//}
+			}
 		}
 	}
 	return CollSequence;

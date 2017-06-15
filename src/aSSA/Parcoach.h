@@ -38,7 +38,7 @@ namespace {
       tstart_parcoach, tend_parcoach;
     ParcoachInstr();
 
-		virtual void checkCollectives(llvm::Function *F, DepGraph *DG);
+    virtual void checkCollectives(llvm::Function *F, DepGraph *DG);
     virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
     virtual bool doInitialization(llvm::Module &M);
     virtual bool doFinalization(llvm::Module &M);
@@ -48,6 +48,7 @@ namespace {
     std::set<const llvm::BasicBlock *> parcoachOnlyNodes;
     std::set<const llvm::BasicBlock *> parcoachNodes;
 
+    void replaceOMPMicroFunctionCalls(llvm::Module &M);
   };
 }
 

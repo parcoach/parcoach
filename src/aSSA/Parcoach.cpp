@@ -14,6 +14,7 @@
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/ADT/SCCIterator.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/DebugInfo.h"
@@ -21,7 +22,9 @@
 #include "llvm/Support/Format.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Transforms/Scalar/LowerAtomic.h"
 #include <llvm/Analysis/LoopInfo.h>
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 using namespace std;
@@ -143,6 +146,66 @@ ParcoachInstr::doFinalization(Module &M){
   return true;
 }
 
+void
+ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M) {
+  // Get all calls to be replaced (only __kmpc_fork_call is handled for now).
+  std::vector<CallInst *> callToReplace;
+
+  for (const Function &F : M) {
+    for (const BasicBlock &BB : F) {
+      for (const Instruction &I : BB) {
+  	const CallInst *ci = dyn_cast<CallInst>(&I);
+  	if (!ci)
+  	  continue;
+
+  	const Function *called = ci->getCalledFunction();
+  	if (!called)
+  	  continue;
+
+  	if (called->getName().equals("__kmpc_fork_call")) {
+  	  callToReplace.push_back(const_cast<CallInst *>(ci));
+  	}
+      }
+    }
+  }
+
+  // Replace each call to __kmpc_fork_call with a call to the outlined function.
+  for (unsigned n=0; n<callToReplace.size(); n++) {
+    CallInst *ci = callToReplace[n];
+
+    // Operand 2 contains the outlined function
+    Value *op2 = ci->getOperand(2);
+    ConstantExpr *op2AsCE = dyn_cast<ConstantExpr>(op2);
+    assert(op2AsCE);
+    Instruction *op2AsInst = op2AsCE->getAsInstruction();
+    Function *outlinedFunc = dyn_cast<Function>(op2AsInst->getOperand(0));
+    assert(outlinedFunc);
+    delete op2AsInst;
+
+    errs() << outlinedFunc->getName() << "\n";
+
+    unsigned callNbOps = ci->getNumOperands();
+
+    SmallVector<Value *, 8> NewArgs;
+
+    // map 2 firsts operands of CI to null
+    for (unsigned i=0; i<2; i++) {
+      Type *ArgTy = getFunctionArgument(outlinedFunc, i)->getType();
+      Value *val = Constant::getNullValue(ArgTy);
+      NewArgs.push_back(val);
+    }
+
+    //  op 3 to nbops-1
+    for (unsigned i=3; i<callNbOps-1; i++) {
+      NewArgs.push_back(ci->getOperand(i));
+    }
+
+    CallInst *NewCI = CallInst::Create(const_cast<Function *>(outlinedFunc), NewArgs);
+    NewCI->setCallingConv(outlinedFunc->getCallingConv());
+    ReplaceInstWithInst(const_cast<CallInst *>(ci), NewCI);
+  }
+}
+
 bool
 ParcoachInstr::runOnModule(Module &M) {
   if (optContextSensitive && optDotTaintPaths) {
@@ -179,7 +242,11 @@ ParcoachInstr::runOnModule(Module &M) {
   }
 
 
+
   ExtInfo extInfo(M);
+
+  // Replace OpenMP Micro Function Calls
+  replaceOMPMicroFunctionCalls(M);
 
   // Run Andersen alias analysis.
   tstart_aa = gettime();
@@ -193,7 +260,6 @@ ParcoachInstr::runOnModule(Module &M) {
   PTACallGraph PTACG(M, &AA);
   tend_pta = gettime();
   errs() << "* PTA Call graph creation done\n";
-
 
   // Create regions from allocation sites.
   tstart_regcreation = gettime();
@@ -234,8 +300,12 @@ ParcoachInstr::runOnModule(Module &M) {
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
   for (Function &F : M) {
-    if (!PTACG.isReachableFromEntry(&F))
+    if (!PTACG.isReachableFromEntry(&F)) {
+      errs() << F.getName() << " is not reachable from entry\n";
+
+
       continue;
+    }
 
     if (counter % 100 == 0)
       errs() << "MSSA: visited " << counter << " functions over " << nbFunctions
@@ -322,9 +392,8 @@ ParcoachInstr::runOnModule(Module &M) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
-      //if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
-      if (!F || F->isDeclaration())
-				continue;
+      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
+	continue;
       //DBG: //errs() << "Function: " << F->getName() << "\n";
       BFS(F,&PTACG);
     }
@@ -338,9 +407,8 @@ ParcoachInstr::runOnModule(Module &M) {
     const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
-      //if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F)){
-      if (!F || F->isDeclaration())
-				continue;
+      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
+	continue;
       //DBG: //errs() << "Function: " << F->getName() << "\n";
       checkCollectives(F,DG);
     }

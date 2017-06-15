@@ -289,6 +289,9 @@ static const funcModPair funcModPairs[] = {
   {"__kmpc_for_static_init_4", { 9, false, {false,false,false,false,false,false,false,false,false} } },
   {"__kmpc_for_static_fini", { 2, false, {false,false}} },
   {"__kmpc_global_thread_num", { 1, false, {false}} },
+  {"__kmpc_reduce_nowait", { 7, false, {false, false, false, false, false,
+					false, false}} },
+  {"__kmpc_end_reduce_nowait", { 3, false, {false, false, false}} },
 
   /* gsl */
   {"gsl_integration_qag", { 10, true, {false, false, false, false, false, false,

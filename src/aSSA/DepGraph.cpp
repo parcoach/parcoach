@@ -553,7 +553,9 @@ DepGraph::connectCSChis(llvm::CallInst &I) {
     assert(chi && chi->var && chi->opVar);
     funcToSSANodesMap[curFunc].insert(chi->opVar);
     funcToSSANodesMap[curFunc].insert(chi->var);
-    addEdge(chi->opVar, chi->var); // rule4
+
+    if (!optStrongUpdate)
+      addEdge(chi->opVar, chi->var); // rule4
 
     const Function *called = NULL;
 

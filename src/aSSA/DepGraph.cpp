@@ -41,6 +41,9 @@ vector<functionArg> valueSourceFunctions =
     {"omp_get_thread_num", -1},
   };
 
+// TODO: UPC - MYTHREADS renvoie l'ID du thread, ce n'est pas une fonction
+
+
 vector<functionArg> resetFunctions =
   {
     {"MPI_Bcast", 0},
@@ -464,11 +467,11 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
     // Return value source
     for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
       if (!callee->getName().equals(valueSourceFunctions[i].name))
-	continue;
+				continue;
 
       int argNo = valueSourceFunctions[i].arg;
       if (argNo != -1)
-	continue;
+				continue;
 
       valueSources.insert(&I);
     }

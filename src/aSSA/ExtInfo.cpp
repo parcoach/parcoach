@@ -170,6 +170,7 @@ static const funcModPair funcModPairs[] = {
   {"__isoc99_sscanf", {3, false, {false, false, true} } },
   {"__log_finite", {1, false, {false} } },
   {"__strdup", {1, true, {false} } },
+  {"perror", {4, false, {true,false,false,false} } },
 
   {"fopen64", { 2, true, {false, false} } },
   {"freopen64", { 3, true, {false, false, false} } },
@@ -292,6 +293,20 @@ static const funcModPair funcModPairs[] = {
   {"__kmpc_reduce_nowait", { 7, false, {false, false, false, false, false,
 					false, false}} },
   {"__kmpc_end_reduce_nowait", { 3, false, {false, false, false}} },
+  {"omp_get_max_threads", {0 ,false , {}} },
+  {"__kmpc_master", { 2, false, {true,false}} },
+  {"__kmpc_end_master", { 2, false, {true, false}} },
+  {"omp_get_wtime", { 0, false , {}} },
+  //{"", { , , {}} },
+
+
+	/* UPC */
+  {"upcri_err", { 4, false, {true, false, false, false}} },
+  {"upcri_stack_check", { 4, false, {true, false, true, false}} },
+  {"gasneti_checkinit", { 0, false, {}} },
+  {"_upcr_notify", { 2, false, {false,false}} },
+  {"_upcr_wait", { 2, false, {false,false}} },
+
 
   /* gsl */
   {"gsl_integration_qag", { 10, true, {false, false, false, false, false, false,

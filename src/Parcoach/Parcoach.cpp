@@ -50,6 +50,10 @@ using namespace llvm;
 using namespace std;
 
 
+
+// TODO: donner des noms plus user-friendly aux utilisateurs lors des warnings
+
+
 ParcoachInstr::ParcoachInstr() : FunctionPass(ID) {}
 
 void
@@ -146,10 +150,12 @@ ParcoachInstr::runOnFunction(Function &F) {
 					errs() << "\033[0;35m====== PARCOACH on function " << F.getName().str() << " ======\033[0;0m\n";
 					errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found, and " << ParcoachInstr::nbWarnings << " warning(s)\n";
 	}
+
 	if(ParcoachInstr::nbWarnings !=0){;
 					// Instrument the code
 					errs() << "\033[0;35m=> Instrumentation of the function ...\033[0;0m\n";
-					instrumentFunction(&F);
+					// TODO for UPC
+					//instrumentFunction(&F);
 					errs() << "\033[0;35m=================================================\033[0;0m\n\n";
 	}
 	return false;

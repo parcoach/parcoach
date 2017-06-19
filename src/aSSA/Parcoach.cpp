@@ -483,7 +483,7 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
       if (!cond || !DG->isTaintedValue(cond)){
 					const Instruction *instE = BB->getTerminator();
       		DebugLoc locE = instE->getDebugLoc();
-					errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";
+					//errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";
 				 continue;
 			}
       isColWarning = true;

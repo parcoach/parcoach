@@ -30,16 +30,11 @@ set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/lib)
 include(HandleLLVMOptions)
 include(AddLLVM)
 
-# Directory LLVM source (includes) and binaries (libraries) are in
-#set(EMMA_LLVM_SRC_DIR "/Users/emmanuellesaillard/Documents/LLVM_371/llvm")
-#set(EMMA_LLVM_SRC_DIR "/Users/emmanuellesaillard/Documents/LLVM_390/llvm")
-#set(PIERRE_LLVM_SRC_DIR "/home/phuchant/mytools/llvm-3.7")
-#set(LLVM_SRC_DIR2 "/opt/local/libexec/llvm-3.9")
 
 add_definitions(${LLVM_DEFINITIONS} ${MPI_LINK_FLAGS})
 include_directories(${LLVM_INCLUDE_DIRS} ${MPI_INCLUDE_PATH})
 
-#include_directories(${LLVM_INCLUDE_DIRS} ${EMMA_LLVM_SRC_DIR}/include ${LLVM_SRC_DIR2}/include ${MPI_INCLUDE_PATH})
+
 link_directories(${LLVM_LIBRARY_DIRS})
 set(LIBS ${LIBS} ${MPI_LIBRARIES})
 

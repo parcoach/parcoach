@@ -2,7 +2,8 @@
 -------------- This is PARCOACH (PARallel COntrol flow Anomaly CHecker) -------------
 -------------------------------------------------------------------------------------
 
-PARCOACH automatically checks MPI applications to verify the correct use of MPI collective calls.
+PARCOACH automatically checks parallel applications to verify the correct use of collectives.
+
 
 ----------------------------- Project structure ------------------------------
 
@@ -102,8 +103,8 @@ TODO
 
 - Build Parcoach library:
 
-mkdir build
-cd build
+cd PARCOACH_PATH/
+mkdir build && cd build
 cmake .. && make
 
 
@@ -112,15 +113,23 @@ cmake .. && make
 Codes with errors can be found in the tests directory. 
 For runtime checking, PARCOACH needs to be linked to its dynamic library.
 
-Example of the use of Parcoach with test.c:
+-> Example of the use of Parcoach with test.c :
 
 /* CREATE dynamic library DynamicCheck.o  */
 clang -g  -c $PATH_TO_DYN_LIBRARY/{MPI/UPC/OMP}_DynamicCheck.c
+
 /* CREATE test bitcode  */
 clang -g -emit-llvm -c -o test.bc test.c
+/* MERGE bit codes if multiple files */
+llvm-link tes1.bc test2.bc -o merge.bc
+
 /* PARCOACH PASS */
-opt -load $PATH_TO_PARCOACH_LIB/LLVMParcoach.dylib -postdomtree -parcoach -debug < test.bc > ./test_optimized.bc
+opt -load $PATH_TO_PARCOACH_LIB/LLVMParcoach.dylib -postdomtree -parcoach [OPTIONS] < test.bc > ./test_optimized.bc
+[OPTIONS] can be -loweratomic (needed for OpenMP codes), -dot-depgraph, -strong-update, -no-reg-name
+Replace test.bc by merge.bc if you have multiple files
+
 /* CREATE test_optimized.o  */
 clang -c test_optimized.bc
+
 /* LINK */
 clang test_optimized.o {MPI/UPC/OMP}_DynamicCheck.o -o test $(LDFLAGS)

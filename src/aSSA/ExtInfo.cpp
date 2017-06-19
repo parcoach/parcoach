@@ -297,6 +297,8 @@ static const funcModPair funcModPairs[] = {
   {"__kmpc_master", { 2, false, {true,false}} },
   {"__kmpc_end_master", { 2, false, {true, false}} },
   {"omp_get_wtime", { 0, false , {}} },
+  {"__kmpc_dispatch_init_4", {7 ,false , {true, false,false,false,false,false,false}} },
+  {"__kmpc_dispatch_next_4", {6 ,false , {true, false, true,true,true,true}} },
   //{"", { , , {}} },
 
 

@@ -41,9 +41,6 @@ vector<functionArg> valueSourceFunctions =
     {"omp_get_thread_num", -1},
   };
 
-// TODO: UPC - MYTHREADS renvoie l'ID du thread, ce n'est pas une fonction
-
-
 vector<functionArg> resetFunctions =
   {
     {"MPI_Bcast", 0},
@@ -320,6 +317,14 @@ DepGraph::visitLoadInst(llvm::LoadInst &I) {
     addEdge(mu->var, &I);
   }
 
+  // UPC rank source
+  if (I.getPointerOperand()->getName().equals("gasneti_mynode")) {
+    for (MSSAMu *mu : mssa->loadToMuMap[&I]) {
+      assert(mu && mu->var);
+      ssaSources.insert(mu->var);
+    }
+  }
+
   if (!optNoPtrDep)
     addEdge(I.getPointerOperand(), &I);
 }
@@ -467,11 +472,11 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
     // Return value source
     for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
       if (!callee->getName().equals(valueSourceFunctions[i].name))
-				continue;
+	continue;
 
       int argNo = valueSourceFunctions[i].arg;
       if (argNo != -1)
-				continue;
+	continue;
 
       valueSources.insert(&I);
     }

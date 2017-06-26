@@ -69,6 +69,11 @@ cl::opt<bool> optContextSensitive("context-sensitive",
 				  cl::desc("Context sensitive version of " \
 					   "flooding."),
 				  cl::cat(ParcoachCategory));
+static cl::opt<bool> optNoInstrum("no-instrumentation",
+        cl::desc("No static instrumentation"),
+        cl::cat(ParcoachCategory));
+
+
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
@@ -415,6 +420,13 @@ ParcoachInstr::runOnModule(Module &M) {
     ++cgSccIter;
   }
 
+	if(ParcoachInstr::nbWarnings !=0 && !optNoInstrum){
+		errs() << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n";
+		for (Function &F : M) {
+			instrumentFunction(&F);
+		}
+	}
+
   errs() << " ... Parcoach analysis done\n";
 
   tend_parcoach = gettime();
@@ -470,6 +482,8 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
       // Is this node detected as potentially dangerous by parcoach?
       string Seq = getBBcollSequence(*(BB->getTerminator()));
       if(Seq!="NAVS") continue;
+
+			errs() << "BB " << BB->getName().str() << " with NAVS\n"; 
 
       isColWarningParcoach = true;
       nbCondsParcoach++;

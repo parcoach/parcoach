@@ -3,9 +3,12 @@
 
 #include <sys/time.h>
 
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/IRBuilder.h"
 
 #define DEBUG_TYPE "hello"
 
@@ -419,12 +422,14 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
    TerminatorInst* TI = Pred->getTerminator();
 
    // BB NOT SEEN BEFORE
-   if(getBBcollSequence(*TI)=="white"){
-    string N=CollSequence_Header;
+   if(getBBcollSequence(*TI)=="white")
+	 {
+    string N=string();
+		N=CollSequence_Header;
     if(CollSequence_Header=="empty"){
      N=getCollectivesInBB(Pred, PTACG);
     }else{
-     if(getCollectivesInBB(Pred, PTACG)!="empty" && N!="NAVS")
+     if(getCollectivesInBB(Pred, PTACG)!="empty") // && N!="NAVS")
       N.append(" ").append(getCollectivesInBB(Pred,PTACG)); 
     }
     CollSequence=string(N);
@@ -445,12 +450,12 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
     string CollSequence_temp=string(seq_temp);
 
     // Check if CollSequence_temp and sequence in BB are equals. If not set the metadata as NAVS
-    //DEBUG(errs() << " >>> " << CollSequence_temp << " = " << getBBcollSequence(*TI) << " ?\n");
+    //DEBUG(errs() << " EMMA >>> " << CollSequence_temp << " = " << getBBcollSequence(*TI) << " ?\n");
     if(CollSequence_temp != getBBcollSequence(*TI)){
      mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
      TI->setMetadata("inst.collSequence",mdNode);
      DebugLoc BDLoc = TI->getDebugLoc();
-     //DEBUG(errs() << "  ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n");
+     //DEBUG(errs() << "  EMMA ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n");
     }
    }
   }
@@ -471,3 +476,120 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
  F->setMetadata("func.summary",mdNode);
  //DEBUG(errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n");
 }
+
+
+
+/*
+ * INSTRUMENTATION
+ */
+
+// Check Collective function before a collective
+// + Check Collective function before return statements
+// --> check_collective_MPI(int OP_color, const char* OP_name, int OP_line,
+// char* OP_warnings, char *FILE_name)
+// --> void check_collective_UPC(int OP_color, const char* OP_name,
+// int OP_line, char* warnings, char *FILE_name)
+void
+instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name,
+    int OP_line, StringRef WarningMsg, StringRef File){
+  IRBuilder<> builder(I);
+  // Arguments of the new function
+  vector<const Type *> params = vector<const Type *>();
+  params.push_back(Type::getInt32Ty(M->getContext())); // OP_color
+  params.push_back(PointerType::getInt8PtrTy(M->getContext())); // OP_name
+  Value *strPtr_NAME = builder.CreateGlobalStringPtr(OP_name);
+  params.push_back(Type::getInt32Ty(M->getContext())); // OP_line
+  params.push_back(PointerType::getInt8PtrTy(M->getContext())); // OP_warnings
+  const std::string Warnings = WarningMsg.str();
+  Value *strPtr_WARNINGS = builder.CreateGlobalStringPtr(Warnings);
+  params.push_back(PointerType::getInt8PtrTy(M->getContext())); // FILE_name
+  const std::string Filename = File.str();
+  Value *strPtr_FILENAME = builder.CreateGlobalStringPtr(Filename);
+  // Set new function name, type and arguments
+  FunctionType *FTy =FunctionType::get(Type::getVoidTy(M->getContext()),
+      ArrayRef<Type *>((Type**)params.data(),
+        params.size()),false);
+  Value * CallArgs[] = {ConstantInt::get(Type::getInt32Ty(M->getContext()), OP_color), strPtr_NAME, ConstantInt::get(Type::getInt32Ty(M->getContext()), OP_line), strPtr_WARNINGS, strPtr_FILENAME};
+  std::string FunctionName;
+
+  if(OP_color == (int) v_coll.size()+1){
+    FunctionName="check_collective_return";
+  }else{
+    if(OP_color < (int) MPI_v_coll.size()){
+      FunctionName="check_collective_MPI";
+    }else{
+      if( OP_color < ((int) MPI_v_coll.size() + OMP_v_coll.size())){
+        FunctionName="check_collective_OMP";
+      }else{
+        FunctionName="check_collective_UPC";
+      }
+    }
+  }
+
+
+  Value * CCFunction = M->getOrInsertFunction(FunctionName, FTy);
+  // Create new function
+  CallInst::Create(CCFunction, ArrayRef<Value*>(CallArgs), "", I);
+  errs() << "=> Insertion of " << FunctionName << " (" << OP_color << ", " << OP_name << ", " << OP_line << ", " << WarningMsg << ", " << File <<  ")\n";
+}
+
+
+
+string
+getWarning(Instruction &inst) {
+  string warning = " ";
+  if (MDNode *node = inst.getMetadata("inst.warning")) {
+    if (Metadata *value = node->getOperand(0)) {
+      MDString *mdstring = cast<MDString>(value);
+      warning = mdstring->getString();
+    }
+  }else {
+    //errs() << "Did not find metadata\n";
+  }
+  return warning;
+}
+
+
+
+void instrumentFunction(Function *F)
+{
+        Module* M = F->getParent();
+        //errs() << "==> Function " << F->getName() << " is instrumented:\n";
+        for(Function::iterator bb = F->begin(), e = F->end(); bb!=e; ++bb)
+        {
+                for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i)
+                {
+                        Instruction *Inst=&*i;
+                        string Warning = getWarning(*Inst);
+                        //string Warning = " ";
+                        // Debug info (line in the source code, file)
+                        DebugLoc DLoc = i->getDebugLoc();
+                        string File="o"; int OP_line = -1;
+                        if(DLoc){
+                                OP_line = DLoc.getLine();
+                                File=DLoc->getFilename();
+                        }
+                        // call instruction
+                        if(CallInst *CI = dyn_cast<CallInst>(i))
+                        {
+                                Function *callee = CI->getCalledFunction();
+                                if(callee==NULL) continue;
+                                string OP_name = callee->getName().str();
+                                int OP_color = isCollective(callee);
+
+                                // Before finalize or abort !!
+                                if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){
+                                        DEBUG(errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n");
+                                        instrumentCC(M,Inst,v_coll.size()+1, OP_name, OP_line, Warning, File);
+                                        continue;
+                                }
+                                // Before a collective
+                                if(OP_color>=0){
+                                        DEBUG(errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n");
+                                        instrumentCC(M,Inst,OP_color, OP_name, OP_line, Warning, File);
+                                }
+                        }
+                }
+        }
+}
+

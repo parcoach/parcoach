@@ -50,6 +50,13 @@ using namespace llvm;
 using namespace std;
 
 
+static cl::OptionCategory ParcoachCategory("Parcoach options");
+
+static cl::opt<bool> optNoInstrum("no-instrumentation",
+        cl::desc("No static instrumentation"),
+        cl::cat(ParcoachCategory)); 
+
+
 
 // TODO: donner des noms plus user-friendly aux utilisateurs lors des warnings
 
@@ -103,18 +110,19 @@ ParcoachInstr::checkCollectives(Function &F, PostDominatorTree &PDT){
 
 			ParcoachInstr::nbCollectivesFound++;
 			vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
-			//vector<BasicBlock * > iPDF = {};
 
 			if(iPDF.size()==0)
 				continue;
 
+	
 			COND_lines="";
 			vector<BasicBlock *>::iterator Bitr;
 			for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
 				TerminatorInst* TI = (*Bitr)->getTerminator();
 				if(getBBcollSequence(*TI)=="NAVS"){
 					DebugLoc BDLoc = TI->getDebugLoc();
-					COND_lines.append(" ").append(to_string(BDLoc.getLine()));
+					string cline = to_string(BDLoc.getLine());
+					COND_lines.append(" ").append(cline);
 					issue_warning=1;		
 				}
 			}
@@ -147,16 +155,20 @@ ParcoachInstr::runOnFunction(Function &F) {
 	checkCollectives(F,PDT);
 
 	if(ParcoachInstr::nbCollectivesFound != 0) {
-					errs() << "\033[0;35m====== PARCOACH on function " << F.getName().str() << " ======\033[0;0m\n";
-					errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found, and " << ParcoachInstr::nbWarnings << " warning(s)\n";
-	}
+		errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+		errs() << "\033[0;36m==========  PARCOACH STATISTICS ==========\033[0;0m\n";
+		errs() << "\033[0;36m==========================================\033[0;0m\n";
+		errs() << "Function: " << F.getName().str() << "\n";
+		errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found\n"; 
+		errs() << ParcoachInstr::nbWarnings << " warning(s) issued\n";
 
-	if(ParcoachInstr::nbWarnings !=0){;
-					// Instrument the code
-					errs() << "\033[0;35m=> Instrumentation of the function ...\033[0;0m\n";
-					// TODO for UPC
-					//instrumentFunction(&F);
-					errs() << "\033[0;35m=================================================\033[0;0m\n\n";
+		if(ParcoachInstr::nbWarnings !=0 && !optNoInstrum){;
+			// Static instrumentation of the code
+			// TODO: no intrum for UPC yet
+			errs() << "\033[0;35m=> Instrumentation of the function ...\033[0;0m\n";
+			instrumentFunction(&F);
+		}
+		errs() << "\033[0;36m==========================================\033[0;0m\n";
 	}
 	return false;
 }

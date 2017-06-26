@@ -22,6 +22,8 @@ std::vector<llvm::BasicBlock * >
 iterated_postdominance_frontier(llvm::PostDominatorTree &PDT,
                                 llvm::BasicBlock *BB);
 
+void print_iPDF(std::vector<llvm::BasicBlock * > iPDF, llvm::BasicBlock *BB);
+
 /*
  * BFS
  */

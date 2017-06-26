@@ -12,9 +12,9 @@ using namespace llvm;
 using namespace std;
 
 
-// PDF computation
 static map<BasicBlock *, set<BasicBlock *> *> pdfCache;
 
+// PDF computation
 vector<BasicBlock * >
 postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   vector<BasicBlock * > PDF;
@@ -45,7 +45,7 @@ postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
       = ChildDF.begin(), CDFE = ChildDF.end();
     for (; CDFI != CDFE; ++CDFI) {
       if (PDT[*CDFI]->getIDom() != DomNode && *CDFI!=BB){
-	PDF.push_back(*CDFI);
+				PDF.push_back(*CDFI);
       }
     }
   }
@@ -56,9 +56,9 @@ postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   return PDF;
 }
 
-// PDF+ computation
 static map<BasicBlock *, set<BasicBlock *> *> ipdfCache;
 
+// PDF+ computation
 vector<BasicBlock * > 
 iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
 
@@ -75,7 +75,8 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
     return iPDF;
 
   std::set<BasicBlock *> S;
-  S.insert(iPDF.begin(), iPDF.end());
+	// EMMA: commente pour eviter les doublons
+  //S.insert(iPDF.begin(), iPDF.end());
   std::set<BasicBlock *> toCompute;
   std::set<BasicBlock *> toComputeTmp;
   toCompute.insert(iPDF.begin(), iPDF.end());
@@ -87,10 +88,10 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
     for (auto I = toCompute.begin(), E = toCompute.end(); I != E; ++I) {
       vector<BasicBlock *> tmp = postdominance_frontier(PDT, *I);
       for (auto J = tmp.begin(), F = tmp.end(); J != F; ++J) {
-	if ((S.insert(*J)).second) {
-	  toComputeTmp.insert(*J);
-	  changed = true;
-	}
+				if ((S.insert(*J)).second) {
+	  			toComputeTmp.insert(*J);
+	  			changed = true;
+				}
       }
     }
 
@@ -105,6 +106,17 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
 
   return iPDF;
 }
+
+void
+print_iPDF(vector<BasicBlock * > iPDF, BasicBlock *BB){
+  vector<BasicBlock * >::const_iterator Bitr; 
+  errs() << "iPDF(" << BB->getName().str() << ") = {"; 
+  for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
+    errs() << "- " << (*Bitr)->getName().str() << " "; 
+	}
+  errs() << "}\n"; 
+}
+
 
 // Get the sequence of collectives for a BB
 string getCollectivesInBB(BasicBlock *BB){
@@ -182,7 +194,7 @@ void BFS(Function *F){
 				if(CollSequence_Header=="empty"){
 					N=getCollectivesInBB(Pred);
 				}else{
-        	if(getCollectivesInBB(Pred)!="empty" && N!="NAVS")
+        	if(getCollectivesInBB(Pred)!="empty") // && N!="NAVS")
         		N.append(" ").append(getCollectivesInBB(Pred));
 				}
 				CollSequence=string(N);
@@ -312,10 +324,10 @@ void instrumentFunction(Function *F)
 																string OP_name = callee->getName().str();
 																int OP_color = isCollective(callee);
 
-																// Before finalize
-																if(callee->getName().equals("MPI_Finalize")){
+																// Before finalize or abort !!
+																if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){
 																				DEBUG(errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n"); 
-																				instrumentCC(M,Inst,v_coll.size()+1, "MPI_Finalize", OP_line, Warning, File);
+																				instrumentCC(M,Inst,v_coll.size()+1, OP_name, OP_line, Warning, File);
 																				continue;
 																}
 																// Before a collective
@@ -323,11 +335,11 @@ void instrumentFunction(Function *F)
 																				DEBUG(errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n"); 
 																				instrumentCC(M,Inst,OP_color, OP_name, OP_line, Warning, File);
 																}
-																// Before a return instruction
-																if(isa<ReturnInst>(i)){
-																				DEBUG(errs() << "-> insert check before return statement line " << OP_line << "\n"); 
-																				instrumentCC(M,Inst,v_coll.size()+1, "Return", OP_line, Warning, File);
-																}
+												}
+												// Before a return instruction
+												if(isa<ReturnInst>(i)){
+													DEBUG(errs() << "-> insert check before return statement line " << OP_line << "\n"); 
+													instrumentCC(M,Inst,v_coll.size()+1, "Return", OP_line, Warning, File);
 												}
 								}
 				}

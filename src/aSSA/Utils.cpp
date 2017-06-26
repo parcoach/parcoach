@@ -575,7 +575,7 @@ void instrumentFunction(Function *F)
                                 Function *callee = CI->getCalledFunction();
                                 if(callee==NULL) continue;
                                 string OP_name = callee->getName().str();
-                                int OP_color = isCollective(callee);
+                                int OP_color = getCollectiveColor(callee);
 
                                 // Before finalize or abort !!
                                 if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){

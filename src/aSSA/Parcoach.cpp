@@ -483,7 +483,7 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
       string Seq = getBBcollSequence(*(BB->getTerminator()));
       if(Seq!="NAVS") continue;
 
-			errs() << "BB " << BB->getName().str() << " with NAVS\n"; 
+			//errs() << "BB " << BB->getName().str() << " with NAVS\n"; 
 
       isColWarningParcoach = true;
       nbCondsParcoach++;

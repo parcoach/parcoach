@@ -301,6 +301,8 @@ getWarning(Instruction &inst) {
 void instrumentFunction(Function *F)
 {
 				Module* M = F->getParent();
+				int nbInstrum=0;
+
 				//errs() << "==> Function " << F->getName() << " is instrumented:\n";
 				for(Function::iterator bb = F->begin(), e = F->end(); bb!=e; ++bb)
 				{
@@ -328,21 +330,25 @@ void instrumentFunction(Function *F)
 																if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){
 																				DEBUG(errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n"); 
 																				instrumentCC(M,Inst,v_coll.size()+1, OP_name, OP_line, Warning, File);
+																				nbInstrum++;
 																				continue;
 																}
 																// Before a collective
 																if(OP_color>=0){
 																				DEBUG(errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n"); 
 																				instrumentCC(M,Inst,OP_color, OP_name, OP_line, Warning, File);
+																				nbInstrum++;
 																}
 												}
 												// Before a return instruction
 												if(isa<ReturnInst>(i)){
 													DEBUG(errs() << "-> insert check before return statement line " << OP_line << "\n"); 
 													instrumentCC(M,Inst,v_coll.size()+1, "Return", OP_line, Warning, File);
+													nbInstrum++;
 												}
 								}
 				}
+				errs() << "# CC = " << nbInstrum << "\n";
 }
 
 

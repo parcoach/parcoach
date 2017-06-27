@@ -22,6 +22,7 @@ namespace {
     static unsigned nbCollectivesFound;
     static unsigned nbWarnings;
     static unsigned nbConds;
+    static unsigned nbCC;
 
     static unsigned nbWarningsParcoach;
     static unsigned nbCondsParcoach;
@@ -49,6 +50,7 @@ namespace {
     std::set<const llvm::BasicBlock *> parcoachNodes;
 
     void replaceOMPMicroFunctionCalls(llvm::Module &M);
+		void instrumentFunction(llvm::Function *F);
   };
 }
 

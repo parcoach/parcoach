@@ -490,7 +490,7 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG){
 // --> void check_collective_UPC(int OP_color, const char* OP_name,
 // int OP_line, char* warnings, char *FILE_name)
 void
-instrumentCC(Module *M, Instruction *I, int OP_color,std::string OP_name,
+insertCC(Module *M, Instruction *I, int OP_color,std::string OP_name,
     int OP_line, StringRef WarningMsg, StringRef File){
   IRBuilder<> builder(I);
   // Arguments of the new function
@@ -549,47 +549,4 @@ getWarning(Instruction &inst) {
   return warning;
 }
 
-
-
-void instrumentFunction(Function *F)
-{
-        Module* M = F->getParent();
-        //errs() << "==> Function " << F->getName() << " is instrumented:\n";
-        for(Function::iterator bb = F->begin(), e = F->end(); bb!=e; ++bb)
-        {
-                for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i)
-                {
-                        Instruction *Inst=&*i;
-                        string Warning = getWarning(*Inst);
-                        //string Warning = " ";
-                        // Debug info (line in the source code, file)
-                        DebugLoc DLoc = i->getDebugLoc();
-                        string File="o"; int OP_line = -1;
-                        if(DLoc){
-                                OP_line = DLoc.getLine();
-                                File=DLoc->getFilename();
-                        }
-                        // call instruction
-                        if(CallInst *CI = dyn_cast<CallInst>(i))
-                        {
-                                Function *callee = CI->getCalledFunction();
-                                if(callee==NULL) continue;
-                                string OP_name = callee->getName().str();
-                                int OP_color = getCollectiveColor(callee);
-
-                                // Before finalize or abort !!
-                                if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){
-                                        DEBUG(errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n");
-                                        instrumentCC(M,Inst,v_coll.size()+1, OP_name, OP_line, Warning, File);
-                                        continue;
-                                }
-                                // Before a collective
-                                if(OP_color>=0){
-                                        DEBUG(errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n");
-                                        instrumentCC(M,Inst,OP_color, OP_name, OP_line, Warning, File);
-                                }
-                        }
-                }
-        }
-}
 

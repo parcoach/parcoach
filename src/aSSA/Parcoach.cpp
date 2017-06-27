@@ -7,6 +7,7 @@
 #include "Parcoach.h"
 #include "PTACallGraph.h"
 #include "Collectives.h"
+#include "Utils.h"
 
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
@@ -113,6 +114,7 @@ ParcoachInstr::doFinalization(Module &M){
   errs() << "\033[0;36m==========================================\033[0;0m\n";
   errs() << ParcoachInstr::nbWarningsParcoach << " warning(s) issued\n";
   errs() << ParcoachInstr::nbCondsParcoach << " cond(s) \n";
+  errs() << ParcoachInstr::nbCC << " CC functions inserted \n";
   errs() << parcoachOnlyNodes.size() << " different cond(s)\n";
   errs() << "\033[0;36m==========================================\033[0;0m\n";
 
@@ -210,6 +212,50 @@ ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M) {
     ReplaceInstWithInst(const_cast<CallInst *>(ci), NewCI);
   }
 }
+
+
+void 
+ParcoachInstr::instrumentFunction(Function *F) {
+	Module* M = F->getParent();
+
+  for(Function::iterator bb = F->begin(), e = F->end(); bb!=e; ++bb) {
+		for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i) {
+			Instruction *Inst=&*i;
+			string Warning = getWarning(*Inst);
+			// Debug info (line in the source code, file)
+			DebugLoc DLoc = i->getDebugLoc();
+			string File="o"; int OP_line = -1;
+			if(DLoc){
+				OP_line = DLoc.getLine();
+				File=DLoc->getFilename();
+			}
+			// call instruction
+			if(CallInst *CI = dyn_cast<CallInst>(i)) {
+				Function *callee = CI->getCalledFunction();
+				if(callee==NULL) continue;
+					string OP_name = callee->getName().str();
+					int OP_color = getCollectiveColor(callee);
+
+					// Before finalize or exit/abort
+					if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){
+						errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
+						insertCC(M,Inst,v_coll.size()+1, OP_name, OP_line, Warning, File);
+						nbCC++;
+							continue;
+					}
+					// Before a collective
+					if(OP_color>=0){
+						errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
+						insertCC(M,Inst,OP_color, OP_name, OP_line, Warning, File);
+						nbCC++;
+					}
+			}
+		}
+	}
+}
+
+
+
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
@@ -545,6 +591,8 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 }
 
 
+
+
 char ParcoachInstr::ID = 0;
 
 unsigned ParcoachInstr::nbCollectivesFound = 0;
@@ -552,6 +600,8 @@ unsigned ParcoachInstr::nbWarnings = 0;
 unsigned ParcoachInstr::nbConds = 0;
 unsigned ParcoachInstr::nbWarningsParcoach = 0;
 unsigned ParcoachInstr::nbCondsParcoach = 0;
+unsigned ParcoachInstr::nbCC = 0;
+
 
 double ParcoachInstr::tstart = 0;
 double ParcoachInstr::tend = 0;

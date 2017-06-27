@@ -47,13 +47,10 @@ void BFS(llvm::Function *F, PTACallGraph *PTACG);
 
 
 void
-instrumentFunction(llvm::Function *F);
-
-void
-instrumentCC(llvm::Module *M, llvm::Instruction *I, int OP_color,
+insertCC(llvm::Module *M, llvm::Instruction *I, int OP_color,
        std::string OP_name, int OP_line, llvm::StringRef WarningMsg,
        llvm::StringRef File);
 
-
+std::string getWarning(llvm::Instruction &inst);
 
 #endif /* UTILS_H */

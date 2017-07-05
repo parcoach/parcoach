@@ -375,6 +375,23 @@ static const funcModPair funcModPairs[] = {
   {"__error", { 0, false, {} } },
   {"__memmove_chk", { 4, true, {true,true,false,false} } },
 
+  /* Functions from IOR */
+  {"\01_sleep", { 1 , false , {false} } },
+  {"\01_putenv", { 1 , false , {true} } },
+  {"statvfs", { 2, false , {true, true} } },
+  {"\01_realpath$DARWIN_EXTSN", { 2, true, {true,true} } },
+  {"\01_regcomp", { 3, false, {true,true,false} } },
+  {"\01_open", {2 ,false , {true, false} } },
+  {"lseek", { 3, false, {false,false,false} } },
+  {"\01_read", { 3, false, {false, true, false} } },
+  {"\01_write", { 3, false, {false, true, false} } },
+  {"\01_close", {1 , false , {false} } },
+  {"isspace", {1 , false, {false} } },
+  {"\01_getopt", { 3,false , {false,true,true} } },
+  {"\01_fsync", { 1,false , {false} } },
+  {"\01_stat$INODE64", {2 ,false , {true,true} } },
+
+
 
   {NULL, {0, false, {} } }
 };

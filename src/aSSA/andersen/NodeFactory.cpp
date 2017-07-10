@@ -109,6 +109,7 @@ NodeIndex AndersNodeFactory::getValueNodeForConstant(const llvm::Constant* c) co
 			case Instruction::PtrToInt:
 				return getUniversalPtrNode();
 			case Instruction::BitCast:
+			case Instruction::AddrSpaceCast:
 				return getValueNodeForConstant(ce->getOperand(0));
 			default:
 				errs() << "Constant Expr not yet handled: " << *ce << "\n";
@@ -152,6 +153,7 @@ NodeIndex AndersNodeFactory::getObjectNodeForConstant(const llvm::Constant* c) c
 			case Instruction::PtrToInt:
 				return getUniversalObjNode();
 			case Instruction::BitCast:
+			case Instruction::AddrSpaceCast:
 				return getObjectNodeForConstant(ce->getOperand(0));
 			default:
 				errs() << "Constant Expr not yet handled: " << *ce << "\n";

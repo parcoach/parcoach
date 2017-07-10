@@ -338,6 +338,20 @@ static const funcModPair funcModPairs[] = {
 				 true, false} } },
   {"cblas_dcopy", { 5 , false, {false, false, false, false, true, false} } },
 
+  /* CUDA
+   * see: http://llvm.org/docs/NVPTXUsage.html#llvm-nvvm-read-ptx-sreg
+   */
+  {"llvm.nvvm.read.ptx.sreg.tid.x", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.tid.y", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.tid.z", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ctaid.x", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ctaid.y", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ctaid.z", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ntid.x", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ntid.y", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ntid.z", 0, false, {}, },
+  {"llvm.nvvm.barrier0", 0, false, {}, },
+
   /* Functions from NAS-MPI */
   {"memset_pattern16", { 3, false, {false,false,false } } },
   {"\01_fopen", { 2, true, {false, false} } },

@@ -39,6 +39,11 @@ vector<functionArg> valueSourceFunctions =
     {"__kmpc_global_thread_num", -1},
     {"_omp_get_thread_num", -1},
     {"omp_get_thread_num", -1},
+
+    // CUDA
+    {"llvm.nvvm.read.ptx.sreg.tid.x", -1}, // threadIdx.x
+    {"llvm.nvvm.read.ptx.sreg.tid.y", -1}, // threadIdx.y
+    {"llvm.nvvm.read.ptx.sreg.tid.z", -1}, // threadIdx.z
   };
 
 vector<functionArg> resetFunctions =

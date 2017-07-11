@@ -32,6 +32,11 @@ std::vector<const char *> OMP_v_coll = {"__kmpc_barrier"};
 std::vector<const char *> UPC_v_coll = {"_upcr_wait"};
 
 
+/*
+ * CUDA COLLECTIVES
+ */
+
+std::vector<const char *> CUDA_v_coll = {"llvm.nvvm.barrier0"};
 
 
 /*
@@ -49,7 +54,7 @@ std::vector<const char *> v_coll = {
   "MPI_Iallgatherv", "MPI_Ialltoall", "MPI_Ialltoallv", "MPI_Ialltoallw",
   "MPI_Ireduce", "MPI_Iallreduce", "MPI_Ireduce_scatter_block",
   "MPI_Ireduce_scatter", "MPI_Iscan", "MPI_Iexscan","MPI_Ibcast",
-  "__kmpc_barrier", "_upcr_wait"
+  "__kmpc_barrier", "_upcr_wait", "llvm.nvvm.barrier0"
 };
 
 

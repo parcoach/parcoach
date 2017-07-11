@@ -339,7 +339,30 @@ static const funcModPair funcModPairs[] = {
 				 true, false} } },
   {"cblas_dcopy", { 5 , false, {false, false, false, false, true, false} } },
 
-  /* Functions from NAS */
+  /* CUDA
+   * see: http://llvm.org/docs/NVPTXUsage.html#llvm-nvvm-read-ptx-sreg
+   */
+  {"llvm.nvvm.read.ptx.sreg.tid.x", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.tid.y", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.tid.z", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ctaid.x", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ctaid.y", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ctaid.z", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ntid.x", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ntid.y", 0, false, {}, },
+  {"llvm.nvvm.read.ptx.sreg.ntid.z", 0, false, {}, },
+  {"llvm.nvvm.barrier0", 0, false, {}, },
+  {"llvm.nvvm.fabs.ftz.f", 1, false, {false}, },
+  {"llvm.nvvm.fabs.f", 1, false, {false}, },
+  {"llvm.nvvm.fmax.d", 2, false, {false, false}, },
+  {"llvm.nvvm.fmax.ftz.f", 2, false, {false, false}, },
+  {"llvm.nvvm.fmax.f", 2, false, {false, false}, },
+  {"llvm.nvvm.min.ui", 2, false, {false, false}, },
+  {"llvm.nvvm.fmin.ftz.f", 2, false, {false, false}, },
+  {"llvm.nvvm.fmin.f", 2, false, {false, false}, },
+  {"__nvvm_reflect", 1, false, {true}, },
+
+  /* Functions from NAS-MPI */
   {"memset_pattern16", { 3, false, {false,false,false } } },
   {"\01_fopen", { 2, true, {false, false} } },
   {"initADCpar", { 1, false , {true} } },

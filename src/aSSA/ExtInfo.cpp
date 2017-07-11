@@ -351,6 +351,15 @@ static const funcModPair funcModPairs[] = {
   {"llvm.nvvm.read.ptx.sreg.ntid.y", 0, false, {}, },
   {"llvm.nvvm.read.ptx.sreg.ntid.z", 0, false, {}, },
   {"llvm.nvvm.barrier0", 0, false, {}, },
+  {"llvm.nvvm.fabs.ftz.f", 1, false, {false}, },
+  {"llvm.nvvm.fabs.f", 1, false, {false}, },
+  {"llvm.nvvm.fmax.d", 2, false, {false, false}, },
+  {"llvm.nvvm.fmax.ftz.f", 2, false, {false, false}, },
+  {"llvm.nvvm.fmax.f", 2, false, {false, false}, },
+  {"llvm.nvvm.min.ui", 2, false, {false, false}, },
+  {"llvm.nvvm.fmin.ftz.f", 2, false, {false, false}, },
+  {"llvm.nvvm.fmin.f", 2, false, {false, false}, },
+  {"__nvvm_reflect", 1, false, {true}, },
 
   /* Functions from NAS-MPI */
   {"memset_pattern16", { 3, false, {false,false,false } } },

@@ -4,6 +4,7 @@
 #include "MemoryRegion.h"
 #include "MemorySSA.h"
 #include "ModRefAnalysis.h"
+#include "Options.h"
 #include "Parcoach.h"
 #include "PTACallGraph.h"
 #include "Collectives.h"
@@ -30,49 +31,6 @@
 using namespace llvm;
 using namespace std;
 
-static cl::OptionCategory ParcoachCategory("Parcoach options");
-
-static cl::opt<bool> optDumpSSA("dump-ssa",
-				cl::desc("Dump the all-inclusive SSA"),
-				cl::cat(ParcoachCategory));
-static cl::opt<string> optDumpSSAFunc("dump-ssa-func",
-				      cl::desc("Dump the all-inclusive SSA " \
-					       "for a particular function."),
-				      cl::cat(ParcoachCategory));
-static cl::opt<bool> optDotGraph("dot-depgraph",
-				 cl::desc("Dot the dependency graph to dg.dot"),
-				 cl::cat(ParcoachCategory));
-static cl::opt<bool> optDumpRegions("dump-regions",
-				    cl::desc("Dump the regions found by the " \
-					     "Andersen PTA"),
-				    cl::cat(ParcoachCategory));
-static cl::opt<bool> optDumpModRef("dump-modref",
-				   cl::desc("Dump the mod/ref analysis"),
-				   cl::cat(ParcoachCategory));
-static cl::opt<bool> optTimeStats("timer",
-				  cl::desc("Print timers"),
-				  cl::cat(ParcoachCategory));
-static cl::opt<bool> optDisablePhiElim("disable-phi-elim",
-				       cl::desc("Disable Phi elimination pass"),
-				       cl::cat(ParcoachCategory));
-static cl::opt<bool> optDotTaintPaths("dot-taint-paths",
-				      cl::desc("Dot taint path of each " \
-					       "conditions of tainted "	\
-					       "collectives."),
-				      cl::cat(ParcoachCategory));
-static cl::opt<bool> optStats("statistics", cl::desc("print statistics"),
-			      cl::cat(ParcoachCategory));
-
-cl::opt<bool> optNoRegName("no-reg-name",
-				  cl::desc("Do not compute names of regions"),
-				  cl::cat(ParcoachCategory));
-cl::opt<bool> optContextSensitive("context-sensitive",
-				  cl::desc("Context sensitive version of " \
-					   "flooding."),
-				  cl::cat(ParcoachCategory));
-static cl::opt<bool> optNoInstrum("no-instrumentation",
-        cl::desc("No static instrumentation"),
-        cl::cat(ParcoachCategory));
 
 
 
@@ -90,6 +48,9 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
 
 bool
 ParcoachInstr::doInitialization(Module &M) {
+  getOptions();
+  initCollectives();
+
   tstart = gettime();
 
   return true;
@@ -388,6 +349,7 @@ ParcoachInstr::runOnModule(Module &M) {
   // Compute dep graph.
   tstart_depgraph = gettime();
   DepGraph *DG = new DepGraph(&MSSA, &PTACG, this);
+
   counter = 0;
   for (Function &F : M) {
     if (!PTACG.isReachableFromEntry(&F))
@@ -536,17 +498,13 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
       // Is this condition tainted?
       const Value *cond = getBasicBlockCond(BB);
 
-      //if (!cond || !DG->isTaintedValue(cond)) continue;
-			// DEBUG INFO
+      if (!cond || (!optNoDataFlow && DG->isTaintedValue(cond)) ) {
+	const Instruction *instE = BB->getTerminator();
+	DebugLoc locE = instE->getDebugLoc();
+	//errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";
+	continue;
+      }
 
-			// Comment for PARCOACH inter-procedural Analysis without data-flow
-      //if (!cond || !DG->isTaintedValue(cond)){
-      if (!cond ){
-					const Instruction *instE = BB->getTerminator();
-      		DebugLoc locE = instE->getDebugLoc();
-					//errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";
-				 continue;
-			}
       isColWarning = true;
       nbConds++;
 

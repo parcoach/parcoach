@@ -16,6 +16,7 @@ add_llvm_loadable_module( LLVMaSSA
 	MemoryRegion.cpp
 	MemorySSA.cpp
 	ModRefAnalysis.cpp
+	Options.cpp
 	Parcoach.cpp
 	PTACallGraph.cpp
 	Utils.cpp

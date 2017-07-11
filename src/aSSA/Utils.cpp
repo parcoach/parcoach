@@ -512,20 +512,15 @@ insertCC(Module *M, Instruction *I, int OP_color,std::string OP_name,
   Value * CallArgs[] = {ConstantInt::get(Type::getInt32Ty(M->getContext()), OP_color), strPtr_NAME, ConstantInt::get(Type::getInt32Ty(M->getContext()), OP_line), strPtr_WARNINGS, strPtr_FILENAME};
   std::string FunctionName;
 
-  if(OP_color == (int) v_coll.size()+1){
-    FunctionName="check_collective_return";
-  }else{
-    if(OP_color < (int) MPI_v_coll.size()){
-      FunctionName="check_collective_MPI";
-    }else{
-      if( OP_color < ((int) MPI_v_coll.size() + OMP_v_coll.size())){
-        FunctionName="check_collective_OMP";
-      }else{
-        FunctionName="check_collective_UPC";
-      }
-    }
+  if (isMpiCollective(OP_color)) {
+    FunctionName = "check_collective_MPI";
+  } else if (isOmpCollective(OP_color)) {
+    FunctionName = "check_collective_OMP";
+  } else if (isUpcCollective(OP_color)) {
+    FunctionName = "check_collective_UPC";
+  } else {
+    FunctionName = "check_collective_return";
   }
-
 
   Value * CCFunction = M->getOrInsertFunction(FunctionName, FTy);
   // Create new function

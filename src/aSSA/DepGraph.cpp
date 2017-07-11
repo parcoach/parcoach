@@ -1,4 +1,5 @@
 #include "DepGraph.h"
+#include "Options.h"
 #include "Utils.h"
 
 #include "llvm/Analysis/PostDominators.h"
@@ -14,57 +15,71 @@
 using namespace llvm;
 using namespace std;
 
-static cl::opt<bool> optStrongUpdate("strong-update",
-				     cl::desc("Strong update"));
-static cl::opt<bool> optNoPtrDep("no-ptr-dep",
-				     cl::desc("No dependency with pointer for load/store"));
-static cl::opt<bool> optNoPred("no-phi-pred",
-				     cl::desc("No dependency with phi predicatesd"));
 
 struct functionArg {
+  functionArg(string name, int arg) : name(name), arg(arg) {}
   string name;
   int arg;
 };
 
-vector<functionArg> ssaSourceFunctions =
-  {
-    // MPI
-    {"MPI_Comm_rank", 1},
-    {"MPI_Group_rank", 1}
-  };
-
-vector<functionArg> valueSourceFunctions =
-  {
-    // OMP
-    {"__kmpc_global_thread_num", -1},
-    {"_omp_get_thread_num", -1},
-    {"omp_get_thread_num", -1},
-
-    // CUDA
-    {"llvm.nvvm.read.ptx.sreg.tid.x", -1}, // threadIdx.x
-    {"llvm.nvvm.read.ptx.sreg.tid.y", -1}, // threadIdx.y
-    {"llvm.nvvm.read.ptx.sreg.tid.z", -1}, // threadIdx.z
-  };
-
-vector<functionArg> resetFunctions =
-  {
-    {"MPI_Bcast", 0},
-    {"MPI_Allgather", 3},
-    {"MPI_Allgatherv", 3},
-    {"MPI_Alltoall", 3},
-    {"MPI_Alltoallv", 4},
-    {"MPI_Alltoallw", 4},
-    {"MPI_Allreduce", 1},
-  };
+vector<functionArg> ssaSourceFunctions;
+vector<functionArg> valueSourceFunctions;
+vector<const char *> loadValueSources;
+vector<functionArg> resetFunctions;
 
 
 DepGraph::DepGraph(MemorySSA *mssa, PTACallGraph *CG, Pass *pass)
   : mssa(mssa), CG(CG), pass(pass),
     buildGraphTime(0), phiElimTime(0),
     floodDepTime(0), floodCallTime(0),
-    dotTime(0) {}
+    dotTime(0) {
+
+  if (optMpiTaint)
+    enableMPI();
+  if (optOmpTaint)
+    enableOMP();
+  if (optUpcTaint)
+    enableUPC();
+  if (optCudaTaint)
+    enableCUDA();
+}
 
 DepGraph::~DepGraph() {}
+
+void
+DepGraph::enableMPI() {
+  resetFunctions.push_back(functionArg("MPI_Bcast", 0));
+  resetFunctions.push_back(functionArg("MPI_Allgather", 3));
+  resetFunctions.push_back(functionArg("MPI_Allgatherv", 3));
+  resetFunctions.push_back(functionArg("MPI_Alltoall", 3));
+  resetFunctions.push_back(functionArg("MPI_Alltoallv", 4));
+  resetFunctions.push_back(functionArg("MPI_Alltoallw", 4));
+  resetFunctions.push_back(functionArg("MPI_Allreduce", 1));
+  ssaSourceFunctions.push_back(functionArg("MPI_Comm_rank", 1));
+  ssaSourceFunctions.push_back(functionArg("MPI_Group_rank", 1));
+}
+
+void
+DepGraph::enableOMP() {
+  valueSourceFunctions.push_back(functionArg("__kmpc_global_thread_num", -1));
+  valueSourceFunctions.push_back(functionArg("_omp_get_thread_num", -1));
+  valueSourceFunctions.push_back(functionArg("omp_get_thread_num", -1));
+}
+
+void
+DepGraph::enableUPC() {
+  loadValueSources.push_back("gasneti_mynode");
+}
+
+void
+DepGraph::enableCUDA() {
+  valueSourceFunctions.
+    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.x", -1)); // threadIdx.x
+  valueSourceFunctions.
+    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.y", -1)); // threadIdx.y
+  valueSourceFunctions.
+    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.z", -1)); // threadIdx.z
+}
 
 void
 DepGraph::buildFunction(const llvm::Function *F) {
@@ -322,11 +337,15 @@ DepGraph::visitLoadInst(llvm::LoadInst &I) {
     addEdge(mu->var, &I);
   }
 
-  // UPC rank source
-  if (I.getPointerOperand()->getName().equals("gasneti_mynode")) {
-    for (MSSAMu *mu : mssa->loadToMuMap[&I]) {
-      assert(mu && mu->var);
-      ssaSources.insert(mu->var);
+  // Load value rank source
+  for (unsigned i=0; i<loadValueSources.size(); i++) {
+    if (I.getPointerOperand()->getName().equals(loadValueSources[i])) {
+      for (MSSAMu *mu : mssa->loadToMuMap[&I]) {
+	assert(mu && mu->var);
+	ssaSources.insert(mu->var);
+      }
+
+      break;
     }
   }
 

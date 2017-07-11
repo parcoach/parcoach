@@ -96,6 +96,11 @@ private:
   std::map<MSSAVar *, VarSet> ssaToSSAChildren;
   std::map<MSSAVar *, VarSet> ssaToSSAParents;
 
+  void enableMPI();
+  void enableOMP();
+  void enableUPC();
+  void enableCUDA();
+
   void addEdge(const llvm::Value *s, const llvm::Value *d);
   void addEdge(const llvm::Value *s, MSSAVar *d);
   void addEdge(MSSAVar *s, const llvm::Value *d);

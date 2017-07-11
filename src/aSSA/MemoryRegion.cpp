@@ -1,4 +1,5 @@
 #include "MemoryRegion.h"
+#include "Options.h"
 
 #include "llvm/Support/raw_ostream.h"
 
@@ -6,8 +7,6 @@
 
 using namespace std;
 using namespace llvm;
-
-extern cl::opt<bool> optNoRegName;
 
 map<const llvm::Value *, MemReg *> MemReg::valueToRegMap;
 unsigned MemReg::count = 0;

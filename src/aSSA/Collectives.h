@@ -6,12 +6,13 @@
 #include <vector>
 
 extern std::vector<const char*> v_coll;
-extern std::vector<const char*> MPI_v_coll;
-extern std::vector<const char*> OMP_v_coll;
-extern std::vector<const char*> UPC_v_coll;
-extern std::vector<const char*> CUDA_v_coll;
 
+void initCollectives();
 bool isCollective(const llvm::Function *F);
 int getCollectiveColor(const llvm::Function *F);
+bool isMpiCollective(int color);
+bool isOmpCollective(int color);
+bool isUpcCollective(int color);
+bool isCudaCollective(int color);
 
 #endif /* COLLECTIVES_H */

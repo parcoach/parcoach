@@ -154,6 +154,9 @@ ParcoachInstr::runOnFunction(Function &F) {
 	// (2) Check calls to collectives with PDF+ of each collective node
 	checkCollectives(F,PDT);
 
+
+
+
 	if(ParcoachInstr::nbCollectivesFound != 0) {
 		errs() << "\n\033[0;36m==========================================\033[0;0m\n";
 		errs() << "\033[0;36m==========  PARCOACH STATISTICS ==========\033[0;0m\n";

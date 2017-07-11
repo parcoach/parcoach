@@ -299,7 +299,8 @@ static const funcModPair funcModPairs[] = {
   {"omp_get_wtime", { 0, false , {}} },
   {"__kmpc_dispatch_init_4", {7 ,false , {true, false,false,false,false,false,false}} },
   {"__kmpc_dispatch_next_4", {6 ,false , {true, false, true,true,true,true}} },
-  //{"", { , , {}} },
+  {"__kmpc_critical", { 3, false, {true, false, true}} },
+  {"__kmpc_end_critical", { 3, false, {true, false, true}} },
 
 
 	/* UPC */
@@ -338,9 +339,19 @@ static const funcModPair funcModPairs[] = {
 				 true, false} } },
   {"cblas_dcopy", { 5 , false, {false, false, false, false, true, false} } },
 
-  /* Functions from NAS-MPI */
+  /* Functions from NAS */
   {"memset_pattern16", { 3, false, {false,false,false } } },
   {"\01_fopen", { 2, true, {false, false} } },
+  {"initADCpar", { 1, false , {true} } },
+  {"ParseParFile", { 2 ,false , {true,true} } },
+  {"ShowADCPar", { 1, false, {true} } },
+  {"GenerateADC", {1 ,false , {false} } },
+  {"NewAdcViewCntl", {2 , true, {true, false} } },
+  {"PartitionCube", { 1, false, {true} } },
+  {"ComputeGivenGroupbys", {1 ,false , {true} } },
+  {"CloseAdcView", {1 ,false , {true} } },
+
+
 
   /* Functions from Coral AMG */
 	{"\01_strtod",{ 2, false, {false, true} }},	
@@ -392,6 +403,11 @@ static const funcModPair funcModPairs[] = {
   {"\01_stat$INODE64", {2 ,false , {true,true} } },
 
 
+  /* Functions from CoMD */
+  {"__assert_rtn", { 4 , false , {true,true,false,true} } },
+
+  /* Functions from miniAMR */
+  {"__exp10", { 1 , false , {false } } },
 
   {NULL, {0, false, {} } }
 };

@@ -529,8 +529,6 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
       string Seq = getBBcollSequence(*(BB->getTerminator()));
       if(Seq!="NAVS") continue;
 
-			//errs() << "BB " << BB->getName().str() << " with NAVS\n"; 
-
       isColWarningParcoach = true;
       nbCondsParcoach++;
       parcoachOnlyNodes.insert(BB);
@@ -540,7 +538,10 @@ void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
 
       //if (!cond || !DG->isTaintedValue(cond)) continue;
 			// DEBUG INFO
-      if (!cond || !DG->isTaintedValue(cond)){
+
+			// Comment for PARCOACH inter-procedural Analysis without data-flow
+      //if (!cond || !DG->isTaintedValue(cond)){
+      if (!cond ){
 					const Instruction *instE = BB->getTerminator();
       		DebugLoc locE = instE->getDebugLoc();
 					//errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";

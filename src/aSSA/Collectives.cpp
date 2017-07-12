@@ -74,6 +74,9 @@ bool isCollective(const llvm::Function *F) {
 }
 
 bool isMpiCollective(int color) {
+  if (color >= v_coll.size())
+    return false;
+
   for (unsigned i=0; i<MPI_v_coll.size(); ++i) {
     if (!strcmp(v_coll[color], MPI_v_coll[i]))
       return true;
@@ -83,6 +86,9 @@ bool isMpiCollective(int color) {
 }
 
 bool isOmpCollective(int color) {
+  if (color >= v_coll.size())
+    return false;
+
   for (unsigned i=0; i<OMP_v_coll.size(); ++i) {
     if (!strcmp(v_coll[color], OMP_v_coll[i]))
       return true;
@@ -92,6 +98,9 @@ bool isOmpCollective(int color) {
 }
 
 bool isUpcCollective(int color) {
+  if (color >= v_coll.size())
+    return false;
+
   for (unsigned i=0; i<UPC_v_coll.size(); ++i) {
     if (!strcmp(v_coll[color], UPC_v_coll[i]))
       return true;
@@ -101,6 +110,9 @@ bool isUpcCollective(int color) {
 }
 
 bool isCudaCollective(int color) {
+  if (color >= v_coll.size())
+    return false;
+
   for (unsigned i=0; i<CUDA_v_coll.size(); ++i) {
     if (!strcmp(v_coll[color], CUDA_v_coll[i]))
       return true;

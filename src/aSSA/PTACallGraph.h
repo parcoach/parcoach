@@ -50,7 +50,7 @@ public:
   ~PTACallGraph();
 
   PTACallGraphNode *getEntry() const {
-    return ProgEntry;
+    return Root;
   }
 
   std::map<const llvm::Instruction *, std::set<const llvm::Function *> >

@@ -2352,10 +2352,39 @@ DepGraph::computeTaintedValuesContextSensitive() {
   unsigned funcToCallSitesSize = funcToCallSites.size();
   unsigned callsiteToCondsSize = callsiteToConds.size();
 
-  vector<PTACallGraphNode *> S;
+  PTACallGraphNode *entry = CG->getEntry();
+  if (entry->getFunction()) {
+    computeTaintedValuesCSForEntry(entry);
+  } else {
+    for (auto I = entry->begin(), E = entry->end(); I != E; ++I) {
+      PTACallGraphNode *calleeNode = I->second;
+      computeTaintedValuesCSForEntry(calleeNode);
+    }
+  }
+
+  assert(funcToLLVMNodesMapSize == funcToLLVMNodesMap.size());
+  assert(funcToSSANodesMapSize == funcToSSANodesMap.size());
+  assert(varArgNodeSize == varArgNodes.size());
+  assert(llvmToLLVMChildrenSize == llvmToLLVMChildren.size());
+  assert(llvmToLLVMParentsSize == llvmToLLVMParents.size());
+  assert(llvmToSSAChildrenSize == llvmToSSAChildren.size());
+  assert(llvmToSSAParentsSize == llvmToSSAParents.size());
+  assert(ssaToLLVMChildrenSize == ssaToLLVMChildren.size());
+  assert(ssaToLLVMParentsSize == ssaToLLVMParents.size());
+  assert(ssaToSSAChildrenSize == ssaToSSAChildren.size());
+  assert(ssaToSSAParentsSize == ssaToSSAParents.size());
+  assert(funcToCallNodesSize == funcToCallNodes.size());
+  assert(callToFuncEdgesSize == callToFuncEdges.size());
+  assert(condToCallEdgesSize == condToCallEdges.size());
+  assert(funcToCallSitesSize == funcToCallSites.size());
+  assert(callsiteToCondsSize == callsiteToConds.size());
+}
+
+void
+DepGraph::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
+ vector<PTACallGraphNode *> S;
 
   map<PTACallGraphNode *, set<PTACallGraphNode *> > node2VisitedChildrenMap;
-  PTACallGraphNode *entry = CG->getEntry();
   S.push_back(entry);
 
   bool goingDown = true;
@@ -2434,21 +2463,4 @@ DepGraph::computeTaintedValuesContextSensitive() {
 
     prev = N->getFunction();
   }
-
-  assert(funcToLLVMNodesMapSize == funcToLLVMNodesMap.size());
-  assert(funcToSSANodesMapSize == funcToSSANodesMap.size());
-  assert(varArgNodeSize == varArgNodes.size());
-  assert(llvmToLLVMChildrenSize == llvmToLLVMChildren.size());
-  assert(llvmToLLVMParentsSize == llvmToLLVMParents.size());
-  assert(llvmToSSAChildrenSize == llvmToSSAChildren.size());
-  assert(llvmToSSAParentsSize == llvmToSSAParents.size());
-  assert(ssaToLLVMChildrenSize == ssaToLLVMChildren.size());
-  assert(ssaToLLVMParentsSize == ssaToLLVMParents.size());
-  assert(ssaToSSAChildrenSize == ssaToSSAChildren.size());
-  assert(ssaToSSAParentsSize == ssaToSSAParents.size());
-  assert(funcToCallNodesSize == funcToCallNodes.size());
-  assert(callToFuncEdgesSize == callToFuncEdges.size());
-  assert(condToCallEdgesSize == condToCallEdges.size());
-  assert(funcToCallSitesSize == funcToCallSites.size());
-  assert(callsiteToCondsSize == callsiteToConds.size());
 }

@@ -56,6 +56,7 @@ public:
 
   void computeTaintedValuesContextInsensitive();
   void computeTaintedValuesContextSensitive();
+  void computeTaintedValuesCSForEntry(PTACallGraphNode *entry);
   bool isTaintedValue(const llvm::Value *v);
 
   void getCallInterIPDF(const llvm::CallInst *call,

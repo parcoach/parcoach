@@ -57,7 +57,6 @@ ParcoachInstr::doInitialization(Module &M) {
   return true;
 }
 
-
 bool
 ParcoachInstr::doFinalization(Module &M) {
   tend = gettime();
@@ -72,6 +71,29 @@ ParcoachInstr::doFinalization(Module &M) {
       errs() << PAInter->getNbWarnings() << " warning(s) issued\n";
       errs() << PAInter->getNbConds() << " cond(s) \n";
       errs() << PAInter->getConditionSet().size() << " different cond(s)\n";
+
+      unsigned intersectionSize;
+      int nbAdded;
+      int nbRemoved;
+      intersectionSize
+	= getBBSetIntersectionSize(PAInter->getConditionSet(),
+				   PAInter->getConditionSetParcoachOnly());
+
+      nbAdded = PAInter->getConditionSet().size() - intersectionSize;
+      nbRemoved = PAInter->getConditionSetParcoachOnly().size()
+	- intersectionSize;
+      errs() << nbAdded << " condition(s) added and " << nbRemoved
+	     << " condition(s) removed with dep analysis.\n";
+
+      intersectionSize
+	= getInstSetIntersectionSize(PAInter->getWarningSet(),
+				     PAInter->getWarningSetParcoachOnly());
+
+      nbAdded = PAInter->getWarningSet().size() - intersectionSize;
+      nbRemoved = PAInter->getWarningSetParcoachOnly().size()
+	- intersectionSize;
+      errs() << nbAdded << " warning(s) added and " << nbRemoved
+	     << " warning(s) removed with dep analysis.\n";
     }
 
     errs() << "\n\033[0;36m==========================================\033[0;0m\n";
@@ -79,8 +101,36 @@ ParcoachInstr::doFinalization(Module &M) {
     errs() << "\033[0;36m==========================================\033[0;0m\n";
     errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
     errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
+    errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
     errs() << PAInter->getNbCC() << " CC functions inserted \n";
     errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
+
+    if (PAIntra) {
+      unsigned intersectionSize;
+      int nbAdded;
+      int nbRemoved;
+      intersectionSize
+	= getBBSetIntersectionSize(PAInter->getConditionSetParcoachOnly(),
+				   PAIntra->getConditionSetParcoachOnly());
+
+      nbAdded = PAInter->getConditionSetParcoachOnly().size() -
+	intersectionSize;
+      nbRemoved = PAIntra->getConditionSetParcoachOnly().size()
+	- intersectionSize;
+      errs() << nbAdded << " condition(s) added and " << nbRemoved
+	     << " condition(s) removed compared to intra analysis.\n";
+
+      intersectionSize
+	= getInstSetIntersectionSize(PAInter->getWarningSetParcoachOnly(),
+				     PAIntra->getWarningSetParcoachOnly());
+
+      nbAdded = PAInter->getWarningSetParcoachOnly().size() - intersectionSize;
+      nbRemoved = PAIntra->getWarningSetParcoachOnly().size()
+	- intersectionSize;
+      errs() << nbAdded << " warning(s) added and " << nbRemoved
+	     << " warning(s) removed compared to intra analysis.\n";
+    }
+
     errs() << "\033[0;36m==========================================\033[0;0m\n";
   }
 

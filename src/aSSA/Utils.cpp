@@ -290,4 +290,27 @@ bool functionDoesNotRet(const llvm::Function *F) {
   return true;
 }
 
+unsigned getBBSetIntersectionSize(const std::set<const BasicBlock *> S1,
+				  const std::set<const BasicBlock *> S2) {
+  unsigned ret = 0;
+
+  for (const BasicBlock *BB : S1) {
+    if (S2.find(BB) != S2.end())
+      ret++;
+  }
+
+  return ret;
+}
+
+unsigned getInstSetIntersectionSize(const std::set<const Instruction *> S1,
+				    const std::set<const Instruction *> S2) {
+  unsigned ret = 0;
+
+  for (const Instruction *I : S1) {
+    if (S2.find(I) != S2.end())
+      ret++;
+  }
+
+  return ret;
+}
 

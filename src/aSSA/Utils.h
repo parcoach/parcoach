@@ -35,4 +35,10 @@ bool functionDoesNotRet(const llvm::Function *F);
 
 const llvm::Value *getBasicBlockCond(const llvm::BasicBlock *BB);
 
+unsigned getBBSetIntersectionSize(const std::set<const llvm::BasicBlock *> S1,
+				  const std::set<const llvm::BasicBlock *> S2);
+
+unsigned getInstSetIntersectionSize(const std::set<const llvm::Instruction *> S1,
+				    const std::set<const llvm::Instruction *> S2);
+
 #endif /* UTILS_H */

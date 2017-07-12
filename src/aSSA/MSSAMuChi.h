@@ -16,6 +16,7 @@ class MSSADef {
     PHI,
     CALL,
     STORE,
+    SYNC,
     CHI,
     ENTRY,
 
@@ -147,6 +148,17 @@ public:
 
   static inline bool classof(const MSSADef *m) {
     return m->type == STORE;
+  }
+};
+
+class MSSASyncChi : public MSSAChi {
+public:
+  MSSASyncChi(MemReg *region, const llvm::Instruction *inst)
+    : MSSAChi(region, SYNC), inst(inst) {}
+  const llvm::Instruction *inst;
+
+  static inline bool classof(const MSSADef *m) {
+    return m->type == SYNC;
   }
 };
 

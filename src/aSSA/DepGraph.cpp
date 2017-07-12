@@ -263,19 +263,6 @@ DepGraph::buildFunction(const llvm::Function *F) {
 	ssaSources.insert(I.second[argNo]->var);
       }
     }
-
-    // Reset functions
-    for (unsigned i=0; i<resetFunctions.size(); ++i) {
-      if (!F->getName().equals(resetFunctions[i].name))
-	continue;
-      for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
-	CallSite CS = I.first;
-	unsigned argNo = resetFunctions[i].arg;
-	MSSAChi *argOutChi = mssa->extCallSiteToArgExitChi[F][CS][argNo];
-	taintResetSSANodes.insert(argOutChi->var);
-      }
-      break;
-    }
   }
 
   double t2 = gettime();
@@ -525,6 +512,16 @@ DepGraph::visitCallInst(llvm::CallInst &I) {
       }
     }
   }
+
+  // Sync CHI
+  for (MSSAChi *chi : mssa->callSiteToSyncChiMap[CallSite(&I)]) {
+    assert(chi && chi->var && chi->opVar);
+    funcToSSANodesMap[curFunc].insert(chi->var);
+    funcToSSANodesMap[curFunc].insert(chi->opVar);
+
+    addEdge(chi->opVar, chi->var);
+    taintResetSSANodes.insert(chi->var);
+  }
 }
 
 void
@@ -614,6 +611,17 @@ DepGraph::connectCSChis(llvm::CallInst &I) {
 	// rule5
 	assert(mssa->extCallSiteToArgExitChi[called][CS][argNo]);
 	addEdge(mssa->extCallSiteToArgExitChi[called][CS][argNo]->var, chi->var);
+
+	// Reset functions
+	for (unsigned i=0; i<resetFunctions.size(); ++i) {
+	  if (!called->getName().equals(resetFunctions[i].name))
+	    continue;
+
+	  if ((int) argNo != resetFunctions[i].arg)
+	    continue;
+
+	  taintResetSSANodes.insert(chi->var);
+	}
       }
 
       continue;
@@ -1048,20 +1056,12 @@ DepGraph::computeTaintedValuesContextInsensitive() {
       MSSAVar *s = varToVisit.front();
       varToVisit.pop();
 
+      if (taintResetSSANodes.find(s) != taintResetSSANodes.end())
+	continue;
+
       if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
 	for (MSSAVar *d : ssaToSSAChildren[s]) {
 	  if (taintedSSANodes.count(d) != 0)
-	    continue;
-
-	  bool isReset = false;
-	  for (const MSSAVar *resetVar : taintResetSSANodes) {
-	    if (ssaToSSAParents.find(d) == ssaToSSAParents.end())
-	      continue;
-	    if (ssaToSSAParents[d].find(const_cast<MSSAVar *>(resetVar))
-		!= ssaToSSAParents[d].end())
-	      isReset = true;
-	  }
-	  if (isReset)
 	    continue;
 
 	  taintedSSANodes.insert(d);
@@ -2143,6 +2143,9 @@ DepGraph::floodFunction(const Function *F) {
       MSSAVar *s = varToVisit.front();
       varToVisit.pop();
 
+      if (taintResetSSANodes.find(s) != taintResetSSANodes.end())
+	continue;
+
       if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
 	for (MSSAVar *d : ssaToSSAChildren[s]) {
 	  if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
@@ -2151,15 +2154,6 @@ DepGraph::floodFunction(const Function *F) {
 	  if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
 	    continue;
 	  if (taintedSSANodes.count(d) != 0)
-	    continue;
-
-	  bool isReset = false;
-	  for (const MSSAVar *resetVar : taintResetSSANodes) {
-	    if (ssaToSSAParents[d].find(const_cast<MSSAVar *>(resetVar))
-		!= ssaToSSAParents[d].end())
-	      isReset = true;
-	  }
-	  if (isReset)
 	    continue;
 
 	  taintedSSANodes.insert(d);

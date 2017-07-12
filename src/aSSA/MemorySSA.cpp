@@ -1,5 +1,7 @@
+#include "MemoryRegion.h"
 #include "MemorySSA.h"
 #include "ModRefAnalysis.h"
+#include "Options.h"
 #include "Utils.h"
 
 #include "llvm/IR/InstIterator.h"
@@ -161,6 +163,17 @@ void
 MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
 					 Function *callee) {
   CallSite cs(const_cast<Instruction *>(inst));
+
+  // If the called function is a synchronization, create an artificial CHI for
+  // each shared region.
+  if (optCudaTaint && callee->getName().equals("llvm.nvvm.barrier0")) {
+    for (MemReg *r : MemReg::getSharedRegions()) {
+      callSiteToSyncChiMap[cs].insert(new MSSASyncChi(r, inst));
+      regDefToBBMap[r].insert(inst->getParent());
+      usedRegs.insert(r);
+    }
+    return;
+  }
 
   // If the callee is a declaration (external function), we create a Mu
   // for each pointer argument and a Chi for each modified argument.
@@ -371,6 +384,15 @@ MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
       for (MSSAMu *mu : callSiteToMuMap[cs])
 	mu->var = S[mu->region].back();
 
+      for (MSSAChi *chi : callSiteToSyncChiMap[cs]) {
+	MemReg *V = chi->region;
+	unsigned i = C[V];
+	chi->var = new MSSAVar(chi, i, inst->getParent());
+	chi->opVar = S[V].back();
+	S[V].push_back(chi->var);
+	C[V]++;
+      }
+
       for (MSSAChi *chi : callSiteToChiMap[cs]) {
 	MemReg *V = chi->region;
 	unsigned i = C[V];
@@ -445,6 +467,11 @@ MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
 
     if (isa<CallInst>(inst)) {
       CallSite cs(const_cast<Instruction *>(inst));
+
+      for (MSSAChi *chi : callSiteToSyncChiMap[cs]) {
+	MemReg *V = chi->region;
+	S[V].pop_back();
+      }
 
       for (MSSAChi *chi : callSiteToChiMap[cs]) {
 	MemReg *V = chi->region;
@@ -652,6 +679,11 @@ MemorySSA::dumpMSSA(const llvm::Function *F) {
 		 << ")\n";
 
 	for (MSSAChi *chi : callSiteToChiMap[cs])
+	  stream << chi->region->getName() << chi->var->version << " = "
+		 << "  X(" << chi->region->getName() << chi->opVar->version
+		 << ")\n";
+
+	for (MSSAChi *chi : callSiteToSyncChiMap[cs])
 	  stream << chi->region->getName() << chi->var->version << " = "
 		 << "  X(" << chi->region->getName() << chi->opVar->version
 		 << ")\n";

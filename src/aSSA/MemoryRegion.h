@@ -19,7 +19,9 @@ protected:
   MemReg(const llvm::Value *value);
   ~MemReg() {}
   static std::map<const llvm::Value *, MemReg *> valueToRegMap;
+  static std::set<MemReg *> sharedRegions;
   const llvm::Value *value;
+  bool isShared;
 
 public:
   std::string getName() const;
@@ -29,6 +31,7 @@ public:
   static MemReg *getValueRegion(const llvm::Value *v);
   static void getValuesRegion(std::vector<const llvm::Value *> &ptsSet,
 			      std::vector<MemReg *> &regs);
+  static const std::set<MemReg *> & getSharedRegions();
 };
 
 

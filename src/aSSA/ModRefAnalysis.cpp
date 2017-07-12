@@ -1,4 +1,5 @@
 #include "ModRefAnalysis.h"
+#include "Options.h"
 
 #include "llvm/ADT/SCCIterator.h"
 
@@ -59,6 +60,18 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   assert(CS.isCall());
   CallInst *CI = cast<CallInst>(CS.getInstruction());
   const Function *callee = CI->getCalledFunction();
+
+
+  // In CUDA after a synchronization, all region in shared memory are written.
+  if (optCudaTaint) {
+    if (callee && callee->getName().equals("llvm.nvvm.barrier0")) {
+      for (MemReg *r : MemReg::getSharedRegions()) {
+	if (globalKillSet.find(r) != globalKillSet.end())
+	  continue;
+	funcModMap[curFunc].insert(r);
+      }
+    }
+  }
 
   // indirect call
   if (!callee) {

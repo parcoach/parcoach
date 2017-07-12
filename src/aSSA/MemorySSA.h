@@ -121,6 +121,7 @@ protected:
   StoreToChiMap storeToChiMap;
   CallSiteToMuSetMap callSiteToMuMap;
   CallSiteToChiSetMap callSiteToChiMap;
+  CallSiteToChiSetMap callSiteToSyncChiMap;
   BBToPhiMap bbToPhiMap;
   FunToEntryChiMap funToEntryChiMap;
   FunToReturnMuMap funToReturnMuMap;

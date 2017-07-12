@@ -8,6 +8,7 @@
 #define PARCOACH_H
 
 #include "PTACallGraph.h"
+#include "ParcoachAnalysisInter.h"
 
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
@@ -19,13 +20,6 @@ namespace {
   class ParcoachInstr : public llvm::ModulePass {
   public:
     static char ID;
-    static unsigned nbCollectivesFound;
-    static unsigned nbWarnings;
-    static unsigned nbConds;
-    static unsigned nbCC;
-
-    static unsigned nbWarningsParcoach;
-    static unsigned nbCondsParcoach;
 
     /* timers */
     static double tstart, tend,
@@ -39,18 +33,15 @@ namespace {
       tstart_parcoach, tend_parcoach;
     ParcoachInstr();
 
-    virtual void checkCollectives(llvm::Function *F, DepGraph *DG);
     virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
     virtual bool doInitialization(llvm::Module &M);
     virtual bool doFinalization(llvm::Module &M);
     virtual bool runOnModule(llvm::Module &M);
 
   private:
-    std::set<const llvm::BasicBlock *> parcoachOnlyNodes;
-    std::set<const llvm::BasicBlock *> parcoachNodes;
+    ParcoachAnalysisInter *PAInter;
 
     void replaceOMPMicroFunctionCalls(llvm::Module &M);
-		void instrumentFunction(llvm::Function *F);
   };
 }
 

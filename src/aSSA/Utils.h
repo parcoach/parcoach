@@ -35,22 +35,4 @@ bool functionDoesNotRet(const llvm::Function *F);
 
 const llvm::Value *getBasicBlockCond(const llvm::BasicBlock *BB);
 
-
-std::string getFuncSummary(llvm::Function &F);
-std::string getBBcollSequence(const llvm::Instruction &inst);
-void BFS(llvm::Function *F, PTACallGraph *PTACG);
-
-
-/*
- * INSTRUMENTATION
- */
-
-
-void
-insertCC(llvm::Module *M, llvm::Instruction *I, int OP_color,
-       std::string OP_name, int OP_line, llvm::StringRef WarningMsg,
-       llvm::StringRef File);
-
-std::string getWarning(llvm::Instruction &inst);
-
 #endif /* UTILS_H */

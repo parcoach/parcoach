@@ -6,6 +6,7 @@
 #include "ModRefAnalysis.h"
 #include "Options.h"
 #include "Parcoach.h"
+#include "ParcoachAnalysisInter.h"
 #include "PTACallGraph.h"
 #include "Collectives.h"
 #include "Utils.h"
@@ -31,9 +32,6 @@
 using namespace llvm;
 using namespace std;
 
-
-
-
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
 void
@@ -48,6 +46,8 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
 
 bool
 ParcoachInstr::doInitialization(Module &M) {
+  PAInter = NULL;
+
   getOptions();
   initCollectives();
 
@@ -58,26 +58,30 @@ ParcoachInstr::doInitialization(Module &M) {
 
 
 bool
-ParcoachInstr::doFinalization(Module &M){
+ParcoachInstr::doFinalization(Module &M) {
   tend = gettime();
 
-  errs() << "\n\033[0;36m==========================================\033[0;0m\n";
-  errs() << "\033[0;36m==========  PARCOACH STATISTICS ==========\033[0;0m\n";
-  errs() << "\033[0;36m==========================================\033[0;0m\n";
-  errs() << "Module name: " << M.getModuleIdentifier() << "\n";
-  errs() << ParcoachInstr::nbCollectivesFound << " collective(s) found\n";
-  errs() << ParcoachInstr::nbWarnings << " warning(s) issued\n";
-  errs() << ParcoachInstr::nbConds << " cond(s) \n";
-  errs() << parcoachNodes.size() << " different cond(s)\n";
+  if (PAInter) {
+    if (!optNoDataFlow) {
+      errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+      errs() << "\033[0;36m===  PARCOACH INTER WITH DEP ANALYSIS  ===\033[0;0m\n";
+      errs() << "\033[0;36m==========================================\033[0;0m\n";
+      errs() << "Module name: " << M.getModuleIdentifier() << "\n";
+      errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
+      errs() << PAInter->getNbWarnings() << " warning(s) issued\n";
+      errs() << PAInter->getNbConds() << " cond(s) \n";
+      errs() << PAInter->getConditionSet().size() << " different cond(s)\n";
+    }
 
-  errs() << "\n\033[0;36m==========================================\033[0;0m\n";
-  errs() << "\033[0;36m============== PARCOACH ONLY =============\033[0;0m\n";
-  errs() << "\033[0;36m==========================================\033[0;0m\n";
-  errs() << ParcoachInstr::nbWarningsParcoach << " warning(s) issued\n";
-  errs() << ParcoachInstr::nbCondsParcoach << " cond(s) \n";
-  errs() << ParcoachInstr::nbCC << " CC functions inserted \n";
-  errs() << parcoachOnlyNodes.size() << " different cond(s)\n";
-  errs() << "\033[0;36m==========================================\033[0;0m\n";
+    errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+    errs() << "\033[0;36m============== PARCOACH INTER ONLY =============\033[0;0m\n";
+    errs() << "\033[0;36m==========================================\033[0;0m\n";
+    errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
+    errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
+    errs() << PAInter->getNbCC() << " CC functions inserted \n";
+    errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
+    errs() << "\033[0;36m==========================================\033[0;0m\n";
+  }
 
   if (optTimeStats) {
     errs()  << "AA time : "
@@ -173,50 +177,6 @@ ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M) {
     ReplaceInstWithInst(const_cast<CallInst *>(ci), NewCI);
   }
 }
-
-
-void 
-ParcoachInstr::instrumentFunction(Function *F) {
-	Module* M = F->getParent();
-
-  for(Function::iterator bb = F->begin(), e = F->end(); bb!=e; ++bb) {
-		for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i) {
-			Instruction *Inst=&*i;
-			string Warning = getWarning(*Inst);
-			// Debug info (line in the source code, file)
-			DebugLoc DLoc = i->getDebugLoc();
-			string File="o"; int OP_line = -1;
-			if(DLoc){
-				OP_line = DLoc.getLine();
-				File=DLoc->getFilename();
-			}
-			// call instruction
-			if(CallInst *CI = dyn_cast<CallInst>(i)) {
-				Function *callee = CI->getCalledFunction();
-				if(callee==NULL) continue;
-					string OP_name = callee->getName().str();
-					int OP_color = getCollectiveColor(callee);
-
-					// Before finalize or exit/abort
-					if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){
-						errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
-						insertCC(M,Inst,v_coll.size()+1, OP_name, OP_line, Warning, File);
-						nbCC++;
-							continue;
-					}
-					// Before a collective
-					if(OP_color>=0){
-						errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
-						insertCC(M,Inst,OP_color, OP_name, OP_line, Warning, File);
-						nbCC++;
-					}
-			}
-		}
-	}
-}
-
-
-
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
@@ -395,172 +355,16 @@ ParcoachInstr::runOnModule(Module &M) {
   tstart_parcoach = gettime();
   // Parcoach analysis
 
-  /* (1) BFS on each function of the Callgraph in reverse topological order
-   *  -> set a function summary with sequence of collectives
-   *  -> keep a set of collectives per BB and set the conditionals at NAVS if it can lead to a deadlock
-   */
-  errs() << " (1) BFS\n";
-  scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
-  while(!cgSccIter.isAtEnd()) {
-    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
-    for (PTACallGraphNode *node : nodeVec) {
-      Function *F = node->getFunction();
-      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
-	continue;
-      //DBG: //errs() << "Function: " << F->getName() << "\n";
-      BFS(F,&PTACG);
-    }
-    ++cgSccIter;
-  }
+  PAInter = new ParcoachAnalysisInter(M, DG, PTACG, optNoInstrum);
+  PAInter->run();
 
-  /* (2) Check collectives */
-  errs() << " (2) CheckCollectives\n";
-  cgSccIter = scc_begin(&PTACG);
-  while(!cgSccIter.isAtEnd()) {
-    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
-    for (PTACallGraphNode *node : nodeVec) {
-      Function *F = node->getFunction();
-      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
-	continue;
-      //DBG: //errs() << "Function: " << F->getName() << "\n";
-      checkCollectives(F,DG);
-    }
-    ++cgSccIter;
-  }
-
-	if(ParcoachInstr::nbWarnings !=0 && !optNoInstrum){
-		errs() << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n";
-		for (Function &F : M) {
-			instrumentFunction(&F);
-		}
-	}
-
-  errs() << " ... Parcoach analysis done\n";
 
   tend_parcoach = gettime();
 
   return false;
 }
 
-
-// (2) Check collectives
-void ParcoachInstr::checkCollectives(Function *F, DepGraph *DG) {
-  StringRef FuncSummary;
-  MDNode* mdNode;
-
-  for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    Instruction *i=&*I;
-    // Debug info (line in the source code, file)
-    DebugLoc DLoc = i->getDebugLoc();
-    StringRef File=""; unsigned OP_line=0;
-    if(DLoc){
-      OP_line = DLoc.getLine();
-      File=DLoc->getFilename();
-    }
-    // Warning info
-    string WarningMsg;
-    const char *ProgName="PARCOACH";
-    SMDiagnostic Diag;
-    std::string COND_lines;
-
-    CallInst *CI = dyn_cast<CallInst>(i);
-    if(!CI) continue;
-
-    Function *f = CI->getCalledFunction();
-    if(!f) continue;
-
-    string OP_name = f->getName().str();
-
-    // Is it a collective call?
-    if (!isCollective(f)){
-      continue;
-		}
-
-    nbCollectivesFound++;
-
-    bool isColWarning = false;
-    bool isColWarningParcoach = false;
-
-    // Get conditionals from the callsite
-    set<const BasicBlock *> callIPDF;
-    DG->getCallInterIPDF(CI, callIPDF);
-
-    for (const BasicBlock *BB : callIPDF) {
-
-      // Is this node detected as potentially dangerous by parcoach?
-      string Seq = getBBcollSequence(*(BB->getTerminator()));
-      if(Seq!="NAVS") continue;
-
-      isColWarningParcoach = true;
-      nbCondsParcoach++;
-      parcoachOnlyNodes.insert(BB);
-
-      // Is this condition tainted?
-      const Value *cond = getBasicBlockCond(BB);
-
-      if ( !cond || (!optNoDataFlow && !DG->isTaintedValue(cond)) ) {
-	const Instruction *instE = BB->getTerminator();
-	DebugLoc locE = instE->getDebugLoc();
-	//errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";
-	continue;
-      }
-
-      isColWarning = true;
-      nbConds++;
-
-      parcoachNodes.insert(BB);
-
-      DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
-      const Instruction *inst = BB->getTerminator();
-      DebugLoc loc = inst->getDebugLoc();
-      COND_lines.append(" ").append(to_string(loc.getLine()));
-      COND_lines.append(" (").append(loc->getFilename()).append(")");
-
-      if (optDotTaintPaths) {
-       string dotfilename("taintedpath-");
-       string cfilename = loc->getFilename();
-       size_t lastpos_slash = cfilename.find_last_of('/');
-       if (lastpos_slash != cfilename.npos)
-        cfilename = cfilename.substr(lastpos_slash+1, cfilename.size());
-       dotfilename.append(cfilename).append("-");
-       dotfilename.append(to_string(loc.getLine())).append(".dot");
-       DG->dotTaintPath(cond, dotfilename, i);
-      }
-    }
-
-    // Is there at least one node from the IPDF+ detected as potentially
-    // dangerous by parcoach
-    if (isColWarningParcoach)
-      nbWarningsParcoach++;
-
-    // Is there at least one node from the IPDF+ tainted
-    if (!isColWarning)
-      continue;
-    nbWarnings++;
-
-    WarningMsg = OP_name + " line " + to_string(OP_line) +
-      " possibly not called by all processes because of conditional(s) " \
-      "line(s) " + COND_lines;
-    mdNode = MDNode::get(i->getContext(),
-			 MDString::get(i->getContext(), WarningMsg));
-    i->setMetadata("inst.warning",mdNode);
-    Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
-    Diag.print(ProgName, errs(), 1,1);
-  }
-}
-
-
-
-
 char ParcoachInstr::ID = 0;
-
-unsigned ParcoachInstr::nbCollectivesFound = 0;
-unsigned ParcoachInstr::nbWarnings = 0;
-unsigned ParcoachInstr::nbConds = 0;
-unsigned ParcoachInstr::nbWarningsParcoach = 0;
-unsigned ParcoachInstr::nbCondsParcoach = 0;
-unsigned ParcoachInstr::nbCC = 0;
-
 
 double ParcoachInstr::tstart = 0;
 double ParcoachInstr::tend = 0;

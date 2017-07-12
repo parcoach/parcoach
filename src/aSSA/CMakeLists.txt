@@ -19,6 +19,7 @@ add_llvm_loadable_module( LLVMaSSA
 	Options.cpp
 	Parcoach.cpp
 	ParcoachAnalysisInter.cpp
+	ParcoachAnalysisIntra.cpp
 	PTACallGraph.cpp
 	Utils.cpp
 	Collectives.cpp

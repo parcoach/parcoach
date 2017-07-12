@@ -47,6 +47,7 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
 bool
 ParcoachInstr::doInitialization(Module &M) {
   PAInter = NULL;
+  PAIntra = NULL;
 
   getOptions();
   initCollectives();
@@ -80,6 +81,17 @@ ParcoachInstr::doFinalization(Module &M) {
     errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
     errs() << PAInter->getNbCC() << " CC functions inserted \n";
     errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
+    errs() << "\033[0;36m==========================================\033[0;0m\n";
+  }
+
+  if (PAIntra) {
+    errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+    errs() << "\033[0;36m============== PARCOACH INTRA ONLY =============\033[0;0m\n";
+    errs() << "\033[0;36m==========================================\033[0;0m\n";
+    errs() << PAIntra->getNbWarningsParcoachOnly() << " warning(s) issued\n";
+    errs() << PAIntra->getNbCondsParcoachOnly() << " cond(s) \n";
+    errs() << PAIntra->getNbCC() << " CC functions inserted \n";
+    errs() << PAIntra->getConditionSetParcoachOnly().size() << " different cond(s)\n";
     errs() << "\033[0;36m==========================================\033[0;0m\n";
   }
 
@@ -357,6 +369,9 @@ ParcoachInstr::runOnModule(Module &M) {
 
   PAInter = new ParcoachAnalysisInter(M, DG, PTACG, optNoInstrum);
   PAInter->run();
+
+  PAIntra = new ParcoachAnalysisIntra(M, NULL, this, optNoInstrum);
+  PAIntra->run();
 
 
   tend_parcoach = gettime();

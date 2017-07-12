@@ -9,6 +9,7 @@
 
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
+#include "ParcoachAnalysisIntra.h"
 
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
@@ -40,6 +41,7 @@ namespace {
 
   private:
     ParcoachAnalysisInter *PAInter;
+    ParcoachAnalysisIntra *PAIntra;
 
     void replaceOMPMicroFunctionCalls(llvm::Module &M);
   };

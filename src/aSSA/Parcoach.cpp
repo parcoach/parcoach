@@ -453,12 +453,15 @@ ParcoachInstr::runOnModule(Module &M) {
   tstart_parcoach = gettime();
   // Parcoach analysis
 
-  PAInter = new ParcoachAnalysisInter(M, DG, PTACG, optNoInstrum);
-  PAInter->run();
+  if (!optIntraOnly) {
+    PAInter = new ParcoachAnalysisInter(M, DG, PTACG, optInstrumIntra);
+    PAInter->run();
+  }
 
-  PAIntra = new ParcoachAnalysisIntra(M, NULL, this, optNoInstrum);
-  PAIntra->run();
-
+  if (!optInterOnly) {
+    PAIntra = new ParcoachAnalysisIntra(M, NULL, this, optInstrumInter);
+    PAIntra->run();
+  }
 
   tend_parcoach = gettime();
 

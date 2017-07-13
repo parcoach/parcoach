@@ -14,7 +14,8 @@ extern bool optDotTaintPaths;
 extern bool optStats;
 extern bool optNoRegName;
 extern bool optContextSensitive;
-extern bool optNoInstrum;
+extern bool optInstrumInter;
+extern bool optInstrumIntra;
 extern bool optStrongUpdate;
 extern bool optNoPtrDep;
 extern bool optNoPred;
@@ -23,6 +24,8 @@ extern bool optOmpTaint;
 extern bool optCudaTaint;
 extern bool optMpiTaint;
 extern bool optUpcTaint;
+extern bool optInterOnly;
+extern bool optIntraOnly;
 
 void getOptions();
 

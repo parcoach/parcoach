@@ -1,6 +1,7 @@
 #include "Options.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_os_ostream.h"
 
 using namespace llvm;
 using namespace std;
@@ -67,9 +68,13 @@ cl::opt<bool> clOptContextSensitive("context-sensitive",
 				    cl::cat(ParcoachCategory));
 
 static
-cl::opt<bool> clOptNoInstrum("no-instrumentation",
-			     cl::desc("No static instrumentation"),
-			     cl::cat(ParcoachCategory));
+cl::opt<bool> clOptInstrumInter("instrum-inter",
+				cl::desc("Instrument code with inter-procedural parcoach"),
+				cl::cat(ParcoachCategory));
+static
+cl::opt<bool> clOptInstrumIntra("instrum-intra",
+				cl::desc("Instrument code with intra-procedural parcoach"),
+				cl::cat(ParcoachCategory));
 
 static
 cl::opt<bool> clOptStrongUpdate("strong-update",
@@ -111,6 +116,15 @@ cl::opt<bool> clOptUpcTaint("check-upc",
 			    cl::desc("enable UPC collectives checking"),
 			    cl::cat(ParcoachCategory));
 
+static
+cl::opt<bool> clOptInterOnly("inter-only",
+			    cl::desc("enable only parcoach interprocedural"),
+			    cl::cat(ParcoachCategory));
+static
+cl::opt<bool> clOptIntraOnly("intra-only",
+			    cl::desc("enable only parcoach intraprocedural"),
+			    cl::cat(ParcoachCategory));
+
 bool optDumpSSA;
 string optDumpSSAFunc;
 bool optDotGraph;
@@ -122,7 +136,8 @@ bool optDotTaintPaths;
 bool optStats;
 bool optNoRegName;
 bool optContextSensitive;
-bool optNoInstrum;
+bool optInstrumInter;
+bool optInstrumIntra;
 bool optStrongUpdate;
 bool optNoPtrDep;
 bool optNoPred;
@@ -131,7 +146,8 @@ bool optOmpTaint;
 bool optCudaTaint;
 bool optMpiTaint;
 bool optUpcTaint;
-
+bool optInterOnly;
+bool optIntraOnly;
 
 void getOptions()
 {
@@ -146,7 +162,8 @@ void getOptions()
   optStats = clOptStats;
   optNoRegName = clOptNoRegName;
   optContextSensitive = clOptContextSensitive;
-  optNoInstrum = clOptNoInstrum;
+  optInstrumIntra = clOptInstrumIntra;
+  optInstrumInter = clOptInstrumInter;
   optStrongUpdate = clOptStrongUpdate;
   optNoPtrDep = clOptNoPtrDep;
   optNoPred = clOptNoPred;
@@ -155,4 +172,26 @@ void getOptions()
   optCudaTaint = clOptCudaTaint;
   optMpiTaint = clOptMpiTaint;
   optUpcTaint = clOptUpcTaint;
+  optInterOnly = clOptInterOnly;
+  optIntraOnly = clOptIntraOnly;
+
+  if (optInstrumInter && optInstrumIntra) {
+    errs() << "Error: cannot instrument for both intra- and inter- procedural "
+	   << "analyses.\n";
+    exit(0);
+  }
+
+  if (optInstrumIntra && optInterOnly) {
+    errs() << "Error: cannot instrument intra-procedural with option "
+	   << "-inter-only\n";
+    exit(0);
+
+  }
+
+  if (optInstrumInter && optIntraOnly) {
+    errs() << "Error: cannot instrument inter-procedural with option "
+	   << "-intra-only\n";
+    exit(0);
+
+  }
 }

@@ -164,10 +164,22 @@ MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
 					 Function *callee) {
   CallSite cs(const_cast<Instruction *>(inst));
 
-  // If the called function is a synchronization, create an artificial CHI for
-  // each shared region.
+  // If the called function is a CUDA synchronization, create an artificial CHI
+  // for each shared region.
   if (optCudaTaint && callee->getName().equals("llvm.nvvm.barrier0")) {
-    for (MemReg *r : MemReg::getSharedRegions()) {
+    for (MemReg *r : MemReg::getCudaSharedRegions()) {
+      callSiteToSyncChiMap[cs].insert(new MSSASyncChi(r, inst));
+      regDefToBBMap[r].insert(inst->getParent());
+      usedRegs.insert(r);
+    }
+    return;
+  }
+
+  // If the called function is an OMP barrier, create an artificial CHI
+  // for each shared region.
+  if (optOmpTaint && callee->getName().equals("__kmpc_barrier")) {
+    for (MemReg *r :
+	   MemReg::getOmpSharedRegions(inst->getParent()->getParent())) {
       callSiteToSyncChiMap[cs].insert(new MSSASyncChi(r, inst));
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);

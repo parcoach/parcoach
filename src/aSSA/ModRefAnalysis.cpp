@@ -65,7 +65,19 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   // In CUDA after a synchronization, all region in shared memory are written.
   if (optCudaTaint) {
     if (callee && callee->getName().equals("llvm.nvvm.barrier0")) {
-      for (MemReg *r : MemReg::getSharedRegions()) {
+      for (MemReg *r : MemReg::getCudaSharedRegions()) {
+	if (globalKillSet.find(r) != globalKillSet.end())
+	  continue;
+	funcModMap[curFunc].insert(r);
+      }
+    }
+  }
+
+  // In OpenMP after a synchronization, all region in shared memory are written.
+  if (optOmpTaint) {
+    if (callee && callee->getName().equals("__kmpc_barrier")) {
+      for (MemReg *r :
+	     MemReg::getOmpSharedRegions(CI->getParent()->getParent())) {
 	if (globalKillSet.find(r) != globalKillSet.end())
 	  continue;
 	funcModMap[curFunc].insert(r);

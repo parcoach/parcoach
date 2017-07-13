@@ -43,7 +43,10 @@ namespace {
     ParcoachAnalysisInter *PAInter;
     ParcoachAnalysisIntra *PAIntra;
 
-    void replaceOMPMicroFunctionCalls(llvm::Module &M);
+    void replaceOMPMicroFunctionCalls(llvm::Module &M,
+				      std::map<const llvm::Function *,
+				      std::set<const llvm::Value *> > &
+				      func2SharedVarMap);
   };
 }
 

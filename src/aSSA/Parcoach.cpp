@@ -181,7 +181,10 @@ ParcoachInstr::doFinalization(Module &M) {
 }
 
 void
-ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M) {
+ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M,
+					    map<const Function *,
+					    set<const Value *> > &
+					    func2SharedVarMap) {
   // Get all calls to be replaced (only __kmpc_fork_call is handled for now).
   std::vector<CallInst *> callToReplace;
 
@@ -229,8 +232,9 @@ ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M) {
       NewArgs.push_back(val);
     }
 
-    //  op 3 to nbops-1
+    //  op 3 to nbops-1 are shared variables
     for (unsigned i=3; i<callNbOps-1; i++) {
+      func2SharedVarMap[outlinedFunc].insert(ci->getOperand(i));
       NewArgs.push_back(ci->getOperand(i));
     }
 
@@ -279,8 +283,12 @@ ParcoachInstr::runOnModule(Module &M) {
 
   ExtInfo extInfo(M);
 
-  // Replace OpenMP Micro Function Calls
-  replaceOMPMicroFunctionCalls(M);
+  // Replace OpenMP Micro Function Calls and compute shared variable for
+  // each function.
+  map<const Function *, set<const Value *> > func2SharedOmpVar;
+  if (optOmpTaint) {
+    replaceOMPMicroFunctionCalls(M, func2SharedOmpVar);
+  }
 
   // Run Andersen alias analysis.
   tstart_aa = gettime();
@@ -317,6 +325,24 @@ ParcoachInstr::runOnModule(Module &M) {
   if (optDumpRegions)
     MemReg::dumpRegions();
   errs() << "* Regions creation done\n";
+
+
+  // Compute shared regions for each OMP function.
+  if (optOmpTaint) {
+    map<const Function *, set<MemReg *> > func2SharedOmpReg;
+    for (auto I : func2SharedOmpVar) {
+      const Function *F = I.first;
+
+      for (const Value *v : I.second) {
+	vector<const Value *> ptsSet;
+	if (AA.getPointsToSet(v, ptsSet)) {
+	  vector<MemReg *> regs;
+	  MemReg::getValuesRegion(ptsSet, regs);
+	  MemReg::setOmpSharedRegions(F, regs);
+	}
+      }
+    }
+  }
 
   // Compute MOD/REF analysis
   tstart_modref = gettime();

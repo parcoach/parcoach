@@ -9,17 +9,21 @@ using namespace std;
 using namespace llvm;
 
 map<const llvm::Value *, MemReg *> MemReg::valueToRegMap;
-set<MemReg *> MemReg::sharedRegions;
+
+set<MemReg *> MemReg::sharedCudaRegions;
+map<const Function *, set<MemReg *> > MemReg::func2SharedOmpRegs;
+
 unsigned MemReg::count = 0;
 
-MemReg::MemReg(const llvm::Value *value) : value(value), isShared(false) {
+MemReg::MemReg(const llvm::Value *value) : value(value), isCudaShared(false) {
   id = count++;
 
+  // Cuda shared region
   if (optCudaTaint) {
     const GlobalValue *GV = dyn_cast<GlobalValue>(value);
     if (GV && GV->getType()->getPointerAddressSpace() == 3) {
-      isShared = true;
-      sharedRegions.insert(this);
+      isCudaShared = true;
+      sharedCudaRegions.insert(this);
     }
   }
 
@@ -40,11 +44,17 @@ MemReg::createRegion(const llvm::Value *v) {
 }
 
 void
+MemReg::setOmpSharedRegions(const Function *F, vector<MemReg *> &regs) {
+  func2SharedOmpRegs[F].insert(regs.begin(), regs.end());
+}
+
+
+void
 MemReg::dumpRegions() {
     llvm::errs() << valueToRegMap.size() << " regions :\n";
     for (auto I : valueToRegMap) {
       llvm::errs() << *I.second->value
-		   << (I.second->isShared ? " (shared)\n" : "\n");
+		   << (I.second->isCudaShared ? " (shared)\n" : "\n");
     }
 }
 
@@ -72,8 +82,13 @@ MemReg::getValuesRegion(std::vector<const Value *> &ptsSet,
 }
 
 const std::set<MemReg *> &
-MemReg::getSharedRegions() {
-  return sharedRegions;
+MemReg::getCudaSharedRegions() {
+  return sharedCudaRegions;
+}
+
+const std::set<MemReg *> &
+MemReg::getOmpSharedRegions(const llvm::Function *F) {
+  return func2SharedOmpRegs[F];
 }
 
 std::string

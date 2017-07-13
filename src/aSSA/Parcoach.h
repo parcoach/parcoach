@@ -43,10 +43,13 @@ namespace {
     ParcoachAnalysisInter *PAInter;
     ParcoachAnalysisIntra *PAIntra;
 
+    std::map<llvm::Instruction *, llvm::Instruction *> ompNewInst2oldInst;
+
     void replaceOMPMicroFunctionCalls(llvm::Module &M,
 				      std::map<const llvm::Function *,
 				      std::set<const llvm::Value *> > &
 				      func2SharedVarMap);
+    void revertOmpTransformation();
   };
 }
 

@@ -240,7 +240,17 @@ ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M,
 
     CallInst *NewCI = CallInst::Create(const_cast<Function *>(outlinedFunc), NewArgs);
     NewCI->setCallingConv(outlinedFunc->getCallingConv());
+    ompNewInst2oldInst[NewCI] = ci->clone();
     ReplaceInstWithInst(const_cast<CallInst *>(ci), NewCI);
+  }
+}
+
+void
+ParcoachInstr::revertOmpTransformation() {
+  for (auto I : ompNewInst2oldInst) {
+    Instruction *newInst = I.first;
+    Instruction *oldInst = I.second;
+    ReplaceInstWithInst(newInst, oldInst);
   }
 }
 
@@ -451,6 +461,10 @@ ParcoachInstr::runOnModule(Module &M) {
 
 
   tend_parcoach = gettime();
+
+  // Revert OMP transformation.
+  if (optOmpTaint)
+    revertOmpTransformation();
 
   return false;
 }

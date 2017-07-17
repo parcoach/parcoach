@@ -12,11 +12,11 @@ extern bool optTimeStats;
 extern bool optDisablePhiElim;
 extern bool optDotTaintPaths;
 extern bool optStats;
-extern bool optNoRegName;
-extern bool optContextSensitive;
+extern bool optWithRegName;
+extern bool optContextInsensitive;
 extern bool optInstrumInter;
 extern bool optInstrumIntra;
-extern bool optStrongUpdate;
+extern bool optWeakUpdate;
 extern bool optNoPtrDep;
 extern bool optNoPred;
 extern bool optNoDataFlow;
@@ -26,6 +26,7 @@ extern bool optMpiTaint;
 extern bool optUpcTaint;
 extern bool optInterOnly;
 extern bool optIntraOnly;
+extern bool optDGUIDA;
 
 void getOptions();
 

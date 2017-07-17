@@ -11,7 +11,8 @@ if(WIN32 OR CYGWIN)
 endif()
 
 add_llvm_loadable_module( LLVMaSSA
-        DepGraph.cpp
+        DepGraphDCF.cpp
+        DepGraphUIDA.cpp
 	ExtInfo.cpp
 	MemoryRegion.cpp
 	MemorySSA.cpp

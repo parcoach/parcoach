@@ -234,6 +234,7 @@ void Andersen::collectConstraintsForInstruction(const Instruction* inst)
 			}
 			break;
 		}
+	        case Instruction::AddrSpaceCast:
 		case Instruction::BitCast:
 		{
 			if (inst->getType()->isPointerTy())

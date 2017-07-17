@@ -57,13 +57,13 @@ cl::opt<bool> clOptStats("statistics", cl::desc("print statistics"),
 			 cl::cat(ParcoachCategory));
 
 static
-cl::opt<bool> clOptNoRegName("no-reg-name",
-			     cl::desc("Do not compute names of regions"),
+cl::opt<bool> clOptWithRegName("with-reg-name",
+			     cl::desc("Compute human readable names of regions"),
 			     cl::cat(ParcoachCategory));
 
 static
-cl::opt<bool> clOptContextSensitive("context-sensitive",
-				    cl::desc("Context sensitive version of " \
+cl::opt<bool> clOptContextInsensitive("context-insensitive",
+				    cl::desc("Context insensitive version of " \
 					     "flooding."),
 				    cl::cat(ParcoachCategory));
 
@@ -77,8 +77,8 @@ cl::opt<bool> clOptInstrumIntra("instrum-intra",
 				cl::cat(ParcoachCategory));
 
 static
-cl::opt<bool> clOptStrongUpdate("strong-update",
-				cl::desc("Strong update"),
+cl::opt<bool> clOptWeakUpdate("weak-update",
+				cl::desc("Weak update"),
 				cl::cat(ParcoachCategory));
 
 static
@@ -125,6 +125,20 @@ cl::opt<bool> clOptIntraOnly("intra-only",
 			    cl::desc("enable only parcoach intraprocedural"),
 			    cl::cat(ParcoachCategory));
 
+static
+cl::opt<bool> clOptDGUIDA("dg-uida",
+			  cl::desc("use dep graph from paper "		\
+				   "User-input dependence analysis via " \
+				   "graph reachability"),
+			  cl::cat(ParcoachCategory));
+
+static
+cl::opt<bool> clOptSVF("SVF",
+			  cl::desc("use dep graph from paper "		\
+				   "SVF: Interprocedural Static Value-flow " \
+				   "Analysis in LLVM."),
+			  cl::cat(ParcoachCategory));
+
 bool optDumpSSA;
 string optDumpSSAFunc;
 bool optDotGraph;
@@ -134,11 +148,11 @@ bool optTimeStats;
 bool optDisablePhiElim;
 bool optDotTaintPaths;
 bool optStats;
-bool optNoRegName;
-bool optContextSensitive;
+bool optWithRegName;
+bool optContextInsensitive;
 bool optInstrumInter;
 bool optInstrumIntra;
-bool optStrongUpdate;
+bool optWeakUpdate;
 bool optNoPtrDep;
 bool optNoPred;
 bool optNoDataFlow;
@@ -148,6 +162,7 @@ bool optMpiTaint;
 bool optUpcTaint;
 bool optInterOnly;
 bool optIntraOnly;
+bool optDGUIDA;
 
 void getOptions()
 {
@@ -160,11 +175,11 @@ void getOptions()
   optDisablePhiElim = clOptDisablePhiElim;
   optDotTaintPaths = clOptDotTaintPaths;
   optStats = clOptStats;
-  optNoRegName = clOptNoRegName;
-  optContextSensitive = clOptContextSensitive;
+  optWithRegName = clOptWithRegName;
+  optContextInsensitive = clOptContextInsensitive;
   optInstrumIntra = clOptInstrumIntra;
   optInstrumInter = clOptInstrumInter;
-  optStrongUpdate = clOptStrongUpdate;
+  optWeakUpdate = clOptWeakUpdate;
   optNoPtrDep = clOptNoPtrDep;
   optNoPred = clOptNoPred;
   optNoDataFlow = clOptNoDataFlow;
@@ -174,6 +189,18 @@ void getOptions()
   optUpcTaint = clOptUpcTaint;
   optInterOnly = clOptInterOnly;
   optIntraOnly = clOptIntraOnly;
+  optDGUIDA = clOptDGUIDA;
+
+  if (optDGUIDA && clOptSVF) {
+    errs() << "Error: cannot use SVF and UIDA dep graph simultaneously !\n";
+    exit(0);
+  }
+
+  if (clOptSVF) {
+    optDisablePhiElim = true;
+    optNoPred = true;
+    optNoPtrDep = true;
+  }
 
   if (optInstrumInter && optInstrumIntra) {
     errs() << "Error: cannot instrument for both intra- and inter- procedural "
@@ -192,6 +219,5 @@ void getOptions()
     errs() << "Error: cannot instrument inter-procedural with option "
 	   << "-intra-only\n";
     exit(0);
-
   }
 }

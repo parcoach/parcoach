@@ -1,12 +1,15 @@
 #include "Collectives.h"
 #include "Options.h"
 #include "ParcoachAnalysisIntra.h"
+#include "Utils.h"
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_os_ostream.h"
 
 using namespace llvm;
 using namespace std;

@@ -3,6 +3,8 @@
 
 #include "ParcoachAnalysis.h"
 
+#include "llvm/Pass.h"
+
 class ParcoachAnalysisIntra : public ParcoachAnalysis {
 public:
   ParcoachAnalysisIntra(llvm::Module &M, DepGraph *DG,

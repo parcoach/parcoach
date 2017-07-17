@@ -185,11 +185,20 @@ DepGraphUIDA::buildFunction(const llvm::Function *F) {
   for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
     if (!F->getName().equals(valueSourceFunctions[i].name))
       continue;
-    unsigned argNo = valueSourceFunctions[i].arg;
-    valueSources.insert(getFunctionArgument(F, argNo));
-    errs() << "adding source: " << *getFunctionArgument(F, argNo) << "\n";
-    funcToLLVMNodesMap[F].insert(getFunctionArgument(F, argNo));
-    assert(!isa<GlobalValue>(getFunctionArgument(F, argNo)));
+    int argNo = valueSourceFunctions[i].arg;
+    if (argNo == -1) {
+      for (const Value *cs : funcToCallSites[F]) {
+	valueSources.insert(cs);
+	const Instruction *csInst = dyn_cast<Instruction>(cs);
+	if (!csInst)
+	  continue;
+	funcToLLVMNodesMap[csInst->getParent()->getParent()].insert(cs);
+      }
+    } else {
+      valueSources.insert(getFunctionArgument(F, argNo));
+      funcToLLVMNodesMap[F].insert(getFunctionArgument(F, argNo));
+      assert(!isa<GlobalValue>(getFunctionArgument(F, argNo)));
+    }
   }
 
   double t2 = gettime();

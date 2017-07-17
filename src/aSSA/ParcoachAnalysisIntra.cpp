@@ -227,7 +227,7 @@ ParcoachAnalysisIntra::instrumentFunction(llvm::Function *F) {
 	  }
 	}
     }
-  errs() << "# CC = " << nbInstrum << "\n";
+  //errs() << "# CC = " << nbInstrum << "\n";
 }
 
 /*

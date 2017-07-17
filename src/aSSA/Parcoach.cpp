@@ -99,6 +99,7 @@ ParcoachInstr::doFinalization(Module &M) {
     errs() << "\n\033[0;36m==========================================\033[0;0m\n";
     errs() << "\033[0;36m============== PARCOACH INTER ONLY =============\033[0;0m\n";
     errs() << "\033[0;36m==========================================\033[0;0m\n";
+    errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
     errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
     errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
     errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
@@ -131,7 +132,7 @@ ParcoachInstr::doFinalization(Module &M) {
 	     << " warning(s) removed compared to intra analysis.\n";
     }
 
-    errs() << "\033[0;36m==========================================\033[0;0m\n";
+    //errs() << "\033[0;36m==========================================\033[0;0m\n";
   }
 
   if (PAIntra) {

@@ -364,6 +364,10 @@ static const funcModPair funcModPairs[] = {
   {"llvm.nvvm.min.ui", 2, false, {false, false}, },
   {"llvm.nvvm.fmin.ftz.f", 2, false, {false, false}, },
   {"llvm.nvvm.fmin.f", 2, false, {false, false}, },
+  {"llvm.nvvm.lg2.approx.ftz.f", 1, false, {false}, },
+  {"llvm.nvvm.lg2.approx.f", 1, false, {false}, },
+  {"llvm.nvvm.ex2.approx.ftz.f", 1, false, {false}, },
+  {"llvm.nvvm.ex2.approx.f", 1, false, {false}, },
   {"__nvvm_reflect", 1, false, {true}, },
 
   /* Functions from NAS-MPI */

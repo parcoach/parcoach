@@ -169,6 +169,9 @@ getFunctionArgument(const Function *F, unsigned idx) {
     i++;
   }
 
+  if (F->isVarArg())
+    return &*F->arg_end();
+
   errs() << "returning null, querying arg no " << idx << " on function "
 	 << F->getName() << "\n";
   return NULL;

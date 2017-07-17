@@ -12,11 +12,11 @@
 
 #include <map>
 
-class DepGraph;
+class DepGraphDCF;
 class ModRefAnalysis;
 
 class MemorySSA {
-  friend class DepGraph;
+  friend class DepGraphDCF;
 
   // Containers for Mu,Chi,Phi,BB and Values
   typedef std::set<MSSAMu *> MuSet;

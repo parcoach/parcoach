@@ -1,5 +1,7 @@
 #include "andersen/Andersen.h"
 #include "DepGraph.h"
+#include "DepGraphDCF.h"
+#include "DepGraphUIDA.h"
 #include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "MemorySSA.h"
@@ -406,7 +408,11 @@ ParcoachInstr::runOnModule(Module &M) {
 
   // Compute dep graph.
   tstart_depgraph = gettime();
-  DepGraph *DG = new DepGraph(&MSSA, &PTACG, this);
+  DepGraph *DG = NULL;
+  if (optDGUIDA)
+    DG = new DepGraphUIDA(&PTACG, this);
+  else
+    DG = new DepGraphDCF(&MSSA, &PTACG, this);
 
   counter = 0;
   for (Function &F : M) {
@@ -428,8 +434,9 @@ ParcoachInstr::runOnModule(Module &M) {
   errs() << "* Dep graph done\n";
 
   // Phi elimination pass.
-  if (!optDisablePhiElim)
-    DG->phiElimination();
+  if (!optDisablePhiElim && !optDGUIDA) {
+    static_cast<DepGraphDCF *>(DG)->phiElimination();
+  }
 
   errs() << "* phi elimination done\n";
   tend_depgraph = gettime();
@@ -441,12 +448,14 @@ ParcoachInstr::runOnModule(Module &M) {
     DG->computeTaintedValuesContextSensitive();
   else
     DG->computeTaintedValuesContextInsensitive();
+
   tend_flooding = gettime();
   errs() << "* value contamination  done\n";
 
   // Dot dep graph.
-  if (optDotGraph)
+  if (optDotGraph) {
     DG->toDot("dg.dot");
+  }
 
   errs() << "* Starting Parcoach analysis ...\n";
 
@@ -454,12 +463,12 @@ ParcoachInstr::runOnModule(Module &M) {
   // Parcoach analysis
 
   if (!optIntraOnly) {
-    PAInter = new ParcoachAnalysisInter(M, DG, PTACG, optInstrumIntra);
+    PAInter = new ParcoachAnalysisInter(M, DG, PTACG, !optInstrumInter);
     PAInter->run();
   }
 
   if (!optInterOnly) {
-    PAIntra = new ParcoachAnalysisIntra(M, NULL, this, optInstrumInter);
+    PAIntra = new ParcoachAnalysisIntra(M, NULL, this, !optInstrumIntra);
     PAIntra->run();
   }
 

@@ -125,6 +125,13 @@ cl::opt<bool> clOptIntraOnly("intra-only",
 			    cl::desc("enable only parcoach intraprocedural"),
 			    cl::cat(ParcoachCategory));
 
+static
+cl::opt<bool> clOptDGUIDA("dg-uida",
+			  cl::desc("use dep graph from paper "		\
+				   "User-input dependence analysis via " \
+				   "graph reachability"),
+			  cl::cat(ParcoachCategory));
+
 bool optDumpSSA;
 string optDumpSSAFunc;
 bool optDotGraph;
@@ -148,6 +155,7 @@ bool optMpiTaint;
 bool optUpcTaint;
 bool optInterOnly;
 bool optIntraOnly;
+bool optDGUIDA;
 
 void getOptions()
 {
@@ -174,6 +182,7 @@ void getOptions()
   optUpcTaint = clOptUpcTaint;
   optInterOnly = clOptInterOnly;
   optIntraOnly = clOptIntraOnly;
+  optDGUIDA = clOptDGUIDA;
 
   if (optInstrumInter && optInstrumIntra) {
     errs() << "Error: cannot instrument for both intra- and inter- procedural "
@@ -192,6 +201,5 @@ void getOptions()
     errs() << "Error: cannot instrument inter-procedural with option "
 	   << "-intra-only\n";
     exit(0);
-
   }
 }

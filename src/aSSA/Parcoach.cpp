@@ -258,7 +258,7 @@ ParcoachInstr::revertOmpTransformation() {
 
 bool
 ParcoachInstr::runOnModule(Module &M) {
-  if (optContextSensitive && optDotTaintPaths) {
+  if (!optContextInsensitive && optDotTaintPaths) {
     errs() << "Error: you cannot use -dot-taint-paths option in context "
 	   << "sensitive mode.\n";
     exit(0);
@@ -444,10 +444,10 @@ ParcoachInstr::runOnModule(Module &M) {
   tstart_flooding = gettime();
 
   // Compute tainted values
-  if (optContextSensitive)
-    DG->computeTaintedValuesContextSensitive();
-  else
+  if (optContextInsensitive)
     DG->computeTaintedValuesContextInsensitive();
+  else
+    DG->computeTaintedValuesContextSensitive();
 
   tend_flooding = gettime();
   errs() << "* value contamination  done\n";

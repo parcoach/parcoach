@@ -27,7 +27,7 @@ MemReg::MemReg(const llvm::Value *value) : value(value), isCudaShared(false) {
     }
   }
 
-  if (optNoRegName) {
+  if (!optWithRegName) {
     name = std::to_string(id);
     return;
   }

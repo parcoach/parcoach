@@ -355,7 +355,7 @@ DepGraphDCF::visitStoreInst(llvm::StoreInst &I) {
 
     addEdge(I.getValueOperand(), chi->var);
 
-    if (!optStrongUpdate)
+    if (optWeakUpdate)
       addEdge(chi->opVar, chi->var);
 
     if (!optNoPtrDep)
@@ -584,7 +584,7 @@ DepGraphDCF::connectCSChis(llvm::CallInst &I) {
     funcToSSANodesMap[curFunc].insert(chi->opVar);
     funcToSSANodesMap[curFunc].insert(chi->var);
 
-    if (!optStrongUpdate)
+    if (optWeakUpdate)
       addEdge(chi->opVar, chi->var); // rule4
 
     const Function *called = NULL;

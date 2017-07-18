@@ -167,6 +167,7 @@ ParcoachAnalysisIntra::checkCollectives(llvm::Function *F) {
     }
     if(issue_warning==1){
       nbWarningsParcoachOnly++;
+      warningSetParcoachOnly.insert(CI);
       WarningMsg = OP_name + " line " + to_string(OP_line) + " possibly not called by all processes because of conditional(s) line(s) " + COND_lines;
       mdNode = MDNode::get(i->getContext(),MDString::get(i->getContext(),WarningMsg));
       i->setMetadata("intra.inst.warning",mdNode);

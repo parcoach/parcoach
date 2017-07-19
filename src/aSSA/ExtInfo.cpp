@@ -309,6 +309,13 @@ static const funcModPair funcModPairs[] = {
   {"gasneti_checkinit", { 0, false, {}} },
   {"_upcr_notify", { 2, false, {false,false}} },
   {"_upcr_wait", { 2, false, {false,false}} },
+  {"_upcr_startup_pshalloc", { 1, false , {true}} },
+  {"_upcr_all_alloc", { 2 ,false , {false,false}} },
+  {"_upcr_free", {1 ,false , {false}} },
+  {"_upcr_memget_nb", {3 , true , {true,false,false}} },
+  {"_upcr_waitsync", {1 ,false , {true}} },
+  {"gasnete_get_bulk", {4 , false, {true,false,true,false}} },
+  {"gasnete_putt_bulk", {4 ,false , {false,true,true,false}} },
 
 
   /* gsl */
@@ -405,7 +412,7 @@ static const funcModPair funcModPairs[] = {
   {"llvm.nvvm.clz.i", 1, false, {false}, },
   {"llvm.nvvm.popc.i", 1, false, {false}, },
 
-  /* Functions from NAS-MPI */
+  /* Functions from NAS */
   {"memset_pattern16", { 3, false, {false,false,false } } },
   {"\01_fopen", { 2, true, {false, false} } },
   {"initADCpar", { 1, false , {true} } },
@@ -416,6 +423,11 @@ static const funcModPair funcModPairs[] = {
   {"PartitionCube", { 1, false, {true} } },
   {"ComputeGivenGroupbys", {1 ,false , {true} } },
   {"CloseAdcView", {1 ,false , {true} } },
+  {"timer_stop", {1 ,false , {false} } },
+  {"timer_start", {1 ,false , {false} } },
+  {"timer_clear", {1 ,false , {false}} },
+  {"timer_read", {1 ,false , {false}} },
+  {"c_print_results", {20 ,false , {true,false,false,false,false,false,false,false,false,true,false,true,true,true,true,true,true,true,true,true}} },
 
 
 

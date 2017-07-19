@@ -41,11 +41,6 @@ cl::opt<bool> clOptTimeStats("timer",
 			     cl::cat(ParcoachCategory));
 
 static
-cl::opt<bool> clOptDisablePhiElim("disable-phi-elim",
-				  cl::desc("Disable Phi elimination pass"),
-				  cl::cat(ParcoachCategory));
-
-static
 cl::opt<bool> clOptDotTaintPaths("dot-taint-paths",
 				 cl::desc("Dot taint path of each " \
 					  "conditions of tainted "	\
@@ -80,18 +75,6 @@ static
 cl::opt<bool> clOptWeakUpdate("weak-update",
 				cl::desc("Weak update"),
 				cl::cat(ParcoachCategory));
-
-static
-cl::opt<bool> clOptNoPtrDep("no-ptr-dep",
-			    cl::desc("No dependency with pointer for " \
-				     "load/store"),
-			    cl::cat(ParcoachCategory));
-
-static
-cl::opt<bool> clOptNoPred("no-phi-pred",
-			  cl::desc("No dependency with phi predicatesd"),
-			  cl::cat(ParcoachCategory));
-
 static
 cl::opt<bool> clOptNoDataFlow("no-dataflow",
 			      cl::desc("Disable dataflow analysis"),
@@ -138,6 +121,10 @@ cl::opt<bool> clOptSVF("SVF",
 				   "SVF: Interprocedural Static Value-flow " \
 				   "Analysis in LLVM."),
 			  cl::cat(ParcoachCategory));
+static
+cl::opt<bool> clOptCompareAll("compare-all",
+			      cl::desc("compare DCF with SVF and UIDA."),
+			      cl::cat(ParcoachCategory));
 
 bool optDumpSSA;
 string optDumpSSAFunc;
@@ -145,7 +132,6 @@ bool optDotGraph;
 bool optDumpRegions;
 bool optDumpModRef;
 bool optTimeStats;
-bool optDisablePhiElim;
 bool optDotTaintPaths;
 bool optStats;
 bool optWithRegName;
@@ -153,8 +139,6 @@ bool optContextInsensitive;
 bool optInstrumInter;
 bool optInstrumIntra;
 bool optWeakUpdate;
-bool optNoPtrDep;
-bool optNoPred;
 bool optNoDataFlow;
 bool optOmpTaint;
 bool optCudaTaint;
@@ -163,6 +147,8 @@ bool optUpcTaint;
 bool optInterOnly;
 bool optIntraOnly;
 bool optDGUIDA;
+bool optDGSVF;
+bool optCompareAll;
 
 void getOptions()
 {
@@ -172,7 +158,6 @@ void getOptions()
   optDumpRegions = clOptDumpRegions;
   optDumpModRef = clOptDumpModRef;
   optTimeStats = clOptTimeStats;
-  optDisablePhiElim = clOptDisablePhiElim;
   optDotTaintPaths = clOptDotTaintPaths;
   optStats = clOptStats;
   optWithRegName = clOptWithRegName;
@@ -180,8 +165,6 @@ void getOptions()
   optInstrumIntra = clOptInstrumIntra;
   optInstrumInter = clOptInstrumInter;
   optWeakUpdate = clOptWeakUpdate;
-  optNoPtrDep = clOptNoPtrDep;
-  optNoPred = clOptNoPred;
   optNoDataFlow = clOptNoDataFlow;
   optOmpTaint = clOptOmpTaint;
   optCudaTaint = clOptCudaTaint;
@@ -190,17 +173,8 @@ void getOptions()
   optInterOnly = clOptInterOnly;
   optIntraOnly = clOptIntraOnly;
   optDGUIDA = clOptDGUIDA;
-
-  if (optDGUIDA && clOptSVF) {
-    errs() << "Error: cannot use SVF and UIDA dep graph simultaneously !\n";
-    exit(0);
-  }
-
-  if (clOptSVF) {
-    optDisablePhiElim = true;
-    optNoPred = true;
-    optNoPtrDep = true;
-  }
+  optDGSVF = clOptSVF;
+  optCompareAll = clOptCompareAll;
 
   if (optInstrumInter && optInstrumIntra) {
     errs() << "Error: cannot instrument for both intra- and inter- procedural "

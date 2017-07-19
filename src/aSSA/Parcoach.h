@@ -42,6 +42,10 @@ namespace {
   private:
     ParcoachAnalysisInter *PAInter;
     ParcoachAnalysisIntra *PAIntra;
+    ParcoachAnalysisInter *PAInterDCF;
+    ParcoachAnalysisInter *PAInterSVF;
+    ParcoachAnalysisInter *PAInterUIDA;
+
 
     std::map<llvm::Instruction *, llvm::Instruction *> ompNewInst2oldInst;
 

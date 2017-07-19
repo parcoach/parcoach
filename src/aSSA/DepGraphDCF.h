@@ -16,9 +16,12 @@ public:
   typedef std::set<const MSSAVar *> ConstVarSet;
   typedef std::set<const llvm::Value *> ValueSet;
 
-  DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, llvm::Pass *pass);
+  DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, llvm::Pass *pass,
+	      bool noPtrDep=false, bool noPred=false,
+	      bool disablePhiElim=false);
   virtual ~DepGraphDCF();
 
+  virtual void build();
   void buildFunction(const llvm::Function *F);
   void toDot(std::string filename);
   void dotTaintPath(const llvm::Value *v, std::string filename,
@@ -189,6 +192,11 @@ private:
   double floodDepTime;
   double floodCallTime;
   double dotTime;
+
+  /* options */
+  bool noPtrDep;
+  bool noPred;
+  bool disablePhiElim;
 };
 
 #endif /* DEPGRAPHDCF_H */

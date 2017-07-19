@@ -13,6 +13,8 @@
 using namespace llvm;
 using namespace std;
 
+int ParcoachAnalysisInter::id = 0;
+
 void
 ParcoachAnalysisInter::run() {
   // Parcoach analysis
@@ -74,7 +76,7 @@ ParcoachAnalysisInter::BFS(llvm::Function *F) {
     if(isa<ReturnInst>(I.getTerminator())){
       string return_coll = string(getCollectivesInBB(&I));
       mdNode = MDNode::get(I.getContext(),MDString::get(I.getContext(),return_coll));
-      I.getTerminator()->setMetadata("inter.inst.collSequence",mdNode);
+      I.getTerminator()->setMetadata("inter.inst.collSequence"+to_string(id),mdNode);
       Unvisited.push_back(&I);
       continue;
     }
@@ -104,7 +106,7 @@ ParcoachAnalysisInter::BFS(llvm::Function *F) {
 	    CollSequence=string(N);
 	    // Set the metadata with the collective sequence
 	    mdNode = MDNode::get(TI->getContext(),MDString::get(TI->getContext(),CollSequence));
-	    TI->setMetadata("inter.inst.collSequence",mdNode);
+	    TI->setMetadata("inter.inst.collSequence"+to_string(id),mdNode);
 	    Unvisited.push_back(Pred);
 
 	    // BB ALREADY SEEN
@@ -122,7 +124,7 @@ ParcoachAnalysisInter::BFS(llvm::Function *F) {
 	  //DEBUG(errs() << " EMMA >>> " << CollSequence_temp << " = " << getBBcollSequence(*TI) << " ?\n");
 	  if(CollSequence_temp != getBBcollSequence(*TI)){
 	    mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
-	    TI->setMetadata("inter.inst.collSequence",mdNode);
+	    TI->setMetadata("inter.inst.collSequence"+to_string(id),mdNode);
 	    DebugLoc BDLoc = TI->getDebugLoc();
 	    //DEBUG(errs() << "  EMMA ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n");
 	  }
@@ -142,7 +144,7 @@ ParcoachAnalysisInter::BFS(llvm::Function *F) {
 
 
   mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
-  F->setMetadata("inter.func.summary",mdNode);
+  F->setMetadata("inter.func.summary"+to_string(id),mdNode);
   //DEBUG(errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n");
 }
 
@@ -248,7 +250,7 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
       "line(s) " + COND_lines;
     mdNode = MDNode::get(i->getContext(),
 			 MDString::get(i->getContext(), WarningMsg));
-    i->setMetadata("inter.inst.warning",mdNode);
+    i->setMetadata("inter.inst.warning"+to_string(id),mdNode);
     Diag=SMDiagnostic(File,SourceMgr::DK_Warning,WarningMsg);
     Diag.print(ProgName, errs(), 1,1);
   }
@@ -369,7 +371,7 @@ ParcoachAnalysisInter::getCollectivesInBB(BasicBlock *BB) {
 // Metadata
 std::string
 ParcoachAnalysisInter::getBBcollSequence(const llvm::Instruction &inst) {
-  if (MDNode *node = inst.getMetadata("inter.inst.collSequence")) {
+  if (MDNode *node = inst.getMetadata("inter.inst.collSequence"+to_string(id))) {
     if (Metadata *value = node->getOperand(0)) {
       MDString *mdstring = cast<MDString>(value);
       assert(mdstring->getString()!="white");
@@ -381,7 +383,7 @@ ParcoachAnalysisInter::getBBcollSequence(const llvm::Instruction &inst) {
 
 std::string
 ParcoachAnalysisInter::getFuncSummary(llvm::Function &F) {
-  if (MDNode *node = F.getMetadata("inter.func.summary")) {
+  if (MDNode *node = F.getMetadata("inter.func.summary"+to_string(id))) {
     if (Metadata *value = node->getOperand(0)) {
       MDString *mdstring = cast<MDString>(value);
       return mdstring->getString();
@@ -444,7 +446,7 @@ ParcoachAnalysisInter::insertCC(llvm::Instruction *I, int OP_color,
 std::string
 ParcoachAnalysisInter::getWarning(llvm::Instruction &inst) {
   string warning = " ";
-  if (MDNode *node = inst.getMetadata("inter.inst.warning")) {
+  if (MDNode *node = inst.getMetadata("inter.inst.warning"+to_string(id))) {
     if (Metadata *value = node->getOperand(0)) {
       MDString *mdstring = cast<MDString>(value);
       warning = mdstring->getString();

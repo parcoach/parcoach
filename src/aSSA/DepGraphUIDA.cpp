@@ -28,7 +28,8 @@ static vector<functionArg> resetFunctions;
 
 
 DepGraphUIDA::DepGraphUIDA(PTACallGraph *CG, Pass *pass)
-  : CG(CG), pass(pass),
+  : DepGraph(CG),
+    CG(CG), pass(pass),
     buildGraphTime(0), phiElimTime(0),
     floodDepTime(0), floodCallTime(0),
     dotTime(0) {

@@ -8,7 +8,9 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
 public:
   ParcoachAnalysisInter(llvm::Module &M, DepGraph *DG, PTACallGraph &PTACG,
 			bool disableInstru = false)
-    : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG) {}
+    : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG) {
+    id++;
+  }
 
   virtual ~ParcoachAnalysisInter() {}
 
@@ -34,6 +36,8 @@ private:
 		llvm::StringRef File);
 
   std::string getWarning(llvm::Instruction &inst);
+
+  static int id;
 };
 
 #endif /* PARCOACHANALYSISINTER_H */

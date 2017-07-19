@@ -28,11 +28,14 @@ static vector<const char *> loadValueSources;
 static vector<functionArg> resetFunctions;
 
 
-DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, Pass *pass)
-  : mssa(mssa), CG(CG), pass(pass),
+DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, Pass *pass,
+			 bool noPtrDep, bool noPred, bool disablePhiElim)
+  : DepGraph(CG),
+    mssa(mssa), CG(CG), pass(pass),
     buildGraphTime(0), phiElimTime(0),
     floodDepTime(0), floodCallTime(0),
-    dotTime(0) {
+    dotTime(0), noPtrDep(noPtrDep), noPred(noPred),
+    disablePhiElim(disablePhiElim) {
 
   if (optMpiTaint)
     enableMPI();
@@ -45,6 +48,32 @@ DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, Pass *pass)
 }
 
 DepGraphDCF::~DepGraphDCF() {}
+
+void
+DepGraphDCF::build() {
+  unsigned counter = 0;
+  unsigned nbFunctions = PTACG->getModule().getFunctionList().size();
+
+  for (Function &F : PTACG->getModule()) {
+    if (!PTACG->isReachableFromEntry(&F))
+      continue;
+
+    if (counter % 100 == 0)
+      errs() << "DepGraph: visited " << counter << " functions over " << nbFunctions
+	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
+
+    counter++;
+
+    if (isIntrinsicDbgFunction(&F))
+      continue;
+
+    buildFunction(&F);
+  }
+
+  if (!disablePhiElim)
+    phiElimination();
+}
+
 
 void
 DepGraphDCF::enableMPI() {
@@ -283,7 +312,7 @@ DepGraphDCF::visitBasicBlock(llvm::BasicBlock &BB) {
       addEdge(I.second, phi->var);
     }
 
-    if (!optNoPred) {
+    if (!noPred) {
       for (const Value *pred : phi->preds) {
 	funcToLLVMNodesMap[curFunc].insert(pred);
 	addEdge(pred, phi->var);
@@ -337,7 +366,7 @@ DepGraphDCF::visitLoadInst(llvm::LoadInst &I) {
     }
   }
 
-  if (!optNoPtrDep)
+  if (!noPtrDep)
     addEdge(I.getPointerOperand(), &I);
 }
 
@@ -358,7 +387,7 @@ DepGraphDCF::visitStoreInst(llvm::StoreInst &I) {
     if (optWeakUpdate)
       addEdge(chi->opVar, chi->var);
 
-    if (!optNoPtrDep)
+    if (!noPtrDep)
       addEdge(I.getPointerOperand(), chi->var);
   }
 }
@@ -383,7 +412,7 @@ DepGraphDCF::visitPHINode(llvm::PHINode &I) {
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 
-  if (!optNoPred) {
+  if (!noPred) {
     for (const Value *v : mssa->llvmPhiToPredMap[&I]) {
       addEdge(v, &I);
       funcToLLVMNodesMap[curFunc].insert(v);

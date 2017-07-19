@@ -9,7 +9,6 @@ extern bool optDotGraph;
 extern bool optDumpRegions;
 extern bool optDumpModRef;
 extern bool optTimeStats;
-extern bool optDisablePhiElim;
 extern bool optDotTaintPaths;
 extern bool optStats;
 extern bool optWithRegName;
@@ -17,8 +16,6 @@ extern bool optContextInsensitive;
 extern bool optInstrumInter;
 extern bool optInstrumIntra;
 extern bool optWeakUpdate;
-extern bool optNoPtrDep;
-extern bool optNoPred;
 extern bool optNoDataFlow;
 extern bool optOmpTaint;
 extern bool optCudaTaint;
@@ -27,6 +24,8 @@ extern bool optUpcTaint;
 extern bool optInterOnly;
 extern bool optIntraOnly;
 extern bool optDGUIDA;
+extern bool optDGSVF;
+extern bool optCompareAll;
 
 void getOptions();
 

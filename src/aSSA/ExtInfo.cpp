@@ -315,7 +315,7 @@ static const funcModPair funcModPairs[] = {
   {"_upcr_memget_nb", {3 , true , {true,false,false}} },
   {"_upcr_waitsync", {1 ,false , {true}} },
   {"gasnete_get_bulk", {4 , false, {true,false,true,false}} },
-  {"gasnete_putt_bulk", {4 ,false , {false,true,true,false}} },
+  {"gasnete_put_bulk", {4 ,false , {false,true,true,false}} },
 
 
   /* gsl */

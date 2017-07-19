@@ -26,10 +26,10 @@ std::vector<const char *> OMP_v_coll = {"__kmpc_barrier"};
 
 
 /*
- * UPC COLLECTIVES
+ * UPC COLLECTIVES - in upcr_collective.h
  */
 
-std::vector<const char *> UPC_v_coll = {"_upcr_wait"};
+std::vector<const char *> UPC_v_coll = {"_upcr_wait", "_upcr_all_broadcast", "_upcr_all_reduceD", "_upcr_all_gather", "_upcr_all_scatter", "_upcr_all_scatter","_upcr_all_reduceC", "_upcr_all_reduceUC", "_upcr_all_reduceS", "_upcr_all_reduceUS", "_upcr_all_reduceI", "_upcr_all_reduceUI", "_upcr_all_reduceL", "_upcr_all_reduceUL", "_upcr_all_reduceF", "_upcr_all_reduceLD" };
 
 
 /*

@@ -168,11 +168,11 @@ ParcoachInstr::doFinalization(Module &M) {
 
     nbcols = PAIntra->getNbCollectivesFound();
 
-    intraonlywarnings = PAIntra->getNbWarningsParcoachOnly();
-    intraonlyconds = PAIntra->getNbCondsParcoachOnly();
+    intraonlywarnings = PAIntra->getWarningSetParcoachOnly().size();
+    intraonlyconds = PAIntra->getConditionSetParcoachOnly().size();
 
-    interonlywarnings = PAInterDCF->getNbWarningsParcoachOnly();
-    interonlyconds = PAInterDCF->getNbCondsParcoachOnly();
+    interonlywarnings = PAInterDCF->getWarningSetParcoachOnly().size();
+    interonlyconds = PAInterDCF->getConditionSetParcoachOnly().size();
 
     intersectionSize
       = getInstSetIntersectionSize(PAInterDCF->getWarningSetParcoachOnly(),
@@ -186,30 +186,30 @@ ParcoachInstr::doFinalization(Module &M) {
     intercondsadded = PAInterDCF->getConditionSetParcoachOnly().size() - intersectionSize;
     intercondsremoved = PAIntra->getConditionSetParcoachOnly().size() - intersectionSize;
 
-    dcfwarnings = PAInterDCF->getNbWarnings();
-    dcfconds = PAInterDCF->getNbConds();
-    svfwarnings = PAInterSVF->getNbWarnings();
-    svfconds = PAInterSVF->getNbConds();
-    uidawarnings = PAInterUIDA->getNbWarnings();
-    uidaconds = PAInterUIDA->getNbConds();
+    dcfwarnings = PAInterDCF->getWarningSet().size();
+    dcfconds = PAInterDCF->getConditionSet().size();
+    svfwarnings = PAInterSVF->getWarningSet().size();
+    svfconds = PAInterSVF->getConditionSet().size();
+    uidawarnings = PAInterUIDA->getWarningSet().size();
+    uidaconds = PAInterUIDA->getConditionSet().size();
 
     intersectionSize
       = getInstSetIntersectionSize(PAInterDCF->getWarningSet(), PAInterSVF->getWarningSet());
-    svfwarningsadded = PAInterDCF->getNbWarnings() - intersectionSize;
-    svfwarningsremoved = PAInterSVF->getNbWarnings() - intersectionSize;
+    svfwarningsadded = PAInterDCF->getWarningSet().size() - intersectionSize;
+    svfwarningsremoved = PAInterSVF->getWarningSet().size() - intersectionSize;
     intersectionSize
       = getBBSetIntersectionSize(PAInterDCF->getConditionSet(), PAInterSVF->getConditionSet());
-    svfcondsadded = PAInterDCF->getNbConds() - intersectionSize;
-    svfcondsremoved = PAInterSVF->getNbConds() - intersectionSize;
+    svfcondsadded = PAInterDCF->getConditionSet().size() - intersectionSize;
+    svfcondsremoved = PAInterSVF->getConditionSet().size() - intersectionSize;
 
     intersectionSize
       = getInstSetIntersectionSize(PAInterDCF->getWarningSet(), PAInterUIDA->getWarningSet());
-    uidawarningsadded = PAInterDCF->getNbWarnings() - intersectionSize;
-    uidawarningsremoved = PAInterUIDA->getNbWarnings() - intersectionSize;
+    uidawarningsadded = PAInterDCF->getWarningSet().size() - intersectionSize;
+    uidawarningsremoved = PAInterUIDA->getWarningSet().size() - intersectionSize;
     intersectionSize
       = getBBSetIntersectionSize(PAInterDCF->getConditionSet(), PAInterUIDA->getConditionSet());
-    uidacondsadded = PAInterDCF->getNbConds() - intersectionSize;
-    uidacondsremoved = PAInterUIDA->getNbConds() - intersectionSize;
+    uidacondsadded = PAInterDCF->getConditionSet().size() - intersectionSize;
+    uidacondsremoved = PAInterUIDA->getConditionSet().size() - intersectionSize;
 
     errs() << "app," << nbcols << ","
 	   << intraonlywarnings << "," <<  intraonlyconds << ","

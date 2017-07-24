@@ -54,6 +54,8 @@ namespace {
 				      std::set<const llvm::Value *> > &
 				      func2SharedVarMap);
     void revertOmpTransformation();
+
+    void cudaTransformation(llvm::Module &M);
   };
 }
 

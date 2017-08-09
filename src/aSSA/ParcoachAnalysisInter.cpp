@@ -53,7 +53,8 @@ ParcoachAnalysisInter::run() {
     ++cgSccIter;
   }
 
-  if(nbWarnings !=0 && !disableInstru){
+  //if(nbWarnings !=0 && !disableInstru){
+  if(nbWarnings !=0){
     errs() << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n";
     for (Function &F : M) {
       instrumentFunction(&F);

@@ -26,7 +26,8 @@ ParcoachAnalysisIntra::run() {
     // (2) Check calls to collectives with PDF+ of each collective node
     checkCollectives(&F);
 
-    if(nbWarningsParcoachOnly > oldNbWarnings && !disableInstru){;
+		//if(nbWarningsParcoachOnly > oldNbWarnings && !disableInstru){;
+    if(nbWarningsParcoachOnly > oldNbWarnings){;
       // Static instrumentation of the code
       // TODO: no intrum for UPC yet
       errs() << "\033[0;35m=> Instrumentation of the function ...\033[0;0m\n";

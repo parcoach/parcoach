@@ -866,6 +866,12 @@ DepGraphUIDA::getCallInterIPDF(const llvm::CallInst *call,
   }
 }
 
+// EMMA
+void
+DepGraphUIDA::getCallIntraIPDF(const llvm::CallInst *call,
+                                  std::set<const llvm::BasicBlock *> &ipdf) {
+}
+
 void
 DepGraphUIDA::addEdge(const llvm::Value *s, const llvm::Value *d) {
   assert(s);

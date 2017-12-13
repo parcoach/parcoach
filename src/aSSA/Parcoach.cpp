@@ -113,6 +113,11 @@ ParcoachInstr::doFinalization(Module &M) {
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
       errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
 
+      errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+      errs() << "\033[0;36m========= PARCOACH INTER SUMMARY-BASED =====\033[0;0m\n";
+      errs() << "\033[0;36m==========================================\033[0;0m\n";
+      // TODO
+
       if (PAIntra) {
 	unsigned intersectionSize;
 	int nbAdded;
@@ -652,12 +657,16 @@ ParcoachInstr::runOnModule(Module &M) {
       PAIntra->run();
     }
   } else {
+      errs() << "\033[0;36m= PARCOACH INTRA =\033[0;0m\n";
       PAIntra = new ParcoachAnalysisIntra(M, NULL, this, !optInstrumIntra);
       PAIntra->run();
+      errs() << "\033[0;36m= PARCOACH INTER =\033[0;0m\n";
       PAInterDCF = new ParcoachAnalysisInter(M, DGDCF, PTACG, !optInstrumInter);
       PAInterDCF->run();
+      errs() << "\033[0;36m= PARCOACH + SVF =\033[0;0m\n";
       PAInterSVF = new ParcoachAnalysisInter(M, DGSVF, PTACG, !optInstrumInter);
       PAInterSVF->run();
+      errs() << "\033[0;36m= PARCOACH + UIDA =\033[0;0m\n";
       PAInterUIDA = new ParcoachAnalysisInter(M, DGUIDA, PTACG, !optInstrumInter);
       PAInterUIDA->run();
   }

@@ -48,6 +48,9 @@ public:
 
   void getCallInterIPDF(const llvm::CallInst *call,
 			       std::set<const llvm::BasicBlock *> &ipdf);
+  // EMMA
+  void getCallIntraIPDF(const llvm::CallInst *call,
+			       std::set<const llvm::BasicBlock *> &ipdf);
 
   void printTimers() const;
 

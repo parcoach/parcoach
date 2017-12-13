@@ -65,6 +65,9 @@ public:
 
   void getCallInterIPDF(const llvm::CallInst *call,
 			       std::set<const llvm::BasicBlock *> &ipdf);
+  // EMMA: used for the summary-based approach
+  void getCallIntraIPDF(const llvm::CallInst *call,
+			       std::set<const llvm::BasicBlock *> &ipdf);
 
   void printTimers() const;
 

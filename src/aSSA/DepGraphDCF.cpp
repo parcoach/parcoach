@@ -1206,6 +1206,23 @@ DepGraphDCF::getCallInterIPDF(const llvm::CallInst *call,
   }
 }
 
+
+
+// EMMA: new function used for summary-based approach
+void
+DepGraphDCF::getCallIntraIPDF(const llvm::CallInst *call,
+                                  std::set<const llvm::BasicBlock *> &ipdf) {
+
+  Function *F = const_cast<Function *>(call->getParent()->getParent());
+  BasicBlock *BB = const_cast<BasicBlock *>(call->getParent());
+  PostDominatorTree *PDT =
+      &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
+    vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
+    ipdf.insert(funcIPDF.begin(), funcIPDF.end());
+}
+
+
+
 bool
 DepGraphDCF::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
   assert(var1);

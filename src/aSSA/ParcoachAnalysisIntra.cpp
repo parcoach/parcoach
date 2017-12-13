@@ -26,14 +26,15 @@ ParcoachAnalysisIntra::run() {
     // (2) Check calls to collectives with PDF+ of each collective node
     checkCollectives(&F);
 
-		//if(nbWarningsParcoachOnly > oldNbWarnings && !disableInstru){;
-    if(nbWarningsParcoachOnly > oldNbWarnings){;
+    // EMMA: always instrument the code
+    //if(nbWarningsParcoachOnly > oldNbWarnings){;
+    if(nbWarningsParcoachOnly > oldNbWarnings && !disableInstru){;
       // Static instrumentation of the code
       // TODO: no intrum for UPC yet
       errs() << "\033[0;35m=> Instrumentation of the function ...\033[0;0m\n";
       instrumentFunction(&F);
     }
-    errs() << "\033[0;36m==========================================\033[0;0m\n";
+    //errs() << "\033[0;36m==========================================\033[0;0m\n";
   }
 }
 
@@ -144,10 +145,12 @@ ParcoachAnalysisIntra::checkCollectives(llvm::Function *F) {
       continue;
 
     nbCollectivesFound++;
-    PostDominatorTree &PDT =
-      pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
+    PostDominatorTree *PDT =
+      &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
+    BasicBlock *BBtemp = const_cast<BasicBlock *>(CI->getParent()); 
 
-    vector<BasicBlock * > iPDF = iterated_postdominance_frontier(PDT, BB);
+    vector<BasicBlock * > iPDF = iterated_postdominance_frontier(*PDT, BB);
+
 
     if(iPDF.size()==0)
       continue;
@@ -176,7 +179,6 @@ ParcoachAnalysisIntra::checkCollectives(llvm::Function *F) {
       Diag.print(ProgName, errs(), 1,1);
       issue_warning=0;
     }
-    //}
   }
 }
 

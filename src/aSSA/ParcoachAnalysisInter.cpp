@@ -309,10 +309,10 @@ string
 ParcoachAnalysisInter::getCollectivesInBB(BasicBlock *BB) {
   string CollSequence="empty";
 
-  for(BasicBlock::iterator i = BB->begin(), e = BB->end(); i != e; ++i){
+  for(auto i = BB->rbegin(), e = BB->rend(); i != e; ++i){
     const Instruction *inst = &*i;
 
-    if(CallInst *CI = dyn_cast<CallInst>(i)) {
+    if(const CallInst *CI = dyn_cast<CallInst>(inst)) {
       Function *callee = CI->getCalledFunction();
 
       //// Indirect calls

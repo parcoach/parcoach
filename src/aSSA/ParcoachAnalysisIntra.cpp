@@ -246,9 +246,9 @@ string
 ParcoachAnalysisIntra::getCollectivesInBB(BasicBlock *BB) {
   string CollSequence="empty";
 
-  for(BasicBlock::iterator i = BB->begin(), e = BB->end(); i != e; ++i){
+  for(auto i = BB->rbegin(), e = BB->rend(); i != e; ++i){
 
-    if(CallInst *CI = dyn_cast<CallInst>(i)){
+    if(CallInst *CI = dyn_cast<CallInst>(&*i)){
       Function *callee = CI->getCalledFunction();
       if(!callee) continue;
 

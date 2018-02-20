@@ -147,7 +147,7 @@ ParcoachAnalysisInter::BFS(llvm::Function *F) {
 
   mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
   F->setMetadata("inter.func.summary"+to_string(id),mdNode);
-  //DEBUG(errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n");
+  errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
 }
 
 void
@@ -190,9 +190,9 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
 
     // Get conditionals from the callsite
     set<const BasicBlock *> callIPDF;
-    //DG->getCallInterIPDF(CI, callIPDF);
+    DG->getCallInterIPDF(CI, callIPDF);
     // EMMA: For the summary-based approach, use the following insteqd of the previous line 
-    DG->getCallIntraIPDF(CI, callIPDF);
+    //DG->getCallIntraIPDF(CI, callIPDF);
 
  
 
@@ -212,7 +212,7 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
       if ( !cond || (!optNoDataFlow && !DG->isTaintedValue(cond)) ) {
 	const Instruction *instE = BB->getTerminator();
 	DebugLoc locE = instE->getDebugLoc();
-	//errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";
+	errs() << " -> Condition not tainted for a conditional with NAVS line " << locE.getLine() << " in " << locE->getFilename() << "\n";
 	continue;
       }
 
@@ -458,7 +458,7 @@ ParcoachAnalysisInter::getWarning(llvm::Instruction &inst) {
       warning = mdstring->getString();
     }
   }else {
-    //errs() << "Did not find metadata\n";
+    errs() << "Did not find metadata\n";
   }
   return warning;
 }

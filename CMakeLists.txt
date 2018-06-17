@@ -8,7 +8,7 @@ message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 
-Find_Package(MPI REQUIRED)
+#Find_Package(MPI REQUIRED)
 #Find_Package(OpenMP REQUIRED)
 #Find_Package(Threads)
 
@@ -27,12 +27,15 @@ include(HandleLLVMOptions)
 include(AddLLVM)
 
 
-add_definitions(${LLVM_DEFINITIONS} ${MPI_LINK_FLAGS})
-include_directories(${LLVM_INCLUDE_DIRS} ${MPI_INCLUDE_PATH})
+#add_definitions(${LLVM_DEFINITIONS} ${MPI_LINK_FLAGS})
+#include_directories(${LLVM_INCLUDE_DIRS} ${MPI_INCLUDE_PATH})
+add_definitions(${LLVM_DEFINITIONS} )
+include_directories(${LLVM_INCLUDE_DIRS} )
 
 
 link_directories(${LLVM_LIBRARY_DIRS})
-set(LIBS ${LIBS} ${MPI_LIBRARIES})
+#set(LIBS ${LIBS} ${MPI_LIBRARIES})
+set(LIBS ${LIBS} )
 
 add_subdirectory(src/aSSA/)	
 add_subdirectory(src/Parcoach/)	

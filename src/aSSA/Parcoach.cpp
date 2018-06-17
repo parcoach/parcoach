@@ -113,9 +113,10 @@ ParcoachInstr::doFinalization(Module &M) {
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
       errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
 
-      errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+     /* errs() << "\n\033[0;36m==========================================\033[0;0m\n";
       errs() << "\033[0;36m========= PARCOACH INTER SUMMARY-BASED =====\033[0;0m\n";
       errs() << "\033[0;36m==========================================\033[0;0m\n";
+      */
       // TODO
 
       if (PAIntra) {
@@ -554,8 +555,7 @@ ParcoachInstr::runOnModule(Module &M) {
   unsigned counter = 0;
   for (Function &F : M) {
     if (!PTACG.isReachableFromEntry(&F)) {
-      errs() << F.getName() << " is not reachable from entry\n";
-
+     // errs() << F.getName() << " is not reachable from entry\n";
 
       continue;
     }

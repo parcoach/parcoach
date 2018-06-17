@@ -1440,52 +1440,52 @@ DepGraphUIDA::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
     PTACallGraphNode *N = S.back();
     bool foundChildren = false;
 
-    if (N->getFunction())
-      errs() << "current =" << N->getFunction()->getName() << "\n";
+   // if (N->getFunction())
+  //    errs() << "current =" << N->getFunction()->getName() << "\n";
 
-    if (goingDown)
+ /*   if (goingDown)
       errs() << "down\n";
     else
       errs() << "up\n";
-
+*/
     if (prev) {
       if (goingDown) {
-	errs() << "tainting " << N->getFunction()->getName() << " from "
-	       << prev->getName() << "\n";
+	//errs() << "tainting " << N->getFunction()->getName() << " from "
+	      // << prev->getName() << "\n";
 	floodFunctionFromFunction(N->getFunction(), prev);
 
-	errs() << "tainting " << N->getFunction()->getName() << "\n";
+	//errs() << "tainting " << N->getFunction()->getName() << "\n";
 	floodFunction(N->getFunction());
 
-	errs() << "for each call site get PDF+ and save tainted conditions\n";
+	//errs() << "for each call site get PDF+ and save tainted conditions\n";
 	computeFunctionCSTaintedConds(N->getFunction());
       } else {
-	errs() << "tainting " << N->getFunction()->getName() << " from "
-	       << prev->getName() << "\n";
+	//errs() << "tainting " << N->getFunction()->getName() << " from "
+	  //     << prev->getName() << "\n";
 	floodFunctionFromFunction(N->getFunction(), prev);
 
-	errs() << "tainting " << N->getFunction()->getName() << "\n";
+	//errs() << "tainting " << N->getFunction()->getName() << "\n";
 	floodFunction(N->getFunction());
 
-	errs() << "for each call site get PDF+ and save tainted conditions\n";
+	//errs() << "for each call site get PDF+ and save tainted conditions\n";
 	computeFunctionCSTaintedConds(N->getFunction());
 
-	errs() << "untainting " << prev->getName() << "\n";
+	//errs() << "untainting " << prev->getName() << "\n";
 	resetFunctionTaint(prev);
       }
     } else {
-      errs() << "tainting " << N->getFunction()->getName() << "\n";
+      //errs() << "tainting " << N->getFunction()->getName() << "\n";
       floodFunction(N->getFunction());
 
-      errs() << "for each call site get PDF+ and save tainted conditions\n";
+      //errs() << "for each call site get PDF+ and save tainted conditions\n";
       	computeFunctionCSTaintedConds(N->getFunction());
     }
 
-    errs() << "stack : ";
-    for (PTACallGraphNode *node : S)
+    //errs() << "stack : ";
+  /*  for (PTACallGraphNode *node : S)
       errs() << node->getFunction()->getName() << " ";
     errs() << "\n";
-
+*/
     // Add first unvisited callee to stack if any
     for (auto I = N->begin(), E = N->end(); I != E; ++I) {
       PTACallGraphNode *calleeNode = I->second;

@@ -4,7 +4,21 @@
 #include "ParcoachAnalysis.h"
 #include "PTACallGraph.h"
 
+
 class ParcoachAnalysisInter : public ParcoachAnalysis {
+
+ //typedef std::set<const llvm::Function *F> CollSet;
+ typedef std::string CollSet;
+ typedef bool Visited;
+
+ typedef std::map<const llvm::BasicBlock *, Visited> BBVisitedMap;
+
+ typedef std::map<const llvm::BasicBlock *, std::map<const llvm::Value *, CollSet> > MPICollMap;
+ typedef std::map<const llvm::BasicBlock *, CollSet> CollMap;
+
+ typedef std::map<const llvm::Function *, std::map<const llvm::Value *, CollSet> > MPICollperFuncMap;
+ typedef std::map<const llvm::Function *, CollSet> CollperFuncMap;
+
 public:
   ParcoachAnalysisInter(llvm::Module &M, DepGraph *DG, PTACallGraph &PTACG,
 			bool disableInstru = false)
@@ -16,21 +30,17 @@ public:
 
   virtual void run();
 
+
 private:
   PTACallGraph &PTACG;
 
-  void BFS(llvm::Function *F);
+	void setCollSet(llvm::BasicBlock *BB);
+	void setMPICollSet(llvm::BasicBlock *BB);
 
+  void BFS(llvm::Function *F);
   void checkCollectives(llvm::Function *F);
 
   void instrumentFunction(llvm::Function *F);
-
-  std::string getFuncSummary(llvm::Function &F);
-
-  std::string getBBcollSequence(const llvm::Instruction &inst);
-
-  std::string getCollectivesInBB(llvm::BasicBlock *BB);
-
   void insertCC(llvm::Instruction *I, int OP_color,
 		std::string OP_name, int OP_line, llvm::StringRef WarningMsg,
 		llvm::StringRef File);
@@ -38,6 +48,14 @@ private:
   std::string getWarning(llvm::Instruction &inst);
 
   static int id;
+
+
+protected:
+ BBVisitedMap bbVisitedMap;
+ MPICollMap mpiCollMap;
+ CollMap collMap;
+ MPICollperFuncMap mpiCollperFuncMap;
+ CollperFuncMap collperFuncMap;
 };
 
 #endif /* PARCOACHANALYSISINTER_H */

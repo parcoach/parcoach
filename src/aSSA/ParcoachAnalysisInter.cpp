@@ -10,6 +10,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
 
+
 using namespace llvm;
 using namespace std;
 
@@ -65,90 +66,148 @@ ParcoachAnalysisInter::run() {
 	errs() << " ... Parcoach analysis done\n";
 }
 
-// BFS in reverse topological order
+
+/*
+ * FUNCTIONS USED TO CHECK COLLECTIVES
+ */
+
+// Get the sequence of collectives in a BB
+void 
+ParcoachAnalysisInter::setCollSet(BasicBlock *BB)
+{
+	for(auto i = BB->rbegin(), e = BB->rend(); i != e; ++i)
+	{
+    const Instruction *inst = &*i;
+    if(const CallInst *CI = dyn_cast<CallInst>(inst)) 
+		{
+      Function *callee = CI->getCalledFunction();
+
+      //// Indirect calls
+      if(callee == NULL)
+      {
+        for (const Function *mayCallee : PTACG.indirectCallMap[inst]) {
+          if (isIntrinsicDbgFunction(mayCallee))  continue;
+          Function *callee = const_cast<Function *>(mayCallee);
+          // Is it a function containing collectives?
+					if(!collperFuncMap[callee].empty() && collMap[BB]!="NAVS")
+						collMap[BB] = collperFuncMap[callee] +  " " + collMap[BB];
+          // Is it a collective operation?
+          if(isCollective(callee)){
+            string OP_name = callee->getName().str();
+            collMap[BB] = OP_name + " " + collMap[BB]; 
+          }
+        }
+      //// Direct calls
+      }else{
+        // Is it a function containing collectives?
+				if(!collperFuncMap[callee].empty() && collMap[BB]!="NAVS")
+          collMap[BB] = collperFuncMap[callee] + " " + collMap[BB];
+        // Is it a collective operation?
+        if(isCollective(callee)){
+          string OP_name = callee->getName().str();
+          collMap[BB] = OP_name + " " + collMap[BB];
+        }
+      }
+    }
+  }
+}
+
+// Get the sequence of collectives in a BB, per MPI communicator
+void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
+for(auto i = BB->rbegin(), e = BB->rend(); i != e; ++i)
+  {
+    const Instruction *inst = &*i;
+    if(const CallInst *CI = dyn_cast<CallInst>(inst))
+    {
+      Function *callee = CI->getCalledFunction();
+
+      //// Indirect calls
+      if(callee == NULL)
+      {
+        for (const Function *mayCallee : PTACG.indirectCallMap[inst]) {
+          if (isIntrinsicDbgFunction(mayCallee))  continue;
+          Function *callee = const_cast<Function *>(mayCallee);
+          // Is it a function containing collectives?
+          if(!collperFuncMap[callee].empty() && collMap[BB]!="NAVS"){
+            collMap[BB] = collperFuncMap[callee] +  " " + collMap[BB];
+          }
+          // Is it a collective operation?
+          if(isCollective(callee)){
+            string OP_name = callee->getName().str();
+						int OP_color = getCollectiveColor(callee);
+						Value* OP_com = CI->getArgOperand(Com_arg_id(OP_color));
+            mpicollMap[BB][OP_com] = OP_name + " " + mpicollMap[BB][OP_com];
+            //errs() << "in BB CollSet i  = " << collMap[BB] << "\n";
+          }
+        }
+      //// Direct calls
+      }else{
+        // Is it a function containing collectives?
+        if(!collperFuncMap[callee].empty() && collMap[BB]!="NAVS"){
+          //collMap[BB].append(" ").append(collperFuncMap[callee]);
+          collMap[BB] = collperFuncMap[callee] + " " + collMap[BB];
+          //errs() << "in BB (0) CollSet d = " << collMap[BB] << "\n";
+        }
+        // Is it a collective operation?
+        if(isCollective(callee)){
+          string OP_name = callee->getName().str();
+					int OP_color = getCollectiveColor(callee);
+					Value* OP_com = CI->getArgOperand(Com_arg_id(OP_color));
+          //collMap[BB].append(" ").append(OP_name);
+          //errs() << "in BB (1) CollSet d = " << collMap[BB] << "\n";
+          mpicollMap[BB][OP_com] = OP_name + " " + mpicollMap[BB][OP_com];
+          //errs() << "in BB (2) CollSet d = " << collMap[BB] << "\n";
+        }
+      }
+    }
+  }
+}
+
 void
 ParcoachAnalysisInter::BFS(llvm::Function *F) {
 	MDNode* mdNode;
-	string CollSequence_Header;
-	string CollSequence=string();
 	std::vector<BasicBlock *> Unvisited;
+	//map<BasicBlock *, bool seen> ;
 
-	// GET ALL EXIT NODES AND SET THE COLLECTIVE SEQUENCE
-	for(BasicBlock &I : *F){
-		if(isa<ReturnInst>(I.getTerminator())){
-			string return_coll = string(getCollectivesInBB(&I));
-			mdNode = MDNode::get(I.getContext(),MDString::get(I.getContext(),return_coll));
-			I.getTerminator()->setMetadata("inter.inst.collSequence"+to_string(id),mdNode);
+	// GET ALL EXIT NODES 
+  for(BasicBlock &I : *F){
+    if(isa<ReturnInst>(I.getTerminator())){
 			Unvisited.push_back(&I);
-			continue;
+			setCollSet(&I);
 		}
 	}
 	while(Unvisited.size()>0)
-	{
+  {
 		BasicBlock *header=*Unvisited.begin();
-		Unvisited.erase(Unvisited.begin());
-		CollSequence_Header = getBBcollSequence(*header->getTerminator());
+    Unvisited.erase(Unvisited.begin());
+		bbVisitedMap[header]=true;
 		pred_iterator PI=pred_begin(header), E=pred_end(header);
-
 		for(; PI!=E; ++PI){
-			BasicBlock *Pred = *PI;
-			TerminatorInst* TI = Pred->getTerminator();
-
+      BasicBlock *Pred = *PI;
+			//errs() << F->getName() << " - BB: " << Pred->getName() << "\n";
 			// BB NOT SEEN BEFORE
-			if(getBBcollSequence(*TI)=="white")
-			{
-				string N=string();
-				N=CollSequence_Header;
-				if(CollSequence_Header=="empty"){
-					N=getCollectivesInBB(Pred);
-				}else{
-					if(getCollectivesInBB(Pred)!="empty") // && N!="NAVS")
-						N.append(" ").append(getCollectivesInBB(Pred));
-				}
-				CollSequence=string(N);
-				// Set the metadata with the collective sequence
-				mdNode = MDNode::get(TI->getContext(),MDString::get(TI->getContext(),CollSequence));
-				TI->setMetadata("inter.inst.collSequence"+to_string(id),mdNode);
+			if(bbVisitedMap[Pred] != true){
+				collMap[Pred] = collMap[header];
+				setCollSet(Pred);
+				bbVisitedMap[Pred]=true;
 				Unvisited.push_back(Pred);
-
-				// BB ALREADY SEEN
+			// BB ALREADY SEEN
 			}else{
-				string seq_temp = CollSequence_Header;
-				if(CollSequence_Header=="empty"){
-					seq_temp=getCollectivesInBB(Pred);
-				}else{
-					if(getCollectivesInBB(Pred)!="empty" && seq_temp!="NAVS")
-						seq_temp.append(" ").append(getCollectivesInBB(Pred));
-				}
-				string CollSequence_temp=string(seq_temp);
-
-				// Check if CollSequence_temp and sequence in BB are equals. If not set the metadata as NAVS
-				//DEBUG(errs() << " EMMA >>> " << CollSequence_temp << " = " << getBBcollSequence(*TI) << " ?\n");
-				if(CollSequence_temp != getBBcollSequence(*TI)){
-					mdNode = MDNode::get(Pred->getContext(),MDString::get(Pred->getContext(),"NAVS"));
-					TI->setMetadata("inter.inst.collSequence"+to_string(id),mdNode);
-					DebugLoc BDLoc = TI->getDebugLoc();
-					//DEBUG(errs() << "  EMMA ===>>> Line " << BDLoc.getLine() << " -> " << getBBcollSequence(*TI) << "\n");
-				}
+				//errs() << F->getName() << " - BB: " << Pred->getName() << " already seen\n";
+				string temp = collMap[Pred];
+				collMap[Pred] = collMap[header];
+				setCollSet(Pred);
+				//errs() << collMap[Pred] << " = " << temp << "?\n";
+				if(temp != collMap[Pred])
+					collMap[Pred]="NAVS";
 			}
 		}
 	}
-	// Keep a metadata for the summary of the function
 	BasicBlock &entry = F->getEntryBlock();
-	string FuncSummary="";
-
-	if(getBBcollSequence(*entry.getTerminator()) != "white")
-		FuncSummary=getBBcollSequence(*entry.getTerminator());
-	else
-		errs() << F->getName() << " has white summary!\n";
-	if(FuncSummary.find("NAVS")!=std::string::npos)
-		FuncSummary="NAVS";
-
-
-	mdNode = MDNode::get(F->getContext(),MDString::get(F->getContext(),FuncSummary));
-	F->setMetadata("inter.func.summary"+to_string(id),mdNode);
-	//errs() << "Summary of function " << F->getName() << " : " << getFuncSummary(*F) << "\n";
+	collperFuncMap[F]=collMap[&entry];
+	errs() << F->getName() << " summary = " << collperFuncMap[F] << "\n";
 }
+
 
 void
 ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
@@ -180,10 +239,13 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
 
 		// Is it a collective call?
 		if (!isCollective(f)){
-       // !!!!!!!!!!!!!!!!!!!!     EMMA     !!!!!!!!!!!!!!!
-			// get the communicator here and print the name in the warning ; look at the CC function ?
 			continue;
 		}
+		int OP_color = getCollectiveColor(f);
+		Value* OP_com = CI->getArgOperand(Com_arg_id(OP_color)); // 0 for Barrier only
+		//CI->getArgOperand(0)->dump();
+		errs() << "Found " << OP_name << " on " << OP_com << " line " << OP_line << "\n";
+
 
 		nbCollectivesFound++;
 
@@ -193,16 +255,14 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
 		// Get conditionals from the callsite
 		set<const BasicBlock *> callIPDF;
 		DG->getCallInterIPDF(CI, callIPDF);
-		// EMMA: For the summary-based approach, use the following instead of the previous line 
+		// For the summary-based approach, use the following instead of the previous line 
 		//DG->getCallIntraIPDF(CI, callIPDF);
-
 
 
 		for (const BasicBlock *BB : callIPDF) {
 
 			// Is this node detected as potentially dangerous by parcoach?
-			string Seq = getBBcollSequence(*(BB->getTerminator()));
-			if(Seq!="NAVS") continue;
+			if(collMap[BB]!="NAVS") continue;
 
 			isColWarningParcoach = true;
 			nbCondsParcoachOnly++;
@@ -255,7 +315,7 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
 		nbWarnings++;
 		warningSet.insert(CI);
 
-		WarningMsg = to_string(nbWarnings) + " - " + OP_name + " line " + to_string(OP_line) +
+		WarningMsg = to_string(nbWarnings) + " - " + OP_name + " line " + to_string(OP_line) + \
 			" possibly not called by all processes because of conditional(s) " \
 			"line(s) " + COND_lines;
 		mdNode = MDNode::get(i->getContext(),
@@ -265,6 +325,12 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
 		Diag.print(ProgName, errs(), 1,1);
 	}
 }
+
+
+
+/*
+ * INSTRUMENTATION
+ */
 
 void
 ParcoachAnalysisInter::instrumentFunction(llvm::Function *F) {
@@ -304,107 +370,7 @@ ParcoachAnalysisInter::instrumentFunction(llvm::Function *F) {
 	}
 }
 
-/*
- * FUNCTIONS USED TO CHECK COLLECTIVES
- */
 
-// Get the sequence of collectives in a BB
-string
-ParcoachAnalysisInter::getCollectivesInBB(BasicBlock *BB) {
-	string CollSequence="empty";
-
-	for(auto i = BB->rbegin(), e = BB->rend(); i != e; ++i){
-		const Instruction *inst = &*i;
-
-		if(const CallInst *CI = dyn_cast<CallInst>(inst)) {
-			Function *callee = CI->getCalledFunction();
-
-			//// Indirect calls
-			if(callee == NULL)
-			{
-				for (const Function *mayCallee : PTACG.indirectCallMap[inst]) {
-					if (isIntrinsicDbgFunction(mayCallee))  continue;
-					Function *callee = const_cast<Function *>(mayCallee);
-					// Is it a function containing a collective?
-					if(getFuncSummary(*callee)!="no summary" && getFuncSummary(*callee)!="empty"){
-						if(CollSequence=="empty"){
-							CollSequence=getFuncSummary(*callee);
-						}else{
-							// To avoid a summary like NAVS NAVS
-							if(CollSequence=="NAVS" || getFuncSummary(*callee) == "NAVS"){
-								CollSequence="NAVS";
-							}else{
-								CollSequence.append(" ").append(getFuncSummary(*callee));
-							}
-						}
-					}
-					// Is it a collective operation?
-					if(isCollective(callee)){
-						if(CollSequence=="empty"){
-							CollSequence=callee->getName().str();
-						}else{
-							if(CollSequence!="NAVS")
-								CollSequence.append(" ").append(callee->getName().str());
-						}
-					}
-				}
-				//// Direct calls
-			}else{
-				// Is it a function containing a collective?
-				if(getFuncSummary(*callee)!="no summary" && getFuncSummary(*callee)!="empty"){
-
-					if(CollSequence=="empty"){
-						CollSequence=getFuncSummary(*callee);
-					}else{
-						if(CollSequence=="NAVS" || getFuncSummary(*callee) == "NAVS"){
-							CollSequence="NAVS";
-						}else{
-							CollSequence.append(" ").append(getFuncSummary(*callee));
-						}
-					}
-				}
-				// Is it a collective operation?
-				if(isCollective(callee)){
-					if(CollSequence=="empty"){
-						CollSequence=callee->getName().str();
-					}else{
-						if(CollSequence!="NAVS")
-							CollSequence.append(" ").append(callee->getName().str());
-					}
-				}
-			}
-		}
-	}
-	return CollSequence;
-}
-
-// Metadata
-std::string
-ParcoachAnalysisInter::getBBcollSequence(const llvm::Instruction &inst) {
-	if (MDNode *node = inst.getMetadata("inter.inst.collSequence"+to_string(id))) {
-		if (Metadata *value = node->getOperand(0)) {
-			MDString *mdstring = cast<MDString>(value);
-			assert(mdstring->getString()!="white");
-			return mdstring->getString();
-		}
-	}
-	return "white";
-}
-
-std::string
-ParcoachAnalysisInter::getFuncSummary(llvm::Function &F) {
-	if (MDNode *node = F.getMetadata("inter.func.summary"+to_string(id))) {
-		if (Metadata *value = node->getOperand(0)) {
-			MDString *mdstring = cast<MDString>(value);
-			return mdstring->getString();
-		}
-	}
-	return "no summary";
-}
-
-/*
- * INSTRUMENTATION
- */
 
 // Check Collective function before a collective
 // + Check Collective function before return statements

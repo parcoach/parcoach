@@ -10,13 +10,14 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
  //typedef std::set<const llvm::Function *F> CollSet;
  typedef std::string CollSet;
  typedef bool Visited;
+ using ComCollMap = std::map<const llvm::Value *, CollSet>;
 
  typedef std::map<const llvm::BasicBlock *, Visited> BBVisitedMap;
 
- typedef std::map<const llvm::BasicBlock *, std::map<const llvm::Value *, CollSet> > MPICollMap;
+ typedef std::map<const llvm::BasicBlock *, ComCollMap > MPICollMap;
  typedef std::map<const llvm::BasicBlock *, CollSet> CollMap;
 
- typedef std::map<const llvm::Function *, std::map<const llvm::Value *, CollSet> > MPICollperFuncMap;
+ typedef std::map<const llvm::Function *, ComCollMap > MPICollperFuncMap;
  typedef std::map<const llvm::Function *, CollSet> CollperFuncMap;
 
 public:
@@ -38,6 +39,7 @@ private:
 	void setMPICollSet(llvm::BasicBlock *BB);
 
   void BFS(llvm::Function *F);
+  void MPI_BFS(llvm::Function *F);
   void checkCollectives(llvm::Function *F);
 
   void instrumentFunction(llvm::Function *F);

@@ -29,8 +29,9 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Scalar/LowerAtomic.h"
-#include <llvm/Analysis/LoopInfo.h>
+//#include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+
 
 using namespace llvm;
 using namespace std;
@@ -45,6 +46,7 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();
   au.addRequired<CallGraphWrapperPass>();
+	au.addRequired<LoopInfoWrapperPass>();
 }
 
 bool
@@ -577,6 +579,20 @@ ParcoachInstr::runOnModule(Module &M) {
       getAnalysis<DominanceFrontierWrapperPass>(F).getDominanceFrontier();
     PostDominatorTree &PDT =
       getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
+		LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+
+	// LOOPS
+  for(Loop *L: LI){
+		BasicBlock *B = L->getHeader();
+		pred_iterator PI=pred_begin(B), E=pred_end(B);
+    for(; PI!=E; ++PI){
+			BasicBlock *PH = *PI;
+			if(L->contains(PH))
+				bbPreheaderMap[PH]=true;
+		 		//errs() << F.getName() << "BB " << PH->getName() << " is preheader in a loop\n";
+		}
+  }
+
 
     MSSA.buildSSA(&F, DT, DF, PDT);
     if (optDumpSSA)

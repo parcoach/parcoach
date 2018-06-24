@@ -1,15 +1,26 @@
 #ifndef PARCOACHANALYSISINTER_H
 #define PARCOACHANALYSISINTER_H
 
+#include <llvm/Analysis/LoopInfo.h>
 #include "ParcoachAnalysis.h"
 #include "PTACallGraph.h"
 
 
 class ParcoachAnalysisInter : public ParcoachAnalysis {
 
+
+// A deplacer !!!!!
+ typedef bool Preheader;
+ typedef std::map<const llvm::BasicBlock *, Preheader> BBPreheaderMap;
+
+ BBPreheaderMap bbPreheaderMap;
+
+
+
  //typedef std::set<const llvm::Function *F> CollSet;
  typedef std::string CollSet;
- typedef bool Visited;
+// typedef bool Visited;
+ enum Visited{white, grey, black};
  using ComCollMap = std::map<const llvm::Value *, CollSet>;
 
  typedef std::map<const llvm::BasicBlock *, Visited> BBVisitedMap;

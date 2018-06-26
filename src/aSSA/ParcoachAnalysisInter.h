@@ -1,20 +1,16 @@
 #ifndef PARCOACHANALYSISINTER_H
 #define PARCOACHANALYSISINTER_H
 
-#include <llvm/Analysis/LoopInfo.h>
 #include "ParcoachAnalysis.h"
 #include "PTACallGraph.h"
-
+#include <llvm/Analysis/LoopInfo.h>
 
 class ParcoachAnalysisInter : public ParcoachAnalysis {
 
 
-// A deplacer !!!!!
  typedef bool Preheader;
  typedef std::map<const llvm::BasicBlock *, Preheader> BBPreheaderMap;
-
  BBPreheaderMap bbPreheaderMap;
-
 
 
  //typedef std::set<const llvm::Function *F> CollSet;
@@ -32,9 +28,9 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
  typedef std::map<const llvm::Function *, CollSet> CollperFuncMap;
 
 public:
-  ParcoachAnalysisInter(llvm::Module &M, DepGraph *DG, PTACallGraph &PTACG,
+  ParcoachAnalysisInter(llvm::Module &M, DepGraph *DG, PTACallGraph &PTACG, llvm::Pass *pass, 
 			bool disableInstru = false)
-    : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG) {
+    : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG), pass(pass) {
     id++;
   }
 
@@ -42,9 +38,10 @@ public:
 
   virtual void run();
 
-
 private:
   PTACallGraph &PTACG;
+  llvm::LoopInfo *curLoop;
+	llvm::Pass *pass;
 
 	void setCollSet(llvm::BasicBlock *BB);
 	void setMPICollSet(llvm::BasicBlock *BB);

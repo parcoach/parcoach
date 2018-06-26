@@ -9,11 +9,15 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
+//#include <llvm/Analysis/LoopInfo.h>
+#include "llvm/Pass.h"
 
 using namespace llvm;
 using namespace std;
 
 int ParcoachAnalysisInter::id = 0;
+
+
 
 void
 ParcoachAnalysisInter::run(){
@@ -33,6 +37,7 @@ ParcoachAnalysisInter::run(){
 			if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
 				continue;
 			//DBG: //errs() << "Function: " << F->getName() << "\n";
+
       if(optMpiTaint)
 				MPI_BFS(F);
 			else
@@ -196,27 +201,30 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
   std::vector<BasicBlock *> Unvisited;
 
 	errs() << "** Analyzing function " << F->getName() << "\n";
-/*	LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+
+	curLoop = &pass->getAnalysis<LoopInfoWrapperPass>
+      (*const_cast<Function *>(F)).getLoopInfo();
 
 
-	for(Loop *L: LI){
+ for(Loop *L: *curLoop){
+    BasicBlock *B = L->getHeader();
+    pred_iterator PI=pred_begin(B), E=pred_end(B);
+    for(; PI!=E; ++PI){
+      BasicBlock *PH = *PI;
+      if(L->contains(PH)){
+        bbPreheaderMap[PH]=true;
+        errs() << F->getName() << "BB " << PH->getName() << " is preheader in a loop\n";
+			}
+    }
+  }
 
-	}
-*/
-
-/*	 // llvm::Loop:getLoopPreheader()	
-	for(LoopInfo::iterator lit = LI->begin(), E = LI->end(); lit != E; ++lit){
-		BasicBlock *B = lit->getLoopPreheader();	
-		errs() << "BB " << B->getName() << " is preheader in a loop\n";
-	}
-*/
 
   // GET ALL EXIT NODES AND NODES AT THE END OF LOOPS 
   for(BasicBlock &I : *F){
 		bbVisitedMap[&I]=white;
 		// pred of loop header nodes
 		// Return inst 
-		if(bbPreheaderMap[I]==true || isa<ReturnInst>(I.getTerminator())){
+		if(bbPreheaderMap[&I]==true || isa<ReturnInst>(I.getTerminator())){
 			Unvisited.push_back(&I);
       setMPICollSet(&I);
       bbVisitedMap[&I]=grey;
@@ -231,7 +239,10 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
     pred_iterator PI=pred_begin(header), E=pred_end(header);
     for(; PI!=E; ++PI){
       BasicBlock *Pred = *PI;
-      //errs() << F->getName() << " - BB: " << Pred->getName() << "\n";
+      errs() << F->getName() << " - BB: " << Pred->getName() << "\n";
+// VERIFIER l'algo, est-ce que il ne faudrait pas ignorer le backedge??
+//			if(bbPreheaderMap[header]==true)
+//				continue;
       // BB NOT SEEN BEFORE
       //if(bbVisitedMap[Pred] != true){
       if(bbVisitedMap[Pred] == white){

@@ -29,7 +29,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Scalar/LowerAtomic.h"
-//#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 
@@ -579,10 +579,11 @@ ParcoachInstr::runOnModule(Module &M) {
       getAnalysis<DominanceFrontierWrapperPass>(F).getDominanceFrontier();
     PostDominatorTree &PDT =
       getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
-		LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+		//LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 
 	// LOOPS
-  for(Loop *L: LI){
+
+ /* for(Loop *L: LI){
 		BasicBlock *B = L->getHeader();
 		pred_iterator PI=pred_begin(B), E=pred_end(B);
     for(; PI!=E; ++PI){
@@ -591,7 +592,7 @@ ParcoachInstr::runOnModule(Module &M) {
 				bbPreheaderMap[PH]=true;
 		 		//errs() << F.getName() << "BB " << PH->getName() << " is preheader in a loop\n";
 		}
-  }
+  }*/
 
 
     MSSA.buildSSA(&F, DT, DF, PDT);
@@ -664,7 +665,7 @@ ParcoachInstr::runOnModule(Module &M) {
 
   if (!optCompareAll) {
     if (!optIntraOnly) {
-      PAInter = new ParcoachAnalysisInter(M, DG, PTACG, !optInstrumInter);
+      PAInter = new ParcoachAnalysisInter(M, DG, PTACG,this, !optInstrumInter);
       PAInter->run();
     }
 
@@ -677,13 +678,13 @@ ParcoachInstr::runOnModule(Module &M) {
       PAIntra = new ParcoachAnalysisIntra(M, NULL, this, !optInstrumIntra);
       PAIntra->run();
       errs() << "\033[0;36m= PARCOACH INTER =\033[0;0m\n";
-      PAInterDCF = new ParcoachAnalysisInter(M, DGDCF, PTACG, !optInstrumInter);
+      PAInterDCF = new ParcoachAnalysisInter(M, DGDCF, PTACG,this, !optInstrumInter);
       PAInterDCF->run();
       errs() << "\033[0;36m= PARCOACH + SVF =\033[0;0m\n";
-      PAInterSVF = new ParcoachAnalysisInter(M, DGSVF, PTACG, !optInstrumInter);
+      PAInterSVF = new ParcoachAnalysisInter(M, DGSVF, PTACG,this, !optInstrumInter);
       PAInterSVF->run();
       errs() << "\033[0;36m= PARCOACH + UIDA =\033[0;0m\n";
-      PAInterUIDA = new ParcoachAnalysisInter(M, DGUIDA, PTACG, !optInstrumInter);
+      PAInterUIDA = new ParcoachAnalysisInter(M, DGUIDA, PTACG,this, !optInstrumInter);
       PAInterUIDA->run();
   }
 

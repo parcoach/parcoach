@@ -47,6 +47,10 @@ namespace {
     ParcoachAnalysisInter *PAInterUIDA;
 
 
+		typedef bool Preheader;
+ 		typedef std::map<const llvm::BasicBlock *, Preheader> BBPreheaderMap;
+ 		BBPreheaderMap bbPreheaderMap;
+
     std::map<llvm::Instruction *, llvm::Instruction *> ompNewInst2oldInst;
 
     void replaceOMPMicroFunctionCalls(llvm::Module &M,

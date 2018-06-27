@@ -197,83 +197,99 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 }
 
 void
+ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
+	std::vector<BasicBlock *> Unvisited;
+
+  curLoop = &pass->getAnalysis<LoopInfoWrapperPass>
+      (*const_cast<Function *>(F)).getLoopInfo();
+
+
+ for(Loop *L: *curLoop)
+ {
+	BasicBlock *Lheader = L->getHeader();
+	pred_iterator PI=pred_begin(Lheader), E=pred_end(Lheader);
+  for(; PI!=E; ++PI){
+  	BasicBlock *Pred = *PI;
+		if(L->contains(Pred))
+			bbPreheaderMap[Pred]=true;
+	}
+	for(BasicBlock *BB : L->getBlocks())
+  {
+		setMPICollSet(BB);
+		if(!mpiCollMap[BB].empty()){
+			for(auto& pair : mpiCollMap[BB]){
+          mpiCollMap[Lheader][pair.first] = "NAVS";
+					errs() << Lheader->getName() << " has " << mpiCollMap[Lheader][pair.first] << "\n";
+			}
+		}
+  }
+	}
+}
+
+void
 ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
   std::vector<BasicBlock *> Unvisited;
 
 	errs() << "** Analyzing function " << F->getName() << "\n";
 
-	curLoop = &pass->getAnalysis<LoopInfoWrapperPass>
-      (*const_cast<Function *>(F)).getLoopInfo();
+	MPI_BFS_Loop(F);
 
-
- for(Loop *L: *curLoop){
-    BasicBlock *B = L->getHeader();
-    pred_iterator PI=pred_begin(B), E=pred_end(B);
-    for(; PI!=E; ++PI){
-      BasicBlock *PH = *PI;
-      if(L->contains(PH)){
-        bbPreheaderMap[PH]=true;
-        errs() << F->getName() << "BB " << PH->getName() << " is preheader in a loop\n";
-			}
-    }
-  }
-
-
-  // GET ALL EXIT NODES AND NODES AT THE END OF LOOPS 
+  // GET ALL EXIT NODES 
   for(BasicBlock &I : *F){
+		// Set all nodes to white
 		bbVisitedMap[&I]=white;
-		// pred of loop header nodes
 		// Return inst 
-		if(bbPreheaderMap[&I]==true || isa<ReturnInst>(I.getTerminator())){
+		if(isa<ReturnInst>(I.getTerminator())){
 			Unvisited.push_back(&I);
       setMPICollSet(&I);
       bbVisitedMap[&I]=grey;
 		}
   }
+
+
   while(Unvisited.size()>0)
   {
     BasicBlock *header=*Unvisited.begin();
     Unvisited.erase(Unvisited.begin());
-    //bbVisitedMap[header]=true;
     bbVisitedMap[header]=grey;
     pred_iterator PI=pred_begin(header), E=pred_end(header);
     for(; PI!=E; ++PI){
       BasicBlock *Pred = *PI;
+			if(bbPreheaderMap[Pred]==true)
+				continue;
       errs() << F->getName() << " - BB: " << Pred->getName() << "\n";
-// VERIFIER l'algo, est-ce que il ne faudrait pas ignorer le backedge??
-//			if(bbPreheaderMap[header]==true)
-//				continue;
       // BB NOT SEEN BEFORE
-      //if(bbVisitedMap[Pred] != true){
       if(bbVisitedMap[Pred] == white){
-				for(auto& pair : mpiCollMap[header])
-        	mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
+
+				if(mpiCollMap[Pred].empty()){
+					for(auto& pair : mpiCollMap[header])
+        		mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
 
 				/*for(auto& pair : mpiCollMap[Pred]){
       		errs() << pair.first << "{" << pair.second << "}\n";
   			}*/
-        setMPICollSet(Pred);
+        	setMPICollSet(Pred);
 				//errs() << Pred->getName() << ":\n";
-				/*for(auto& pair : mpiCollMap[Pred]){
-      		errs() << pair.first << "{" << pair.second << "}\n";
-  			}*/
-        //bbVisitedMap[Pred]=true;
+					for(auto& pair : mpiCollMap[Pred]){
+      			errs() << pair.first << "{" << pair.second << "}\n";
+  				}
+				}
         bbVisitedMap[Pred]=grey;
         Unvisited.push_back(Pred);
       // BB ALREADY SEEN
       }else{
-        //errs() << F->getName() << " - BB: " << Pred->getName() << " already seen\n";
+        errs() << F->getName() << " - BB: " << Pred->getName() << " already seen\n";
 				//ComCollMap temp = mpiCollMap[Pred];
 				ComCollMap temp(mpiCollMap[Pred]);
 				/*
 				for(auto& pair : mpiCollMap[Pred]){
 					temp[pair.first] = mpiCollMap[Pred][pair.first]; //pair.second;
 				}*/
-				/*errs() << "* Temp = \n";
+				errs() << "* Temp = \n";
 				for(auto& pair : temp){
       		errs() << pair.first << "{" << pair.second << "}\n";
-  			}*/
-				//errs() << "****\n";
+  			}
+				errs() << "****\n";
 				for(auto& pair : mpiCollMap[header])
           mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
 			 	//mpiCollMap[Pred] = mpiCollMap[header];	
@@ -281,9 +297,9 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
           errs() << pair.first << "{" << pair.second << "}\n";
         }	*/			
         setMPICollSet(Pred);
-				/*for(auto& pair : mpiCollMap[Pred]){
+				for(auto& pair : mpiCollMap[Pred]){
           errs() << pair.first << "{" << pair.second << "}\n";
-        }	*/			
+        }				
 				
 				ComCollMap temp_svg(temp);
 				for(auto& pair : temp){

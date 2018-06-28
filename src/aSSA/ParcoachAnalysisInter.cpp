@@ -38,9 +38,9 @@ ParcoachAnalysisInter::run(){
 				continue;
 			//DBG: //errs() << "Function: " << F->getName() << "\n";
 
-      if(optMpiTaint)
+     /* if(optMpiTaint)
 				MPI_BFS(F);
-			else
+			else*/
 				BFS(F);
 		}
 		++cgSccIter;
@@ -108,18 +108,28 @@ ParcoachAnalysisInter::setCollSet(BasicBlock *BB){
           // Is it a collective operation?
           if(isCollective(callee)){
             string OP_name = callee->getName().str();
-            collMap[BB] = OP_name + " " + collMap[BB]; 
+						if(collMap[BB].empty())
+            	collMap[BB] = OP_name;
+						else 
+            	collMap[BB] = OP_name + " " + collMap[BB]; 
           }
         }
       //// Direct calls
       }else{
         // Is it a function containing collectives?
-				if(!collperFuncMap[callee].empty()) // && collMap[BB]!="NAVS")
-          collMap[BB] = collperFuncMap[callee] + " " + collMap[BB];
+				if(!collperFuncMap[callee].empty()){
+					if(collperFuncMap[callee] == "NAVS" || collMap[BB] == "NAVS")
+						collMap[BB] = "NAVS";
+					else
+          	collMap[BB] = collperFuncMap[callee] + " " + collMap[BB];
+				}
         // Is it a collective operation?
         if(isCollective(callee)){
           string OP_name = callee->getName().str();
-          collMap[BB] = OP_name + " " + collMap[BB];
+					if(collMap[BB].empty())
+              collMap[BB] = OP_name;
+          else
+          	collMap[BB] = OP_name + " " + collMap[BB];
         }
       }
     }
@@ -197,15 +207,38 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 }
 
 void
+ParcoachAnalysisInter::BFS_Loop(llvm::Function *F){
+
+curLoop = &pass->getAnalysis<LoopInfoWrapperPass>
+      (*const_cast<Function *>(F)).getLoopInfo();
+
+for(Loop *L: *curLoop){
+  BasicBlock *Lheader = L->getHeader();
+//  pred_iterator PI=pred_begin(Lheader), E=pred_end(Lheader);
+	succ_iterator PI=succ_begin(Lheader), E=succ_end(Lheader);
+  for(; PI!=E; ++PI){
+    BasicBlock *Pred = *PI;
+    if(L->contains(Pred))
+      bbPreheaderMap[Pred]=true;
+  }
+  for(BasicBlock *BB : L->getBlocks()){
+    setCollSet(BB);
+    if(!collMap[BB].empty()){
+    	collMap[Lheader] = "NAVS";
+      errs() << Lheader->getName() << " has " << collMap[Lheader] << "\n";
+			continue;
+    }
+  }
+  }
+}
+
+void
 ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
-	std::vector<BasicBlock *> Unvisited;
 
   curLoop = &pass->getAnalysis<LoopInfoWrapperPass>
       (*const_cast<Function *>(F)).getLoopInfo();
 
-
- for(Loop *L: *curLoop)
- {
+ for(Loop *L: *curLoop){
 	BasicBlock *Lheader = L->getHeader();
 	pred_iterator PI=pred_begin(Lheader), E=pred_end(Lheader);
   for(; PI!=E; ++PI){
@@ -213,8 +246,7 @@ ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
 		if(L->contains(Pred))
 			bbPreheaderMap[Pred]=true;
 	}
-	for(BasicBlock *BB : L->getBlocks())
-  {
+	for(BasicBlock *BB : L->getBlocks()){
 		setMPICollSet(BB);
 		if(!mpiCollMap[BB].empty()){
 			for(auto& pair : mpiCollMap[BB]){
@@ -225,6 +257,8 @@ ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
   }
 	}
 }
+
+
 
 void
 ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
@@ -255,11 +289,9 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
     pred_iterator PI=pred_begin(header), E=pred_end(header);
     for(; PI!=E; ++PI){
       BasicBlock *Pred = *PI;
-			if(bbPreheaderMap[Pred]==true)
-				continue;
-      errs() << F->getName() << " - BB: " << Pred->getName() << "\n";
       // BB NOT SEEN BEFORE
-      if(bbVisitedMap[Pred] == white){
+      if(bbVisitedMap[Pred] == white && bbPreheaderMap[Pred]!=true){
+      errs() << F->getName() << " - BB: " << Pred->getName() << "\n";
 
 				if(mpiCollMap[Pred].empty()){
 					for(auto& pair : mpiCollMap[header])
@@ -345,11 +377,72 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
 
 
 void
+ParcoachAnalysisInter::BFSNode(std::vector<BasicBlock *> Unvisited){
+
+	if(Unvisited.empty())
+		return;
+
+	BasicBlock *header=*Unvisited.begin();
+  Unvisited.erase(Unvisited.begin());
+	setCollSet(header);
+
+	succ_iterator SI=succ_begin(header), E=succ_end(header);
+  for(; SI!=E; ++SI){
+		if(bbVisitedMap[SI] == white && bbPreheaderMap[SI]!=true){
+			// Set the sequence of collectives in header
+			setCollSet(Succ);
+				
+		// Joint node	
+		}else{
+
+		}
+
+
+
+			if(collMap[Succ].empty()){
+				collMap[header] = collMap[Succ];
+			else
+				collMap[header] = collMap[header] + " " + collMap[Succ];
+			}else{
+				// Check the sequence of collectives
+				string temp = collMap[header];
+				setCollSet(header);
+				
+			}
+			bbVisitedMap[SI]=grey
+			Unvisited.push_back(SI);	
+		}
+	}
+	BFSNode(Unvisited);
+
+}
+
+// Recursive function
+void
+ParcoachAnalysisInter::RecBFS(llvm::Function *F){
+  std::vector<BasicBlock *> Unvisited;
+
+  for(BasicBlock &I : *F)
+		bbVisitedMap[&I]=white;
+
+  BFS_Loop(F);
+	BasicBlock &entry = F->getEntryBlock();
+	Unvisited.push_back(&entry);
+	BFSNode(Unvisited);
+
+}
+
+
+
+void
 ParcoachAnalysisInter::BFS(llvm::Function *F){
 	std::vector<BasicBlock *> Unvisited;
 
+	BFS_Loop(F);
+
 	// GET ALL EXIT NODES 
   for(BasicBlock &I : *F){
+		bbVisitedMap[&I]=white;
     if(isa<ReturnInst>(I.getTerminator())){
 			Unvisited.push_back(&I);
 			setCollSet(&I);
@@ -359,35 +452,34 @@ ParcoachAnalysisInter::BFS(llvm::Function *F){
   {
 		BasicBlock *header=*Unvisited.begin();
     Unvisited.erase(Unvisited.begin());
-		//bbVisitedMap[header]=true;
 		bbVisitedMap[header]=grey;
 		pred_iterator PI=pred_begin(header), E=pred_end(header);
 		for(; PI!=E; ++PI){
       BasicBlock *Pred = *PI;
-			//errs() << F->getName() << " - BB: " << Pred->getName() << "\n";
 			// BB NOT SEEN BEFORE
-			//if(bbVisitedMap[Pred] != true){
-			if(bbVisitedMap[Pred] == white){
+			if(bbVisitedMap[Pred] == white && bbPreheaderMap[Pred]!=true){
+      	errs() << F->getName() << " - BB: " << Pred->getName() << "\n";
 				collMap[Pred] = collMap[header];
 				setCollSet(Pred);
-				//bbVisitedMap[Pred]=true;
+      	errs() << F->getName() << " - BB: " << collMap[Pred] << "\n";
 				bbVisitedMap[Pred]=grey;
 				Unvisited.push_back(Pred);
 			// BB ALREADY SEEN
 			}else{
-				//errs() << F->getName() << " - BB: " << Pred->getName() << " already seen\n";
+        errs() << F->getName() << " - BB: " << Pred->getName() << " already seen\n";
 				string temp = collMap[Pred];
 				collMap[Pred] = collMap[header];
 				setCollSet(Pred);
 				//errs() << collMap[Pred] << " = " << temp << "?\n";
 				if(temp != collMap[Pred])
 					collMap[Pred]="NAVS";
+      	errs() << F->getName() << " - BB: " << collMap[Pred] << "\n";
 			}
 		}
 	}
 	BasicBlock &entry = F->getEntryBlock();
 	collperFuncMap[F]=collMap[&entry];
-	//errs() << F->getName() << " summary = " << collperFuncMap[F] << "\n";
+	errs() << F->getName() << " summary = " << collperFuncMap[F] << "\n";
 }
 
 

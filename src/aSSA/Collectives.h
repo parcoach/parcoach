@@ -7,6 +7,7 @@
 
 extern std::vector<const char*> v_coll;
 
+int Com_arg_id(int color);
 void initCollectives();
 bool isCollective(const llvm::Function *F);
 int getCollectiveColor(const llvm::Function *F);

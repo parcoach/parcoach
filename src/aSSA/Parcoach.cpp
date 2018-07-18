@@ -32,6 +32,7 @@
 #include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
+
 using namespace llvm;
 using namespace std;
 
@@ -45,6 +46,7 @@ ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();
   au.addRequired<CallGraphWrapperPass>();
+	au.addRequired<LoopInfoWrapperPass>();
 }
 
 bool
@@ -113,9 +115,10 @@ ParcoachInstr::doFinalization(Module &M) {
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
       errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
 
-      errs() << "\n\033[0;36m==========================================\033[0;0m\n";
+     /* errs() << "\n\033[0;36m==========================================\033[0;0m\n";
       errs() << "\033[0;36m========= PARCOACH INTER SUMMARY-BASED =====\033[0;0m\n";
       errs() << "\033[0;36m==========================================\033[0;0m\n";
+      */
       // TODO
 
       if (PAIntra) {
@@ -554,8 +557,7 @@ ParcoachInstr::runOnModule(Module &M) {
   unsigned counter = 0;
   for (Function &F : M) {
     if (!PTACG.isReachableFromEntry(&F)) {
-      errs() << F.getName() << " is not reachable from entry\n";
-
+     // errs() << F.getName() << " is not reachable from entry\n";
 
       continue;
     }
@@ -577,6 +579,21 @@ ParcoachInstr::runOnModule(Module &M) {
       getAnalysis<DominanceFrontierWrapperPass>(F).getDominanceFrontier();
     PostDominatorTree &PDT =
       getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
+		//LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+
+	// LOOPS
+
+ /* for(Loop *L: LI){
+		BasicBlock *B = L->getHeader();
+		pred_iterator PI=pred_begin(B), E=pred_end(B);
+    for(; PI!=E; ++PI){
+			BasicBlock *PH = *PI;
+			if(L->contains(PH))
+				bbPreheaderMap[PH]=true;
+		 		//errs() << F.getName() << "BB " << PH->getName() << " is preheader in a loop\n";
+		}
+  }*/
+
 
     MSSA.buildSSA(&F, DT, DF, PDT);
     if (optDumpSSA)
@@ -648,7 +665,7 @@ ParcoachInstr::runOnModule(Module &M) {
 
   if (!optCompareAll) {
     if (!optIntraOnly) {
-      PAInter = new ParcoachAnalysisInter(M, DG, PTACG, !optInstrumInter);
+      PAInter = new ParcoachAnalysisInter(M, DG, PTACG,this, !optInstrumInter);
       PAInter->run();
     }
 
@@ -661,13 +678,13 @@ ParcoachInstr::runOnModule(Module &M) {
       PAIntra = new ParcoachAnalysisIntra(M, NULL, this, !optInstrumIntra);
       PAIntra->run();
       errs() << "\033[0;36m= PARCOACH INTER =\033[0;0m\n";
-      PAInterDCF = new ParcoachAnalysisInter(M, DGDCF, PTACG, !optInstrumInter);
+      PAInterDCF = new ParcoachAnalysisInter(M, DGDCF, PTACG,this, !optInstrumInter);
       PAInterDCF->run();
       errs() << "\033[0;36m= PARCOACH + SVF =\033[0;0m\n";
-      PAInterSVF = new ParcoachAnalysisInter(M, DGSVF, PTACG, !optInstrumInter);
+      PAInterSVF = new ParcoachAnalysisInter(M, DGSVF, PTACG,this, !optInstrumInter);
       PAInterSVF->run();
       errs() << "\033[0;36m= PARCOACH + UIDA =\033[0;0m\n";
-      PAInterUIDA = new ParcoachAnalysisInter(M, DGUIDA, PTACG, !optInstrumInter);
+      PAInterUIDA = new ParcoachAnalysisInter(M, DGUIDA, PTACG,this, !optInstrumInter);
       PAInterUIDA->run();
   }
 

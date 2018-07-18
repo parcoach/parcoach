@@ -2,6 +2,8 @@
 #define PARCOACHANALYSIS_H
 
 #include "DepGraph.h"
+#include <map>
+
 
 class ParcoachAnalysis {
  public:
@@ -78,6 +80,8 @@ class ParcoachAnalysis {
   std::set<const llvm::BasicBlock *> conditionSetParcoachOnly;
   std::set<const llvm::Instruction *> warningSet;
   std::set<const llvm::Instruction *> warningSetParcoachOnly;
+
+
 
   bool disableInstru;
 };

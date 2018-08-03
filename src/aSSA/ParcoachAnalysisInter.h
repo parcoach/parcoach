@@ -47,8 +47,10 @@ private:
 	void setMPICollSet(llvm::BasicBlock *BB);
 	void MPI_BFS_Loop(llvm::Function *F);
 	void BFS_Loop(llvm::Function *F);
+  void Tag_LoopPreheader(llvm::Loop *L);
+  bool mustWait(llvm::BasicBlock *bb);
   void BFS(llvm::Function *F);
-  void OldBFS(llvm::Function *F);
+  //void OldBFS(llvm::Function *F);
   void MPI_BFS(llvm::Function *F);
   void checkCollectives(llvm::Function *F);
 

@@ -220,7 +220,7 @@ ParcoachAnalysisInter::Tag_LoopPreheader(llvm::Loop *L){
   }
 }
 
-// BFS on loops, for MPI
+// FOR MPI APPLIS: BFS on loops
 void
 ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
 	std::vector<BasicBlock *> Unvisited;
@@ -230,44 +230,38 @@ ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
 	for(Loop *L: *curLoop){
 		Tag_LoopPreheader(L);
     BasicBlock *Lheader = L->getHeader();
-    //bbVisitedMap[Lheader]=grey;
     Unvisited.push_back(Lheader);
 
 		while(Unvisited.size()>0){
       BasicBlock *header=*Unvisited.begin();
-			//errs() << "Header " << header->getName() << "\n";
+			//DEBUG//errs() << "Header " << header->getName() << "\n";
       Unvisited.erase(Unvisited.begin());
       if(mustWait(header)){ // all successors have not been seen
         Unvisited.push_back(header);
         header=*Unvisited.begin(); // take the next BB in Unvisited
-				//errs() << "New header " << header->getName() << "\n";
+				//DEBUG//errs() << "New header " << header->getName() << "\n";
         Unvisited.erase(Unvisited.begin());
       }
 			pred_iterator PI=pred_begin(header), E=pred_end(header);
       for(; PI!=E; ++PI){
         BasicBlock *Pred = *PI;
-        // Ignore BB not in the loop and header
-        if(!L->contains(Pred)) //|| Pred==Lheader)
+        if(!L->contains(Pred)) // ignore BB not in the loop
           continue;
         // BB NOT SEEN BEFORE
 				if(bbVisitedMap[Pred] == white){
-          //errs() << F->getName() << " Pred: " << Pred->getName() << "\n";
+          //DEBUG//errs() << F->getName() << " Pred: " << Pred->getName() << "\n";
 					for(auto& pair : mpiCollMap[header])
             mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];	
 					setMPICollSet(Pred);
-					for(auto& pair : mpiCollMap[Pred]){
-						if(!mpiCollMap[Pred][pair.first].empty()){
-							//mpiCollMap[Lheader][pair.first]="NAVS"; // there is a collective in a loop 	
-						}
-					}
 					bbVisitedMap[Pred]=grey;
 					if(Pred !=Lheader)
           	Unvisited.push_back(Pred);
         // BB ALREADY SEEN
         }else{
-					//errs() << F->getName() << " Pred: " << Pred->getName() << " already seen\n";
+					//DEBUG//errs() << F->getName() << " Pred: " << Pred->getName() << " already seen\n";
         	ComCollMap temp(mpiCollMap[Pred]);
-        	/*errs() << "* Temp = \n";
+        	/* DEBUG//
+					errs() << "* Temp = \n";
         	for(auto& pair : temp){
           	errs() << pair.first << "{" << pair.second << "}\n";
         	}
@@ -276,7 +270,8 @@ ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
         	for(auto& pair : mpiCollMap[header])
           	mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
         	setMPICollSet(Pred);
-					/*errs() << "* New = \n";
+					/* DEBUG//
+					errs() << "* New = \n";
         	for(auto& pair : mpiCollMap[Pred]){
           	errs() << pair.first << "{" << pair.second << "}\n";
         	}
@@ -286,15 +281,14 @@ ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
 					for(auto& pair : mpiCollMap[Pred]){
             if(mpiCollMap[Pred][pair.first]!=temp[pair.first]){
               mpiCollMap[Pred][pair.first]="NAVS";
-              //mpiCollMap[Lheader][pair.first]="NAVS"; // there is a possible deadlock
             }
             temp.erase(pair.first);
           }
 					for(auto& pair : temp){ // for remaining communicators
             mpiCollMap[Pred][pair.first]="NAVS";
-            //mpiCollMap[Lheader][pair.first]="NAVS";
           }	
-        	/*errs() << "* Then = \n";
+        	/* DEBUG//
+					errs() << "* Then = \n";
         	for(auto& pair : mpiCollMap[Pred]){
           	errs() << pair.first << "{" << pair.second << "}\n";
         	}       
@@ -309,18 +303,18 @@ ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Function *F){
 
 
 
-// BFS on each function
+// FOR MPI APPLIS: BFS
 void
 ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
   std::vector<BasicBlock *> Unvisited;
 
-	//errs() << "** Analyzing function " << F->getName() << "\n";
+	//DEBUG//errs() << "** Analyzing function " << F->getName() << "\n";
 
 	// BFS ON EACH LOOP IN F
-  //errs() << "-- BFS IN EACH LOOP --\n";
+  //DEBUG//errs() << "-- BFS IN EACH LOOP --\n";
 	MPI_BFS_Loop(F);
 
-  //errs() << "-- BFS --\n";
+  //DEBUG//errs() << "-- BFS --\n";
 
   // GET ALL EXIT NODES 
   for(BasicBlock &I : *F){
@@ -336,26 +330,23 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
   while(Unvisited.size()>0){
     BasicBlock *header=*Unvisited.begin();
     Unvisited.erase(Unvisited.begin());
-    //bbVisitedMap[header]=grey;
-		//errs() << "Header " << header->getName() << "\n";
+		//DEBUG//errs() << "Header " << header->getName() << "\n";
 		if(mustWait(header)==true){ // all successors have not been seen
-			//errs() << header->getName() << " must wait....\n";
       Unvisited.push_back(header);
       header=*Unvisited.begin(); // take the next BB in Unvisited
-			//errs() << "New header " << header->getName() << "\n";
+			//DEBUG//errs() << "New header " << header->getName() << "\n";
       Unvisited.erase(Unvisited.begin());
     }
     pred_iterator PI=pred_begin(header), E=pred_end(header);
     for(; PI!=E; ++PI){
       BasicBlock *Pred = *PI;
-			// Ignore loops preheader !! if preheader=Lheader
-      if( bbPreheaderMap[Pred]==true){
-        //errs() << F->getName() << " - BB " << Pred->getName() << " is preheader\n";
+      if( bbPreheaderMap[Pred]==true){ // ignore loops preheader
+        //DEBUG//errs() << F->getName() << " - BB " << Pred->getName() << " is preheader\n";
         continue;
       }
       // BB NOT SEEN BEFORE
       if(bbVisitedMap[Pred] == white){
-      	//errs() << F->getName() << " Pred: " << Pred->getName() << "\n";
+      	//DEBUG//errs() << F->getName() << " Pred: " << Pred->getName() << "\n";
 
 				// Loop header may have a mpiCollMap
 				if(mpiCollMap[Pred].empty()){
@@ -367,12 +358,14 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
 							mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];	
 					}
 				}
-				/*for(auto& pair : mpiCollMap[Pred]){
+				/* DEBUG//
+				for(auto& pair : mpiCollMap[Pred]){
       		errs() << pair.first << "{" << pair.second << "}\n";
   			}*/
         	setMPICollSet(Pred);
-				//errs() << Pred->getName() << ":\n";
-					/*for(auto& pair : mpiCollMap[Pred]){
+				 /* DEBUG// 
+					errs() << Pred->getName() << ":\n";
+					for(auto& pair : mpiCollMap[Pred]){
       			errs() << pair.first << "{" << pair.second << "}\n";
   				}*/
 				
@@ -381,9 +374,10 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
        		Unvisited.push_back(Pred);
       // BB ALREADY SEEN
       }else{
-				//errs() << F->getName() << " Pred: " << Pred->getName() << " already seen\n";
+				//DEBUG//errs() << F->getName() << " Pred: " << Pred->getName() << " already seen\n";
          ComCollMap temp(mpiCollMap[Pred]);
-         /*errs() << "* Temp = \n";
+         /* DEBUG// 
+				 errs() << "* Temp = \n";
          for(auto& pair : temp){
            errs() << pair.first << "{" << pair.second << "}\n";
          }
@@ -392,7 +386,8 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
          for(auto& pair : mpiCollMap[header])
          	mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
          setMPICollSet(Pred);
-         /*errs() << "* New = \n";
+         /* DEBUG//
+				 errs() << "* New = \n";
          for(auto& pair : mpiCollMap[Pred]){
          	errs() << pair.first << "{" << pair.second << "}\n";
          }
@@ -408,7 +403,8 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
           for(auto& pair : temp){ // for remaining communicators
             mpiCollMap[Pred][pair.first]="NAVS";
           }
-      		/*errs() << "* Then = \n";
+      		/* DEBUG//
+					errs() << "* Then = \n";
           for(auto& pair : mpiCollMap[Pred]){
             errs() << pair.first << "{" << pair.second << "}\n";
           }
@@ -420,24 +416,19 @@ ParcoachAnalysisInter::MPI_BFS(llvm::Function *F){
   } // END WHILE
 
   BasicBlock &entry = F->getEntryBlock();
-  	/*errs() << " -> in entry : \n";
-				for(auto& pair : mpiCollMap[&entry]){
-      		errs() << pair.first << "{" << pair.second << "}\n";
-  			}*/
 	for(auto& pair : mpiCollMap[&entry]){
 		mpiCollperFuncMap[F][pair.first]=mpiCollMap[&entry][pair.first];
 	}
-  //mpiCollperFuncMap[F]=mpiCollMap[&entry];
-	//if(F->getName() == "main"){
+	if(F->getName() == "main"){
   	errs() << F->getName() << " summary = \n";
   	for(auto& pair : mpiCollperFuncMap[F]){
     	errs() << pair.first << "{" << pair.second << "}\n";
   	}
-	//} 
+	} 
 }
 
 
-// returns true if at least one successor is white
+// FOR BFS: Returns true if all successors are not black
 bool 
 ParcoachAnalysisInter::mustWait(llvm::BasicBlock *bb){
 		succ_iterator SI=succ_begin(bb), E=succ_end(bb);
@@ -449,7 +440,7 @@ ParcoachAnalysisInter::mustWait(llvm::BasicBlock *bb){
 		return false;
 }
 
-// BFS on each loop
+// BFS ON EACH LOOP
 void 
 ParcoachAnalysisInter::BFS_Loop(llvm::Function *F){
 	std::vector<BasicBlock *> Unvisited;
@@ -460,56 +451,49 @@ ParcoachAnalysisInter::BFS_Loop(llvm::Function *F){
   for(Loop *L: *curLoop){
     Tag_LoopPreheader(L);
     BasicBlock *Lheader = L->getHeader();
-		bbVisitedMap[Lheader]=grey;
     Unvisited.push_back(Lheader);
 
 		while(Unvisited.size()>0){
     	BasicBlock *header=*Unvisited.begin();
+			//DEBUG//errs() << "Header " << header->getName() << "\n";
 			Unvisited.erase(Unvisited.begin());
 			if(mustWait(header)){ // all successors have not been seen
 				Unvisited.push_back(header);
 				header=*Unvisited.begin(); // take the next BB in Unvisited
+				//DEBUG//errs() << "New header " << header->getName() << "\n";
     		Unvisited.erase(Unvisited.begin());
 			}
 		
 			pred_iterator PI=pred_begin(header), E=pred_end(header);
     	for(; PI!=E; ++PI){
       	BasicBlock *Pred = *PI;
-      	// Ignore BB not in the loop and header
-      	if(!L->contains(Pred) || Pred==Lheader)
+      	if(!L->contains(Pred)) //ignore BB not in the loop
         	continue;
 
       	// BB NOT SEEN BEFORE
       	if(bbVisitedMap[Pred] == white){
-        	errs() << F->getName() << " - BB " << Pred->getName() << "\n";
+        	//DEBUG//errs() << F->getName() << " Pred " << Pred->getName() << "\n";
           collMap[Pred] = collMap[header];
         	setCollSet(Pred);
-					if(!collMap[Pred].empty()) // If at least one collective in the loop, set the header as NAVS
-						collMap[Lheader] = "NAVS";
-        	errs() << "  -> has " << collMap[Pred] << "\n";
+        	//DEBUG//errs() << "  -> has " << collMap[Pred] << "\n";
         	bbVisitedMap[Pred]=grey;
-        	Unvisited.push_back(Pred);
+					if(Pred !=Lheader)
+        		Unvisited.push_back(Pred);
       	// BB ALREADY SEEN
       	}else{
-        		errs() << F->getName() << " - BB " << Pred->getName() << " already seen\n";
+        		//DEBUG//errs() << F->getName() << " - BB " << Pred->getName() << " already seen\n";
         		string temp = collMap[Pred];
         		collMap[Pred] = collMap[header];
         		setCollSet(Pred);
-        		errs() << collMap[Pred] << " = " << temp << "?\n";
+        		//DEBUG//errs() << collMap[Pred] << " = " << temp << "?\n";
         		if(temp != collMap[Pred]){
           		collMap[Pred]="NAVS";
-							collMap[Lheader] = "NAVS";
-        			errs() << "  -> BB has " << collMap[Pred] << "\n";
-							//collINloop=true;
+        			//DEBUG//errs() << "  -> BB has " << collMap[Pred] << "\n";
 						}
       	}
-    	}
-		}
-		// If at least one collective in the loop, set the header as NAVS
-    /*if(collINloop){
-    	collMap[Lheader] = "NAVS";
-      errs() << "In loop " << Lheader->getName() << " has " << collMap[Lheader] << "\n";
-		}*/
+				bbVisitedMap[header]=black;
+    	} // END FOR
+		} // END WHILE
   } // END FOR
 }
 
@@ -520,11 +504,10 @@ ParcoachAnalysisInter::BFS(llvm::Function *F){
 	std::vector<BasicBlock *> Unvisited;
 
   // BFS ON EACH LOOP IN F
-	errs() << "-- BFS IN EACH LOOP --\n";
+	//DEBUG//errs() << "-- BFS IN EACH LOOP --\n";
 	BFS_Loop(F);
 
-	errs() << "-- BFS --\n";
-
+	//DEBUG//errs() << "-- BFS --\n";
 	// GET ALL EXIT NODES 
   for(BasicBlock &I : *F){
 		bbVisitedMap[&I]=white;
@@ -537,7 +520,6 @@ ParcoachAnalysisInter::BFS(llvm::Function *F){
 	while(Unvisited.size()>0){
 		BasicBlock *header=*Unvisited.begin();
     Unvisited.erase(Unvisited.begin());
-		//bbVisitedMap[header]=grey;
 		if(mustWait(header)){ // all successors have not been seen
 			Unvisited.push_back(header);
 			header=*Unvisited.begin(); // take the next BB in Unvisited
@@ -547,46 +529,45 @@ ParcoachAnalysisInter::BFS(llvm::Function *F){
 		pred_iterator PI=pred_begin(header), E=pred_end(header);
 		for(; PI!=E; ++PI){
       BasicBlock *Pred = *PI;
-			// Ignore loops preheader
-			if( bbPreheaderMap[Pred]==true){
-				errs() << F->getName() << " - BB " << Pred->getName() << " is preheader\n";
+			if( bbPreheaderMap[Pred]==true){ // ignore loops preheader
+				//DEBUG//errs() << F->getName() << " - BB " << Pred->getName() << " is preheader\n";
 				continue;
 			}
 			// BB NOT SEEN BEFORE
 			if(bbVisitedMap[Pred] == white){
-      	errs() << F->getName() << " - BB " << Pred->getName() << "\n";
+      	//DEBUG//errs() << F->getName() << " Pred " << Pred->getName() << "\n";
 
-				// Loop header may have a collMap -- !!!!! if NAVS !!
+				// Loop header may have a collMap 
 				if(collMap[Pred].empty())
         	collMap[Pred] = collMap[header];
         else{ // if not empty, it should be a loop header with NAVS
-					//if(collMap[Pred]=="NAVS" || collMap[header]=="NAVS")
 						collMap[Pred] = "NAVS";
 				}
 				setCollSet(Pred);
-      	errs() << "  -> has " << collMap[Pred] << "\n";
 				bbVisitedMap[Pred]=grey;
 				Unvisited.push_back(Pred);
 			// BB ALREADY SEEN
 			}else{
-        errs() << F->getName() << " - BB " << Pred->getName() << " already seen\n";
+        //DEBUG//errs() << F->getName() << " - BB " << Pred->getName() << " already seen\n";
 				string temp = collMap[Pred];
 				collMap[Pred] = collMap[header];
 				setCollSet(Pred);
-				errs() << collMap[Pred] << " = " << temp << "?\n";
+				//DEBUG//errs() << collMap[Pred] << " = " << temp << "?\n";
 				if(temp != collMap[Pred])
 					collMap[Pred]="NAVS";
-      	errs() << "  -> BB has " << collMap[Pred] << "\n";
+      	//DEBUG//errs() << "  -> BB has " << collMap[Pred] << "\n";
 			}
 		}
 		bbVisitedMap[header]=black;
 	} // END WHILE
 	BasicBlock &entry = F->getEntryBlock();
 	collperFuncMap[F]=collMap[&entry];
-	errs() << F->getName() << " summary = " << collperFuncMap[F] << "\n";
+	if(F->getName() == "main")
+		errs() << F->getName() << " summary = " << collperFuncMap[F] << "\n";
 }
 
-// Check collectives
+
+// CHECK COLLECTIVES FUNCTION
 void
 ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 	StringRef FuncSummary;
@@ -636,7 +617,6 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 
 		for (const BasicBlock *BB : callIPDF) {
 			// Is this node detected as potentially dangerous by parcoach?
-			//if(optMpiTaint && collMap[BB]!="NAVS") continue;
 			if(!optMpiTaint && collMap[BB]!="NAVS") continue;
       if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;		
 

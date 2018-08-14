@@ -196,6 +196,7 @@ static const funcModPair funcModPairs[] = {
 				 false, false} } },
   {"MPI_Attr_get", { 4, false, {false, false, true, true} } },
   {"MPI_Barrier", { 1, false, {false} } },
+  {"MPI_Ibarrier", { 2, false, {false,false} } },
   {"MPI_Bcast", { 5, false, {true, false, false, false, false} } },
   {"MPI_Comm_create", { 3, false, {false, false, true} } },
   {"MPI_Comm_dup", { 2, false, {false, true} } },

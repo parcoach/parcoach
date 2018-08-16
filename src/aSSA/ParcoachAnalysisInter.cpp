@@ -657,8 +657,13 @@ ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 						DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
 						const Instruction *inst = BB->getTerminator();
 						DebugLoc loc = inst->getDebugLoc();
-						COND_lines.append(" ").append(to_string(loc.getLine()));
-						COND_lines.append(" (").append(loc->getFilename()).append(")");
+						if (loc) {
+						  COND_lines.append(" ").append(to_string(loc.getLine()));
+						  COND_lines.append(" (").append(loc->getFilename()).append(")");
+						} else {
+						  COND_lines.append(" ").append("?");
+						  COND_lines.append(" (").append("?").append(")");
+						}
 
 						if (optDotTaintPaths) {
 							string dotfilename("taintedpath-");

@@ -164,7 +164,12 @@ ParcoachAnalysisIntra::checkCollectives(llvm::Function *F) {
 	nbCondsParcoachOnly++;
 	conditionSetParcoachOnly.insert(*Bitr);
 	DebugLoc BDLoc = TI->getDebugLoc();
-	string cline = to_string(BDLoc.getLine());
+	string cline;
+	if (BDLoc)
+	  cline = to_string(BDLoc.getLine());
+	else
+	  cline = "?";
+
 	COND_lines.append(" ").append(cline);
 	issue_warning=1;
       }

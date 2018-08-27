@@ -52,6 +52,7 @@ private:
   void BFS(llvm::Function *F);
   void MPI_BFS(llvm::Function *F);
   void checkCollectives(llvm::Function *F);
+  void countCollectivesToInst(llvm::Function *F);
 
   void instrumentFunction(llvm::Function *F);
   void insertCC(llvm::Instruction *I, int OP_color,

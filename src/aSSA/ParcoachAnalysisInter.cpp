@@ -68,6 +68,17 @@ ParcoachAnalysisInter::run(){
 		}
 		++cgSccIter;
 	}
+	cgSccIter = scc_begin(&PTACG);
+	while(!cgSccIter.isAtEnd()) {
+		const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
+		for (PTACallGraphNode *node : nodeVec) {
+			Function *F = node->getFunction();
+			if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
+				continue;
+			countCollectivesToInst(F);
+		}
+		++cgSccIter;
+	}
 
 	// If you always want to instrument the code, uncomment the following line
 	//if(nbWarnings !=0){
@@ -177,15 +188,16 @@ ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 						//errs() << "call to function " << callee->getName() << "\n";
 						for(auto& pair : mpiCollperFuncMap[callee]){
 							//errs() << pair.first << "{" << pair.second << "}\n";
-							if(pair.second == "NAVS" || BBcollMap[pair.first] == "NAVS"){
+							// EMMAAAA
+							/*if(pair.second == "NAVS" || BBcollMap[pair.first] == "NAVS"){
 								BBcollMap[pair.first] = "NAVS";
-							}else{
+							}else{*/
 								if(!BBcollMap[pair.first].empty()){
 									BBcollMap[pair.first] = pair.second + " " + BBcollMap[pair.first];
 								}else{	
 									BBcollMap[pair.first] = pair.second;
 								}
-							}
+							//}
 						}
 					}
 					// Is it a collective operation?
@@ -575,11 +587,61 @@ ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 				if(F->getName() == "main")
 					errs() << F->getName() << " summary = " << collperFuncMap[F] << "\n";
 			}
+// COUNT COLLECTIVES TO INST
+void
+ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
+	for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+		bool toinstrument = false;
+		Instruction *i=&*I;
+		CallInst *CI = dyn_cast<CallInst>(i);
+        if(!CI) continue;
+		Function *f = CI->getCalledFunction();
+		if(!f) continue;
+		string OP_name = f->getName().str();
+		// Is it a collective call?
+        if (!isCollective(f)){
+        	continue;
+        }
+        int OP_color = getCollectiveColor(f);
+       	Value* OP_com = CI->getArgOperand(Com_arg_id(OP_color));
+		// Get conditionals from the callsite
+        set<const BasicBlock *> callIPDF;
+        DG->getCallInterIPDF(CI, callIPDF);
+
+		for (const BasicBlock *BB : callIPDF) {
+        	// Is this node detected as potentially dangerous by parcoach?
+        	if(!optMpiTaint && collMap[BB]!="NAVS") continue;
+            if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;
+
+			// Is this condition tainted?
+            const Value *cond = getBasicBlockCond(BB);
+			if ( !cond || (!optNoDataFlow && !DG->isTaintedValue(cond)) ) {
+            	const Instruction *instE = BB->getTerminator();
+                	DebugLoc locE = instE->getDebugLoc();
+                    continue;
+            }
+			toinstrument = true;
+		}// END FOR
+
+		if(toinstrument){	
+			nbColNI++;// collective to instrument
+			// If the coll is in a function f, tall all conds not in f as NAVS to instrument them 
+			for (const BasicBlock *BB : callIPDF) {
+				// if BB not in the same function, set it as NAVS
+				const llvm::Function *fBB = BB->getParent();
+				if(F != fBB)
+					mpiCollMap[BB][OP_com]="NAVS";
+			}
+		}
+
+	}//END FOR
+
+}
 
 
-		// CHECK COLLECTIVES FUNCTION
-		void
-			ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
+// CHECK COLLECTIVES FUNCTION
+void
+ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 				StringRef FuncSummary;
 				MDNode* mdNode;
 
@@ -615,11 +677,9 @@ ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 					//CI->getArgOperand(0)->dump();
 					//errs() << "Found " << OP_name << " on " << OP_com << " line " << OP_line << "\n";
 
-
 					nbCollectivesFound++;
 					bool isColWarning = false;
 					bool isColWarningParcoach = false;
-					bool toinstrument = false;
 
 					// Get conditionals from the callsite
 					set<const BasicBlock *> callIPDF;
@@ -627,14 +687,11 @@ ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 					// For the summary-based approach, use the following instead of the previous line 
 					//DG->getCallIntraIPDF(CI, callIPDF);
 
-
 					for (const BasicBlock *BB : callIPDF) {
 						// Is this node detected as potentially dangerous by parcoach?
 						if(!optMpiTaint && collMap[BB]!="NAVS") continue;
-						//if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;		
 						if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;	
 
-						toinstrument = true;
 
 						isColWarningParcoach = true;
 						nbCondsParcoachOnly++;
@@ -677,8 +734,6 @@ ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 						}
 					} // END FOR
 
-					if(toinstrument)	
-						nbColNI++;// collective to instrument
 
 					// Is there at least one node from the IPDF+ detected as potentially
 					// dangerous by parcoach

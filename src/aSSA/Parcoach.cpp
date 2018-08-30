@@ -80,6 +80,7 @@ ParcoachInstr::doFinalization(Module &M) {
 	errs() << PAInter->getNbWarnings() << " warning(s) issued\n";
 	errs() << PAInter->getNbConds() << " cond(s) \n";
 	errs() << PAInter->getConditionSet().size() << " different cond(s)\n";
+  errs() << PAInter->getNbCC() << " CC functions inserted \n";
 
 	unsigned intersectionSize;
 	int nbAdded;

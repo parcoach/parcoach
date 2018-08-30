@@ -68,6 +68,7 @@ ParcoachAnalysisInter::run(){
 		}
 		++cgSccIter;
 	}
+	if(nbWarnings !=0){
 	cgSccIter = scc_begin(&PTACG);
 	while(!cgSccIter.isAtEnd()) {
 		const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
@@ -79,15 +80,16 @@ ParcoachAnalysisInter::run(){
 		}
 		++cgSccIter;
 	}
+	}
 
 	// If you always want to instrument the code, uncomment the following line
 	//if(nbWarnings !=0){
-	if(nbWarnings !=0 && !disableInstru){
+	/*if(nbWarnings !=0 && !disableInstru){
 		errs() << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n";
 		for (Function &F : M) {
 			instrumentFunction(&F);
 		}
-	}
+	}*/
 	errs() << "Number of collectives to instrument = " << nbColNI << "\n";
 	errs() << " ... Parcoach analysis done\n";
 }
@@ -587,7 +589,9 @@ ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB){
 				if(F->getName() == "main")
 					errs() << F->getName() << " summary = " << collperFuncMap[F] << "\n";
 			}
-// COUNT COLLECTIVES TO INST
+
+
+// COUNT COLLECTIVES TO INST AND INSTRUMENT THEM
 void
 ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
 	for(inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
@@ -598,33 +602,48 @@ ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
 		Function *f = CI->getCalledFunction();
 		if(!f) continue;
 		string OP_name = f->getName().str();
+		string Warning = getWarning(*i);
+		DebugLoc locC = i->getDebugLoc();
+		int OP_line=0; string File="";
+		if(locC){ OP_line=locC.getLine(); File=locC->getFilename();}
 		// Is it a collective call?
-        if (!isCollective(f)){
-        	continue;
-        }
-        int OP_color = getCollectiveColor(f);
-       	Value* OP_com = CI->getArgOperand(Com_arg_id(OP_color));
+    if (!isCollective(f)){
+			// check if MPI_Finalize or abort for instrumentation
+			 if(f->getName().equals("MPI_Finalize") || f->getName().equals("MPI_Abort") || f->getName().equals("abort")){
+       		errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
+        	insertCC(i,v_coll.size()+1, OP_name, OP_line, Warning, File);
+          nbCC++;
+       }
+    	continue;
+    }
+		// Get collective infos
+    int OP_color = getCollectiveColor(f);
+    Value* OP_com = CI->getArgOperand(Com_arg_id(OP_color));
 		// Get conditionals from the callsite
-        set<const BasicBlock *> callIPDF;
-        DG->getCallInterIPDF(CI, callIPDF);
+    set<const BasicBlock *> callIPDF;
+    DG->getCallInterIPDF(CI, callIPDF);
 
 		for (const BasicBlock *BB : callIPDF) {
-        	// Is this node detected as potentially dangerous by parcoach?
-        	if(!optMpiTaint && collMap[BB]!="NAVS") continue;
-            if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;
+    	// Is this node detected as potentially dangerous by parcoach?
+      if(!optMpiTaint && collMap[BB]!="NAVS") continue;
+      if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;
 
 			// Is this condition tainted?
-            const Value *cond = getBasicBlockCond(BB);
+      const Value *cond = getBasicBlockCond(BB);
 			if ( !cond || (!optNoDataFlow && !DG->isTaintedValue(cond)) ) {
-            	const Instruction *instE = BB->getTerminator();
-                	DebugLoc locE = instE->getDebugLoc();
-                    continue;
-            }
+      	const Instruction *instE = BB->getTerminator();
+        DebugLoc locE = instE->getDebugLoc();
+        continue;
+      }
 			toinstrument = true;
 		}// END FOR
 
 		if(toinstrument){	
 			nbColNI++;// collective to instrument
+			// Instrument
+			errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
+      insertCC(i,OP_color, OP_name, OP_line, Warning, File);
+      nbCC++;
 			// If the coll is in a function f, tall all conds not in f as NAVS to instrument them 
 			for (const BasicBlock *BB : callIPDF) {
 				// if BB not in the same function, set it as NAVS

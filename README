@@ -59,7 +59,7 @@ svn co http://llvm.org/svn/llvm-project/libcxxabi/tags/RELEASE_391/final libcxxa
 
 cd ../..
 mkdir build && cd build
-cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=PATH_TO_LLVM/build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ../llvm
+cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release  -DCMAKE_INSTALL_PREFIX=PATH_TO_LLVM/build -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ../llvm
 make -j4
 make install
 make omp

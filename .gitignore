@@ -62,6 +62,7 @@ acs-*.bib
 *.ll
 *.bc
 *.dot
+*.o
 
 #if llvm folder is inside PARCOACH as written in README
 llvm

@@ -642,6 +642,7 @@ ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
 			nbColNI++;// collective to instrument
 			// Instrument
 			errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
+			insertCountColl(i,OP_name, OP_line, File, 1);
       insertCC(i,OP_color, OP_name, OP_line, Warning, File);
       nbCC++;
 			// If the coll is in a function f, tall all conds not in f as NAVS to instrument them 
@@ -651,7 +652,11 @@ ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
 				if(F != fBB)
 					mpiCollMap[BB][OP_com]="NAVS";
 			}
-		}
+		}else{
+		// insert count_collectives(const char* OP_name, int OP_line, char *FILE_name,int inst)
+    insertCountColl(i,OP_name, OP_line, File, 0);
+   //insertCC(i,OP_color, OP_name, OP_line, Warning, File);
+	}
 
 	}//END FOR
 
@@ -821,7 +826,30 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 				} // END FOR
 			}
 
+                void
+                        ParcoachAnalysisInter::insertCountColl(llvm::Instruction *I,std::string OP_name, int OP_line,llvm::StringRef File, int inst){
 
+                                IRBuilder<> builder(I);
+                                // Arguments of the new function
+                                vector<const Type *> params = vector<const Type *>();
+                                params.push_back(PointerType::getInt8PtrTy(M.getContext())); // OP_name
+                                Value *strPtr_NAME = builder.CreateGlobalStringPtr(OP_name);
+                                params.push_back(Type::getInt32Ty(M.getContext())); // OP_line
+                                params.push_back(PointerType::getInt8PtrTy(M.getContext())); // FILE_name
+                                const std::string Filename = File.str();
+                                Value *strPtr_FILENAME = builder.CreateGlobalStringPtr(Filename);
+                                params.push_back(Type::getInt32Ty(M.getContext())); // inst
+                                // Set new function name, type and arguments
+                                FunctionType *FTy =FunctionType::get(Type::getVoidTy(M.getContext()),
+                                                ArrayRef<Type *>((Type**)params.data(),
+                                                        params.size()),false);
+                                Value * CallArgs[] = {strPtr_NAME, ConstantInt::get(Type::getInt32Ty(M.getContext()), OP_line),  strPtr_FILENAME, ConstantInt::get(Type::getInt32Ty(M.getContext()), inst)};
+                                std::string FunctionName= "count_collectives";
+                                Value * CCFunction = M.getOrInsertFunction(FunctionName, FTy);
+                                // Create new function
+                                CallInst::Create(CCFunction, ArrayRef<Value*>(CallArgs), "", I);
+
+                        }
 
 		// Check Collective function before a collective
 		// + Check Collective function before return statements

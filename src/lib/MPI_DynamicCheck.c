@@ -5,17 +5,49 @@
 
 #include "mpi.h"
 
+int nbCC=0;
+int nbCollI=0;
+int nbColl=0;
+
 
 /* the user-defined function for the new operator */
 void areequals(int *in, int *inout, int *len, MPI_Datatype *type){
 	int i;
 	for(i=0;i<*len;i++){
-		if(*inout != *in)
+		if(*inout != *in){
+			printf("%d called with %d\n",*inout,*in);
 			*inout=~0;
+		}
 		in++;
 		inout++;
 	}
 }
+
+
+
+// Count collectives at execution time
+void count_collectives(const char* OP_name, int OP_line, char *FILE_name,int inst){
+        int rank;
+
+        int flag;
+        MPI_Initialized(&flag);
+
+        if(flag){
+                MPI_Comm ini_comm = MPI_COMM_WORLD;
+                MPI_Comm_rank(ini_comm, &rank);
+
+                if(inst==1){
+                        nbCollI++;
+                        printf("P%d: collinst=%d (%s - %s - %d)\n",rank,nbCollI, FILE_name,OP_name, OP_line);
+                }
+                nbColl++;
+                if(rank==0)
+                        printf("P%d: coll=%d; collinst=%d (%s - %s - %d)\n",rank,nbColl,nbCollI, FILE_name,OP_name, OP_line);
+        }
+}
+
+
+
 
 /* Check Collective MPI Function   
  *
@@ -37,11 +69,15 @@ void check_collective_MPI(int OP_color, const char* OP_name, int OP_line, char* 
 
 	if(flag)
 	{
+		nbCC++;
 		// Fortran programs are not handled
 		MPI_Comm ini_comm = MPI_COMM_WORLD;
 
 		MPI_Comm_rank(ini_comm, &rank);
 		MPI_Comm_size(ini_comm, &sizeComm);
+
+		if(rank==0)
+    	printf("nbCC=%d\n",nbCC);
 
 		int res=0;
 		MPI_Op equalsop;

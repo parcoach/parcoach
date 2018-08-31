@@ -58,7 +58,7 @@ private:
   void insertCC(llvm::Instruction *I, int OP_color,
 		std::string OP_name, int OP_line, llvm::StringRef WarningMsg,
 		llvm::StringRef File);
-
+	void insertCountColl(llvm::Instruction *I,std::string OP_name, int OP_line,llvm::StringRef File, int inst);
   std::string getWarning(llvm::Instruction &inst);
 
   static int id;

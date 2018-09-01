@@ -522,6 +522,10 @@ static const funcModPair funcModPairs[] = {
   /* Functions from Hydro */
 	{"ComputeQEforRow",{12,false,{false,false,false,false,false,false,false,false,false,false,false,false}}},
 
+  /* Functions from HPL */
+	{"__vsprintf_chk", {5,false,{false,false,false,false,false}}},
+
+
   {NULL, {0, false, {} } }
 };
 

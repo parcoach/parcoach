@@ -144,7 +144,7 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
       // Variadic argument
       if (i >= info->nbArgs) {
 			//errs() << "Function: " << callee->getName() << " in " << callee->getParent()->getName() << "\n";
-	assert(callee->isVarArg());
+				assert(callee->isVarArg());
 
 	if (info->argIsMod[info->nbArgs-1]) {
 	  for (MemReg *r : regs) {

@@ -61,7 +61,6 @@ acs-*.bib
 #
 *.ll
 *.bc
-*.dot
 *.o
 *.a
 

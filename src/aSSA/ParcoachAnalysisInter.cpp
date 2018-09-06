@@ -612,7 +612,7 @@ ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
 			 if(f->getName().equals("MPI_Finalize") || f->getName().equals("MPI_Abort") || f->getName().equals("abort")){
        		errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
         	insertCC(i,v_coll.size()+1, OP_name, OP_line, Warning, File);
-          nbCC++;
+          //nbCC++;
        }
     	continue;
     }
@@ -812,14 +812,14 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 							if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){
 								errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
 								insertCC(Inst,v_coll.size()+1, OP_name, OP_line, Warning, File);
-								nbCC++;
+								//nbCC++;
 								continue;
 							}
 							// Before a collective
 							if(OP_color>=0){
 								errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
 								insertCC(Inst,OP_color, OP_name, OP_line, Warning, File);
-								nbCC++;
+								//nbCC++;
 							}
 						} // END IF
 					} // END FOR
@@ -909,7 +909,7 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 						warning = mdstring->getString();
 					}
 				}else {
-					errs() << "Did not find metadata\n";
+					//errs() << "Did not find metadata\n";
 				}
 				return warning;
 			}

@@ -16,6 +16,11 @@ static const funcModPair funcModPairs[] = {
 
   // MILC HACK
   {"myrand", { 1, false, {false} } },
+	{"cmul", {2,false,{true,false}}},
+	{"cadd", {2,false,{true,false}}},
+	{"csub", {2,false,{true,false}}},
+  {"__snprintf_chk", { 4, false, {true, false, false, false} } },
+  {"__strncat_chk", {3,false,{false,false,false}}},
 
   /* LLVM intrinsics */
   {"llvm.bswap.v4i32", { 1, false, {false} } },

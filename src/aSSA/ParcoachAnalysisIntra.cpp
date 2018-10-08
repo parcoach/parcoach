@@ -498,7 +498,7 @@ ParcoachAnalysisIntra::checkCollectives(llvm::Function *F){
 			OP_com = CI->getArgOperand(Com_arg_id(OP_color)); // 0 for Barrier only
 			
 		//CI->getArgOperand(0)->dump();
-		errs() << "Found " << OP_name << " on " << OP_com << " line " << OP_line << "\n";
+		//errs() << "Found " << OP_name << " on " << OP_com << " line " << OP_line << "\n";
 
 		nbCollectivesFound++;
 		bool isColWarningParcoach = false;

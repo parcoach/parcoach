@@ -68,6 +68,7 @@ ParcoachAnalysisInter::run(){
 		}
 		++cgSccIter;
 	}
+/*
 	if(nbWarnings !=0){
 	cgSccIter = scc_begin(&PTACG);
 	while(!cgSccIter.isAtEnd()) {
@@ -81,15 +82,15 @@ ParcoachAnalysisInter::run(){
 		++cgSccIter;
 	}
 	}
-
+*/
 	// If you always want to instrument the code, uncomment the following line
-	//if(nbWarnings !=0){
-	/*if(nbWarnings !=0 && !disableInstru){
+	if(nbWarnings !=0){
+	//if(nbWarnings !=0 && !disableInstru){
 		errs() << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n";
 		for (Function &F : M) {
 			instrumentFunction(&F);
 		}
-	}*/
+	}
 	errs() << "Number of collectives to instrument = " << nbColNI << "\n";
 	errs() << " ... Parcoach analysis done\n";
 }
@@ -607,34 +608,34 @@ ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
 		int OP_line=0; string File="";
 		if(locC){ OP_line=locC.getLine(); File=locC->getFilename();}
 		// Is it a collective call?
-    if (!isCollective(f)){
+    	if (!isCollective(f)){
 			// check if MPI_Finalize or abort for instrumentation
 			 if(f->getName().equals("MPI_Finalize") || f->getName().equals("MPI_Abort") || f->getName().equals("abort")){
-       		errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
-        	insertCC(i,v_coll.size()+1, OP_name, OP_line, Warning, File);
-          //nbCC++;
-       }
-    	continue;
-    }
+       			errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
+        		insertCC(i,v_coll.size()+1, OP_name, OP_line, Warning, File);
+          		//nbCC++;
+       		}
+    		continue;
+    	}
 		// Get collective infos
-    int OP_color = getCollectiveColor(f);
-    Value* OP_com = CI->getArgOperand(Com_arg_id(OP_color));
+   	 	int OP_color = getCollectiveColor(f);
+    	Value* OP_com = CI->getArgOperand(Com_arg_id(OP_color));
 		// Get conditionals from the callsite
-    set<const BasicBlock *> callIPDF;
-    DG->getCallInterIPDF(CI, callIPDF);
+    	set<const BasicBlock *> callIPDF;
+    	DG->getCallInterIPDF(CI, callIPDF);
 
 		for (const BasicBlock *BB : callIPDF) {
-    	// Is this node detected as potentially dangerous by parcoach?
-      if(!optMpiTaint && collMap[BB]!="NAVS") continue;
-      if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;
+    		// Is this node detected as potentially dangerous by parcoach?
+      		if(!optMpiTaint && collMap[BB]!="NAVS") continue;
+      		if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;
 
 			// Is this condition tainted?
-      const Value *cond = getBasicBlockCond(BB);
+      		const Value *cond = getBasicBlockCond(BB);
 			if ( !cond || (!optNoDataFlow && !DG->isTaintedValue(cond)) ) {
-      	const Instruction *instE = BB->getTerminator();
-        DebugLoc locE = instE->getDebugLoc();
-        continue;
-      }
+      			const Instruction *instE = BB->getTerminator();
+        		DebugLoc locE = instE->getDebugLoc();
+        		continue;
+      		}
 			toinstrument = true;
 		}// END FOR
 
@@ -643,9 +644,9 @@ ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
 			// Instrument
 			errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
 			insertCountColl(i,OP_name, OP_line, File, 1);
-      insertCC(i,OP_color, OP_name, OP_line, Warning, File);
-      nbCC++;
-			// If the coll is in a function f, tall all conds not in f as NAVS to instrument them 
+      		insertCC(i,OP_color, OP_name, OP_line, Warning, File);
+      		nbCC++;
+			// If the coll is in a function f, all conds not in f has NAVS to instrument them 
 			for (const BasicBlock *BB : callIPDF) {
 				// if BB not in the same function, set it as NAVS
 				const llvm::Function *fBB = BB->getParent();
@@ -653,10 +654,10 @@ ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F){
 					mpiCollMap[BB][OP_com]="NAVS";
 			}
 		}else{
-		// insert count_collectives(const char* OP_name, int OP_line, char *FILE_name,int inst)
-    insertCountColl(i,OP_name, OP_line, File, 0);
-   //insertCC(i,OP_color, OP_name, OP_line, Warning, File);
-	}
+			// insert count_collectives(const char* OP_name, int OP_line, char *FILE_name,int inst)
+    		insertCountColl(i,OP_name, OP_line, File, 0);
+   			//insertCC(i,OP_color, OP_name, OP_line, Warning, File);
+		}
 
 	}//END FOR
 
@@ -812,7 +813,7 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 							int OP_color = getCollectiveColor(callee);
 
 							// Before finalize or exit/abort
-							if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort")){
+							if(callee->getName().equals("MPI_Finalize") || callee->getName().equals("MPI_Abort") || callee->getName().equals("abort")){
 								errs() << "-> insert check before " << OP_name << " line " << OP_line << "\n";
 								insertCC(Inst,v_coll.size()+1, OP_name, OP_line, Warning, File);
 								//nbCC++;

@@ -26,20 +26,20 @@ ParcoachAnalysisIntra::run(){
 			continue;
 
 		// (1) Set the sequence of collectives with a BFS from the exit node in the CFG
-		errs() << "BFS\n"; 
+		//errs() << "BFS\n"; 
 		if(optMpiTaint)
 			MPI_BFS(&F);
 		else
 			BFS(&F);
 
 		// (2) Check calls to collectives with PDF+ of each collective node
-		errs() << "checkCollectives\n"; 
+		//errs() << "checkCollectives\n"; 
 		checkCollectives(&F);
 
 		// EMMA: always instrument the code
-		errs() << "Instru\n"; 
-		if(nbWarningsParcoachOnly > oldNbWarnings){
-		//if(nbWarningsParcoachOnly > oldNbWarnings && !disableInstru){
+		//errs() << "Instru\n"; 
+		//if(nbWarningsParcoachOnly > oldNbWarnings){
+		if(nbWarningsParcoachOnly > oldNbWarnings && !disableInstru){
 			// Static instrumentation of the code 
 			errs() << "\033[0;35m=> Instrumentation of the function ...\033[0;0m\n";
 			instrumentFunction(&F);

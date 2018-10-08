@@ -671,7 +671,7 @@ ParcoachInstr::runOnModule(Module &M) {
     }
 
     if (!optInterOnly) {
-      PAIntra = new ParcoachAnalysisIntra(M, NULL, this, !optInstrumIntra);
+      PAIntra = new ParcoachAnalysisIntra(M, DG, this, !optInstrumIntra);
       PAIntra->run();
     }
   } else {

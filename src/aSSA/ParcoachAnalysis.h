@@ -9,7 +9,7 @@ class ParcoachAnalysis {
  public:
   ParcoachAnalysis(llvm::Module &M, DepGraph *DG, bool disableInstru=false)
     : M(M), DG(DG),
-      nbCollectivesFound(0), nbCollectivesFoundParcoachOnly(0),
+      nbCollectivesFound(0),nbCollectivesCondCalled(0), nbCollectivesFoundParcoachOnly(0),
       nbWarnings(0), nbWarningsParcoachOnly(0),
       nbConds(0), nbCondsParcoachOnly(0),
       nbCC(0),
@@ -22,6 +22,10 @@ class ParcoachAnalysis {
 
   unsigned getNbCollectivesFound() const {
     return nbCollectivesFound;
+  }
+
+  unsigned getNbCollectivesCondCalled() const {
+    return nbCollectivesCondCalled;
   }
 
   unsigned getNbCollectivesFoundParcoachOnly() const {
@@ -69,6 +73,7 @@ class ParcoachAnalysis {
   DepGraph *DG;
 
   unsigned nbCollectivesFound;
+  unsigned nbCollectivesCondCalled;
   unsigned nbCollectivesFoundParcoachOnly;
   unsigned nbWarnings;
   unsigned nbWarningsParcoachOnly;

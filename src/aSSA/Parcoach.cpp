@@ -77,6 +77,7 @@ ParcoachInstr::doFinalization(Module &M) {
 	errs() << "\033[0;36m==========================================\033[0;0m\n";
 	errs() << "Module name: " << M.getModuleIdentifier() << "\n";
 	errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
+	errs() << PAInter->getNbCollectivesCondCalled() << " collective(s) conditionally called\n";
 	errs() << PAInter->getNbWarnings() << " warning(s) issued\n";
 	errs() << PAInter->getNbConds() << " cond(s) \n";
 	errs() << PAInter->getConditionSet().size() << " different cond(s)\n";

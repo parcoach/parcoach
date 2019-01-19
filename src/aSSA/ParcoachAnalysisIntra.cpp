@@ -26,14 +26,14 @@ ParcoachAnalysisIntra::run(){
 			continue;
 
 		// (1) Set the sequence of collectives with a BFS from the exit node in the CFG
-		//errs() << "BFS\n"; 
+		errs() << "BFS\n"; 
 		if(optMpiTaint)
 			MPI_BFS(&F);
 		else
 			BFS(&F);
 
 		// (2) Check calls to collectives with PDF+ of each collective node
-		//errs() << "checkCollectives\n"; 
+		errs() << "checkCollectives\n"; 
 		checkCollectives(&F);
 
 		// EMMA: always instrument the code
@@ -537,9 +537,9 @@ ParcoachAnalysisIntra::checkCollectives(llvm::Function *F){
 			nbWarningsParcoachOnly++;
 			warningSetParcoachOnly.insert(CI);
 
-			WarningMsg = to_string(nbWarnings) + " - " + OP_name + " line " + to_string(OP_line) + \
+			WarningMsg = OP_name + " line " + to_string(OP_line) + \
 								 " possibly not called by all processes because of conditional(s) " \
-								 "line(s) " + COND_lines;
+								 "line(s) " + COND_lines + " (intra)";
 			mdNode = MDNode::get(i->getContext(),
 				MDString::get(i->getContext(), WarningMsg));
 			i->setMetadata("intra.inst.warning",mdNode);

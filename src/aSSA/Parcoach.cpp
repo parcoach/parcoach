@@ -71,7 +71,11 @@ ParcoachInstr::doFinalization(Module &M) {
 
   if (!optCompareAll){
     if (PAInter) {
+			unsigned intersectionSize;
+			int WnbAdded,CnbAdded;
+			int WnbRemoved,CnbRemoved;
       if (!optNoDataFlow) {
+
 	errs() << "\n\033[0;36m==========================================\033[0;0m\n";
 	errs() << "\033[0;36m===  PARCOACH INTER WITH DEP ANALYSIS  ===\033[0;0m\n";
 	errs() << "\033[0;36m==========================================\033[0;0m\n";
@@ -83,28 +87,27 @@ ParcoachInstr::doFinalization(Module &M) {
 	errs() << PAInter->getConditionSet().size() << " different cond(s)\n";
   errs() << PAInter->getNbCC() << " CC functions inserted \n";
 
-	unsigned intersectionSize;
-	int nbAdded;
-	int nbRemoved;
 	intersectionSize
 	  = getBBSetIntersectionSize(PAInter->getConditionSet(),
 				     PAInter->getConditionSetParcoachOnly());
 
-	nbAdded = PAInter->getConditionSet().size() - intersectionSize;
-	nbRemoved = PAInter->getConditionSetParcoachOnly().size()
+	CnbAdded = PAInter->getConditionSet().size() - intersectionSize;
+	CnbRemoved = PAInter->getConditionSetParcoachOnly().size()
 	  - intersectionSize;
-	errs() << nbAdded << " condition(s) added and " << nbRemoved
+	errs() << CnbAdded << " condition(s) added and " << CnbRemoved
 	       << " condition(s) removed with dep analysis.\n";
 
 	intersectionSize
 	  = getInstSetIntersectionSize(PAInter->getWarningSet(),
 				       PAInter->getWarningSetParcoachOnly());
 
-	nbAdded = PAInter->getWarningSet().size() - intersectionSize;
-	nbRemoved = PAInter->getWarningSetParcoachOnly().size()
+	WnbAdded = PAInter->getWarningSet().size() - intersectionSize;
+	WnbRemoved = PAInter->getWarningSetParcoachOnly().size()
 	  - intersectionSize;
-	errs() << nbAdded << " warning(s) added and " << nbRemoved
+	errs() << WnbAdded << " warning(s) added and " << WnbRemoved
 	       << " warning(s) removed with dep analysis.\n";
+
+
       }
 
       errs() << "\n\033[0;36m==========================================\033[0;0m\n";
@@ -115,13 +118,14 @@ ParcoachInstr::doFinalization(Module &M) {
       errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
       errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
-      errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
 
-     /* errs() << "\n\033[0;36m==========================================\033[0;0m\n";
-      errs() << "\033[0;36m========= PARCOACH INTER SUMMARY-BASED =====\033[0;0m\n";
-      errs() << "\033[0;36m==========================================\033[0;0m\n";
-      */
-      // TODO
+
+    	errs() << "app," << PAInter->getNbCollectivesFound() << ","
+			<< PAInter->getNbWarnings() << "," << PAInter->getConditionSet().size() << ","
+			<< WnbAdded << "," << WnbRemoved << ","
+      << CnbAdded << "," << CnbRemoved << ","
+			<< PAInter->getNbWarningsParcoachOnly() << "," << PAInter->getConditionSetParcoachOnly().size() << "\n";
+
 
       if (PAIntra) {
 	unsigned intersectionSize;
@@ -233,7 +237,7 @@ ParcoachInstr::doFinalization(Module &M) {
 	   << svfwarningsadded << "," << svfwarningsremoved << ","
 	   << svfcondsadded << "," << svfcondsremoved << ","
 	   << uidawarningsadded << "," << uidawarningsremoved << ","
-	   << uidacondsadded << "," << uidacondsremoved << "\n";
+	   << uidacondsadded << "," << uidacondsremoved << "\n"; 
   }
 
   if (optTimeStats) {

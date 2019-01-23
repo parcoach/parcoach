@@ -60,7 +60,7 @@ acs-*.bib
 
 #
 *.ll
-*.bc
+#*.bc
 *.o
 *.a
 

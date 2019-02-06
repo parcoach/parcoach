@@ -1208,7 +1208,7 @@ DepGraphDCF::getCallInterIPDF(const llvm::CallInst *call,
 
 
 
-// EMMA: new function used for summary-based approach
+// Function used for summary-based approach
 void
 DepGraphDCF::getCallIntraIPDF(const llvm::CallInst *call,
                                   std::set<const llvm::BasicBlock *> &ipdf) {
@@ -2173,14 +2173,17 @@ DepGraphDCF::floodFunction(const Function *F) {
   // 2) Add tainted variables of the function to the queue.
   if (funcToSSANodesMap.find(F) != funcToSSANodesMap.end()) {
     for (MSSAVar *v : funcToSSANodesMap[F]) {
-      if (taintedSSANodes.find(v) != taintedSSANodes.end())
-	varToVisit.push(v);
+      if (taintedSSANodes.find(v) != taintedSSANodes.end()){
+				varToVisit.push(v);
+			}
     }
   }
   if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
     for (const Value *v : funcToLLVMNodesMap[F]) {
-      if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end())
-	valueToVisit.push(v);
+      if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()){
+					valueToVisit.push(v);
+					
+			}
     }
   }
 
@@ -2372,7 +2375,10 @@ DepGraphDCF::computeFunctionCSTaintedConds(const llvm::Function *F) {
       if (callsiteToConds.find(cast<Value>(&I)) != callsiteToConds.end()) {
 	for (const Value *v : callsiteToConds[cast<Value>(&I)]) {
 	  if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
-	    taintedConditions.insert(v);
+				//EMMA : if(v->getName() != "cmp1" && v->getName() != "cmp302"){
+	    		taintedConditions.insert(v);
+					//errs() << "EMMA: value tainted: " << v->getName() << "\n";
+				//}
 	  }
 	}
       }

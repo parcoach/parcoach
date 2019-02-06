@@ -72,8 +72,8 @@ ParcoachInstr::doFinalization(Module &M) {
   if (!optCompareAll){
     if (PAInter) {
 			unsigned intersectionSize;
-			int WnbAdded,CnbAdded;
-			int WnbRemoved,CnbRemoved;
+			int WnbAdded=0,CnbAdded=0;
+			int WnbRemoved=0,CnbRemoved=0;
       if (!optNoDataFlow) {
 
 	errs() << "\n\033[0;36m==========================================\033[0;0m\n";
@@ -119,6 +119,7 @@ ParcoachInstr::doFinalization(Module &M) {
       errs() << PAInter->getConditionSetParcoachOnly().size() << " different cond(s)\n";
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
 
+      if (!optNoDataFlow) {
 
     	errs() << "app," << PAInter->getNbCollectivesFound() << ","
 			<< PAInter->getNbWarnings() << "," << PAInter->getConditionSet().size() << ","
@@ -126,6 +127,8 @@ ParcoachInstr::doFinalization(Module &M) {
       << CnbAdded << "," << CnbRemoved << ","
 			<< PAInter->getNbWarningsParcoachOnly() << "," << PAInter->getConditionSetParcoachOnly().size() << "\n";
 
+			}
+		
 
       if (PAIntra) {
 	unsigned intersectionSize;

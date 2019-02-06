@@ -60,9 +60,10 @@ acs-*.bib
 
 #
 *.ll
-#*.bc
+*.bc
 *.o
 *.a
+*.trace
 
 #if llvm folder is inside PARCOACH as written in README
 llvm

@@ -356,28 +356,29 @@ ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB){
 					// Set all nodes to white
 					bbVisitedMap[&I]=white;
 					// Return inst / exit nodes
-					if(isExitNode(&I)){
+				/*	if(isExitNode(&I)){
 						Unvisited.push_back(&I);
 						//DEBUG//errs() << "Exit node: " << I.getName() << "\n";
 						setMPICollSet(&I);
 						bbVisitedMap[&I]=grey;
-					}
-					/*if(isa<ReturnInst>(I.getTerminator())){
+					}*/
+					// PB: some functions do not have a return inst.. 
+					if(isa<ReturnInst>(I.getTerminator())){
 						Unvisited.push_back(&I);
-						errs() << "Exit node: " << I.getName() << "\n";
+						//errs() << "Exit node: " << I.getName() << "\n";
 						setMPICollSet(&I);
 						bbVisitedMap[&I]=grey;
-					}*/
+					}
 				}
 				
 				// Keep the loop header in black
-        curLoop = &pass->getAnalysis<LoopInfoWrapperPass>
+        /*curLoop = &pass->getAnalysis<LoopInfoWrapperPass>
           (*const_cast<Function *>(F)).getLoopInfo();
 
         for(Loop *L: *curLoop){
           BasicBlock *Lheader = L->getHeader();
 					bbVisitedMap[Lheader]=black;
-				}
+				}*/
 
 				while(Unvisited.size()>0){
 					BasicBlock *header=*Unvisited.begin();
@@ -422,21 +423,21 @@ ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB){
 								 }*/
 
 							bbVisitedMap[Pred]=grey;
-							if(header != Pred) // to handle loops of size 1
+							//if(header != Pred) // to handle loops of size 1
 								Unvisited.push_back(Pred);
 							// BB ALREADY SEEN
 						}else{
 							//DEBUG//errs() << F->getName() << " Pred: " << Pred->getName() << " already seen\n";
 							// Loop header may have a mpiCollMap  --> Emma test
-							if(bbVisitedMap[Pred] == black){
+				/*			if(bbVisitedMap[Pred] == black){
 
-								/*errs() << F->getName() << " Pred: " << Pred->getName() << " is a loop header\n";
+								//errs() << F->getName() << " Pred: " << Pred->getName() << " is a loop header\n";
 								errs() << " = \n";
                  for(auto& pair : mpiCollMap[Pred]){
                  errs() << pair.first << "{" << pair.second << "}\n";
                  }
                  errs() << "****\n"; 
-								*/
+								//
 
               	if(mpiCollMap[Pred].empty()){
                 	for(auto& pair : mpiCollMap[header])
@@ -449,7 +450,7 @@ ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB){
 								}
 								//Unvisited.push_back(Pred); // we want to get its predecessor
               }
-							else{
+							else{ */
 							ComCollMap temp(mpiCollMap[Pred]);
 							/* DEBUG 
 								 errs() << "* Temp = \n";
@@ -484,7 +485,7 @@ ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB){
 								 errs() << pair.first << "{" << pair.second << "}\n";
 								 }
 								 errs() << "****\n"; */
-						}
+						////}
 
 						} // END ELSE
 						bbVisitedMap[header]=black;
@@ -810,12 +811,11 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 
 						// Is this node detected as potentially dangerous by parcoach?
 						if(!optMpiTaint && collMap[BB]!="NAVS") continue;
-						if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") { 
+						if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS")continue;
 						  /*const Value *cond = getBasicBlockCond(BB);
 						  errs() << "Cond : " << cond->getName() << "\n";
 							for(auto& pair : mpiCollMap[BB]){
                  errs() << pair.first << "{" << pair.second << "}\n";}*/	
-							 continue;}	
 
 
 						isColWarningParcoach = true;

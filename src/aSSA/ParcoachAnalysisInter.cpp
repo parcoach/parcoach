@@ -17,7 +17,7 @@ using namespace std;
 
 int ParcoachAnalysisInter::id = 0;
 
-
+int nbColNI=0;
 
 void
 ParcoachAnalysisInter::run(){
@@ -75,8 +75,9 @@ ParcoachAnalysisInter::run(){
 						instrumentFunction(&F);
 				}
 		}
-
-		errs() << " ... Parcoach analysis done\n";
+	}
+	errs() << "Number of collectives to instrument = " << nbColNI << "\n";
+	errs() << " ... Parcoach analysis done\n";
 }
 
 
@@ -617,17 +618,22 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 		nbCollectivesFound++;
 		bool isColWarning = false;
 		bool isColWarningParcoach = false;
+		bool toinstrument = false;
+	
+		// Get conditionals from the callsite
+		set<const BasicBlock *> callIPDF;
+		DG->getCallInterIPDF(CI, callIPDF);
+		// For the summary-based approach, use the following instead of the previous line 
+		//DG->getCallIntraIPDF(CI, callIPDF);
 
-				// Get conditionals from the callsite
-				set<const BasicBlock *> callIPDF;
-				DG->getCallInterIPDF(CI, callIPDF);
-				// For the summary-based approach, use the following instead of the previous line 
-				//DG->getCallIntraIPDF(CI, callIPDF);
 
 		for (const BasicBlock *BB : callIPDF) {
 			// Is this node detected as potentially dangerous by parcoach?
 			if(!optMpiTaint && collMap[BB]!="NAVS") continue;
-      if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;		
+      //if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;		
+      if(optMpiTaint && mpiCollMap[BB][OP_com]!="NAVS") continue;	
+	
+			toinstrument = true;
 
 			isColWarningParcoach = true;
 			nbCondsParcoachOnly++;
@@ -641,6 +647,7 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 				DebugLoc locE = instE->getDebugLoc();
 				continue;
 			}
+
 
 			isColWarning = true;
 			nbConds++;
@@ -663,6 +670,9 @@ ParcoachAnalysisInter::checkCollectives(llvm::Function *F){
 				DG->dotTaintPath(cond, dotfilename, i);
 			}
 		} // END FOR
+	
+		if(toinstrument)	
+			nbColNI++;// collective to instrument
 
 				// Is there at least one node from the IPDF+ detected as potentially
 				// dangerous by parcoach
@@ -726,9 +736,7 @@ ParcoachAnalysisInter::instrumentFunction(llvm::Function *F){
 										insertCC(Inst,OP_color, OP_name, OP_line, Warning, File);
 										nbCC++;
 								}
-						}
-				}
-			} // END IF
+				} // END IF
 		} // END FOR
 	} // END FOR
 }

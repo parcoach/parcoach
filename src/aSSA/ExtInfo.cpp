@@ -518,6 +518,9 @@ static const funcModPair funcModPairs[] = {
   /* Functions from miniAMR */
   {"__exp10", { 1 , false , {false } } },
 
+  /* Functions from Hydro */
+	{"ComputeQEforRow",{12,false,{false,false,false,false,false,false,false,false,false,false,false,false}}},
+
   {NULL, {0, false, {} } }
 };
 

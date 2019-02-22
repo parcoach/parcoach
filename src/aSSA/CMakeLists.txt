@@ -1,36 +1,8 @@
-# If we don't need RTTI or EH, there's no reason to export anything
-# from the hello plugin.
-if( NOT LLVM_REQUIRES_RTTI )
-  if( NOT LLVM_REQUIRES_EH )
-	  set(LLVM_EXPORTED_SYMBOL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/Parcoach.exports)
-  endif()
-endif()
+file (GLOB_RECURSE source_files *.cpp)
 
-if(WIN32 OR CYGWIN)
-  set(LLVM_LINK_COMPONENTS Core Support)
-endif()
+add_library(aSSA MODULE ${source_files})
 
-add_llvm_loadable_module( LLVMaSSA
-        DepGraph.cpp
-	DepGraphDCF.cpp
-        DepGraphUIDA.cpp
-	ExtInfo.cpp
-	MemoryRegion.cpp
-	MemorySSA.cpp
-	ModRefAnalysis.cpp
-	Options.cpp
-	Parcoach.cpp
-	ParcoachAnalysisInter.cpp
-	ParcoachAnalysisIntra.cpp
-	PTACallGraph.cpp
-	Utils.cpp
-	Collectives.cpp
-	andersen/Andersen.cpp
-	andersen/ConstraintCollect.cpp
-	andersen/ConstraintOptimize.cpp
-	andersen/ConstraintSolving.cpp
-	andersen/ExternalLibrary.cpp
-	andersen/NodeFactory.cpp
-  )
-
-add_definitions("-Wall -g")
+target_include_directories(aSSA PRIVATE include ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(aSSA PRIVATE ${LLVM_DEFINITIONS})
+target_link_libraries(aSSA PRIVATE LLVM)
+target_compile_options(aSSA PRIVATE -fno-rtti -Wall)

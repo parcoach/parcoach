@@ -1,0 +1,26 @@
+
+OpenMP Programs:
+
+If you encounter the following error:
+
+dyld: Library not loaded: @rpath/libomp.dylib
+  Referenced from: $(PATH_TO_PARCOACH)/PARCOACH-LLVM/tests/OMP/./barrier_noerror
+  Reason: no suitable image found.  Did find:
+	$(PATH_TO_LLVM)/LLVM_371/build/lib/libomp.dylib/libomp.dylib: stat() failed with errno=20
+Trace/BPT trap: 5
+
+Don't forget to set DYLD_LIBRARY_PATH: 
+export DYLD_LIBRARY_PATH=$(PATH_TO_LLVM)/LLVM_371/build/lib:$DYLD_LIBRARY_PATH
+
+OR
+
+$otool -L barrier_noerror 
+barrier_noerror:
+	@rpath/libomp.dylib (compatibility version 5.0.0, current version 5.0.0)
+	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1225.1.1)
+
+$install_name_tool -change @rpath/libomp.dylib /Users/emmanuellesaillard/Documents/LLVM_371/build/lib/libomp.dylib barrier_noerror
+$otool -L barrier_noerror
+barrier_noerror:
+	/Users/emmanuellesaillard/Documents/LLVM_371/build/lib/libomp.dylib (compatibility version 5.0.0, current version 5.0.0)
+	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1225.1.1)

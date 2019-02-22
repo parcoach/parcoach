@@ -1,0 +1,29 @@
+* Documentation:
+
+- mapping from cuda ranks and barriers to llvm ir: http://llvm.org/docs/NVPTXUsage.html#llvm-nvvm-read-ptx-sreg
+
+- norm: http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#synchronization-functions
+
+"__syncthreads() is allowed in conditional code but only if the conditional evaluates identically across the entire thread block, otherwise the code execution is likely to hang or produce unintended side effects. "
+
+
+* Prerequisites: CUDA Toolkit 7 and llvm/clang 3.9
+
+
+* Compiling cuda to llvm ir:
+
+$ clang -g -S -emit-llvm --cuda-path=/path/to/cuda-7 code.cu
+
+Two files are generated:
+- code.ll: host code
+- code-cuda-nvptx64-nvidia-cuda-sm_20.ll: kernel code
+
+Warning: You cannot use the -o option since the command generates multiple files.
+
+* Building examples
+
+- Edit Makefile.inc
+- Compile cuda examples to LLVM IR:
+ $ make
+- Run parcoach:
+ $ make test

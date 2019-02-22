@@ -1,0 +1,124 @@
+This directory contains multiple test cases for MPI. 
+
+- barrier_noerror.c
+  -> no error, no condition, all processes call a barrier
+
+
+- inter_example.c
+  -> mismatch error, collective not called by all processes in a function
+     -
+   /   \
+ /  \   _
+f()  -  |        f(): if(..) B
+ \  /   |
+   \   /
+     -
+
+- inter_example_false_negative.c
+  -> mismatch error, collective called in a function not called by all processes
+    -
+  /   \
+ f()   -     f():B
+  \   /
+    -
+
+- inter_example_loop.c
+  -> mismatch error + recursive function 
+    - (for)
+   / \
+  B   |
+   \ /
+    B
+   / \
+  B   -
+   \ /
+
+- inter_example_mismatch.c
+  -> mismatch error 
+    -
+  /  \
+ B    g()    g():f()R  f():B
+  \  /
+   -
+
+- inter_example_noerror.c
+  -> no error with inter-procedural analysis. Error with the intra-procedural analysis
+      -
+    /   \
+   B     g()         g():f()R  f():B
+   R     -
+    \   /
+      -
+
+- inter_example_tricky1.c
+  -> mismatch error
+       -
+    /     \
+  /  \   / \
+ B   B  B   -
+ \  /   \  /
+   \     /
+      -
+
+- mismatch_barrier.c
+  -> mismatch, collective not called by all processes
+    -
+  /   \
+ B     -
+  \   /
+    -
+
+- mismatch_barrier_nb.c
+  -> mismatch between blocking and nonblocking collectives
+    -
+  /   \
+ B    Ib
+  \   /
+    - 
+
+- noerror_allreduce.c
+  -> no error, all processes call a allreduce
+  (can be used to verify arguments of collectives)
+
+
+inter - Tests for the data-flow analysis
+- barrier_loop.c
+  -> Barrier in a loop, no error
+
+- barrier_noerror.c
+  -> no error, no condition, all processes call a barrier
+
+- inter_arg.c
+- inter_ret.c
+- inter_sideeffect.c
+- intra_flow.c
+- intra_linkedlist.c
+- intra_loop.c
+- intra_memtransfer.c
+- intra_struct.c
+
+
+
+*******************
+
+If you encounter the following error:
+HYDU_create_process (utils/launch/launch.c:75): execvp error on file 4 (No such file or directory)
+make: *** [run] Error 255
+
+or
+
+Fatal error in MPI_Init: Other MPI error, error stack:
+MPIR_Init_thread(474)..............: 
+MPID_Init(190).....................: channel initialization failed
+MPIDI_CH3_Init(89).................: 
+MPID_nem_init(320).................: 
+MPID_nem_tcp_init(173).............: 
+MPID_nem_tcp_get_business_card(420): 
+MPID_nem_tcp_init(379).............: gethostbyname failed, 67.210.128.198.in-addr.dhcp.lbnl.us (errno 1)
+
+
+
+Check your localhost, get your terminal's name: scutil --get HostName 
+
+To set your HostName to localhost:
+sudo scutil --set HostName 'localhost'

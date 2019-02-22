@@ -9,9 +9,7 @@ PARCOACH automatically checks parallel applications to verify the correct use of
 
 This project contains the following directories: 
    - src
-      - Parcoach (Parcoach intra-procedural analysis)
       - aSSA (aSSA applied to Parcoach)
-      - SVG (code svg)
       - lib (Parcoach dynamic library)
    - articles
       - articles template

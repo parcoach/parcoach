@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "mpi.h"
 
-struct _hydroparam {
+typedef struct _hydroparam {
  int mype;
  int nproc;
 }hydroparam_t;

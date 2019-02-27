@@ -11,4 +11,9 @@ find_package(LLVM "3.9.1" EXACT REQUIRED  CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
+find_package(MPI)
+find_package(OpenMP)
+
 add_subdirectory(src/aSSA/)
+add_subdirectory(src/lib/)
+

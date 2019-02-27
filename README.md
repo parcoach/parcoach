@@ -85,7 +85,7 @@ opt -load /path/to/parchoach/build/src/aSSA/libaSSA.so -parcoach -check-mpi -int
 
 TODO
 
-## Publications:
+## Publications
 Pierre Huchant, Emmanuelle Saillard, Denis Barthou, Hugo Brunie and Patrick Carribault,  
 **[PARCOACH Extension for a Full-Interprocedural Collectives Verification](https://doi.org/10.1109/Correctness.2018.00013)**,  
 *2nd International Workshop on Software Correctness for HPC Applications (Correctness), pages 69-76, 2018*

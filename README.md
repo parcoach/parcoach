@@ -17,22 +17,17 @@ CMake can be downloaded from [http://www.cmake.org](http://www.cmake.org).
 This version of PARCOACH is an LLVM pass. To get LLVM, follow these steps:
 
 ```bash
-svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_391/final llvm
-
-cd llvm/tools 
-svn co http://llvm.org/svn/llvm-project/cfe/tags/RELEASE_391/final clang
-
+git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/llvm.git llvm
+cd llvm/tools/
+git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/clang.git clang
 cd clang/tools/
-svn co http://llvm.org/svn/llvm-project/clang-tools-extra/tags/RELEASE_391/final extra
-
-cd ../../../projects/ 
-svn co http://llvm.org/svn/llvm-project/openmp/tags/RELEASE_391/final openmp
-svn co http://llvm.org/svn/llvm-project/compiler-rt/tags/RELEASE_391/final compiler-rt
-svn co http://llvm.org/svn/llvm-project/libcxx/tags/RELEASE_391/final libcxx
-svn co http://llvm.org/svn/llvm-project/libcxxabi/tags/RELEASE_391/final libcxxabi 
-
-cd ../..
-mkdir build && cd build
+git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/clang-tools-extra.git extra
+cd ../../../projects/
+git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/openmp.git openmp
+git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/compiler-rt.git compiler-rt
+git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/libcxx.git libcxx
+git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/libcxxabi.git libcxxabi
+cd .. && mkdir build && cd build
 cmake ..
 make -j4
 make install 

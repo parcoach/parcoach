@@ -17,19 +17,11 @@ CMake can be downloaded from [http://www.cmake.org](http://www.cmake.org).
 This version of PARCOACH is an LLVM pass. To get LLVM, follow these steps:
 
 ```bash
-git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/llvm.git llvm
-cd llvm/tools/
-git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/clang.git clang
-cd clang/tools/
-git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/clang-tools-extra.git extra
-cd ../../../projects/
-git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/openmp.git openmp
-git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/compiler-rt.git compiler-rt
-git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/libcxx.git libcxx
-git clone -b release_39 --depth=1 --single-branch https://github.com/llvm-mirror/libcxxabi.git libcxxabi
-cd .. && mkdir build && cd build
-cmake ..
-make -j4
+git clone -b llvmorg-3.9.1 --depth=1 --single-branch https://github.com/llvm/llvm-project.git
+cd llvm-project/
+mkdir build && cd build/
+cmake ../llvm/ -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS='clang,libcxx,libcxxabi,compiler-rt' -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
+make -j8
 make install 
 ```
 
@@ -41,8 +33,8 @@ First make sure to have installed a C++11 compiler, CMake and Git. Then install 
 git clone https://github.com/parcoach/parcoach.git
 mkdir parcoach/build
 cd parcoach/build
-cmake .. -DCMAKE_BUILD_TYPE="Release"
-make -j4
+cmake ..
+make -j8
 ```
 
 If CMake does not find LLVM, you can supply the path to your LLVM installation as follows  :

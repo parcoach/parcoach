@@ -17,16 +17,15 @@ public:
   typedef std::set<const llvm::Value *> ValueSet;
 
   DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, llvm::Pass *pass,
-	      bool noPtrDep=false, bool noPred=false,
-	      bool disablePhiElim=false);
+              bool noPtrDep = false, bool noPred = false,
+              bool disablePhiElim = false);
   virtual ~DepGraphDCF();
 
   virtual void build();
   void buildFunction(const llvm::Function *F);
   void toDot(std::string filename);
   void dotTaintPath(const llvm::Value *v, std::string filename,
-		    const llvm::Instruction *collective);
-
+                    const llvm::Instruction *collective);
 
   void visitBasicBlock(llvm::BasicBlock &BB);
   void visitAllocaInst(llvm::AllocaInst &I);
@@ -64,10 +63,10 @@ public:
   bool isTaintedValue(const llvm::Value *v);
 
   void getCallInterIPDF(const llvm::CallInst *call,
-			       std::set<const llvm::BasicBlock *> &ipdf);
+                        std::set<const llvm::BasicBlock *> &ipdf);
   // EMMA: used for the summary-based approach
   void getCallIntraIPDF(const llvm::CallInst *call,
-			       std::set<const llvm::BasicBlock *> &ipdf);
+                        std::set<const llvm::BasicBlock *> &ipdf);
 
   void printTimers() const;
 
@@ -142,18 +141,17 @@ private:
 
   void floodFunction(const llvm::Function *F);
   void floodFunctionFromFunction(const llvm::Function *to,
-				 const llvm::Function *from);
+                                 const llvm::Function *from);
   void resetFunctionTaint(const llvm::Function *F);
   void computeFunctionCSTaintedConds(const llvm::Function *F);
   ValueSet taintedConditions;
-
 
   /* Graph construction for call sites*/
   void connectCSMus(llvm::CallInst &I);
   void connectCSChis(llvm::CallInst &I);
   void connectCSEffectiveParameters(llvm::CallInst &I);
   void connectCSEffectiveParametersExt(llvm::CallInst &I,
-				       const llvm::Function *callee);
+                                       const llvm::Function *callee);
   void connectCSCalledReturnValue(llvm::CallInst &I);
   void connectCSRetChi(llvm::CallInst &I);
 
@@ -176,9 +174,7 @@ private:
     std::string filename;
     int line;
 
-    bool operator < (const DGDebugLoc &o) const {
-      return line < o.line;
-    }
+    bool operator<(const DGDebugLoc &o) const { return line < o.line; }
   };
 
   bool getDGDebugLoc(const llvm::Value *v, DGDebugLoc &DL);
@@ -186,7 +182,7 @@ private:
   std::string getStringMsg(const llvm::Value *v);
   std::string getStringMsg(MSSAVar *v);
   bool getDebugTrace(std::vector<DGDebugLoc> &DLs, std::string &trace,
-		     const llvm::Instruction *collective);
+                     const llvm::Instruction *collective);
   void reorderAndRemoveDup(std::vector<DGDebugLoc> &DLs);
 
   /* stats */

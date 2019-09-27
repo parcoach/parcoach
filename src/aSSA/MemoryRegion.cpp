@@ -11,7 +11,7 @@ using namespace llvm;
 map<const llvm::Value *, MemReg *> MemReg::valueToRegMap;
 
 set<MemReg *> MemReg::sharedCudaRegions;
-map<const Function *, set<MemReg *> > MemReg::func2SharedOmpRegs;
+map<const Function *, set<MemReg *>> MemReg::func2SharedOmpRegs;
 
 unsigned MemReg::count = 0;
 
@@ -38,38 +38,32 @@ MemReg::MemReg(const llvm::Value *value) : value(value), isCudaShared(false) {
     name.append(inst->getParent()->getParent()->getName());
 }
 
-void
-MemReg::createRegion(const llvm::Value *v) {
+void MemReg::createRegion(const llvm::Value *v) {
   valueToRegMap[v] = new MemReg(v);
 }
 
-void
-MemReg::setOmpSharedRegions(const Function *F, vector<MemReg *> &regs) {
+void MemReg::setOmpSharedRegions(const Function *F, vector<MemReg *> &regs) {
   func2SharedOmpRegs[F].insert(regs.begin(), regs.end());
 }
 
-
-void
-MemReg::dumpRegions() {
-    llvm::errs() << valueToRegMap.size() << " regions :\n";
-    for (auto I : valueToRegMap) {
-      llvm::errs() << *I.second->value
-		   << (I.second->isCudaShared ? " (shared)\n" : "\n");
-    }
+void MemReg::dumpRegions() {
+  llvm::errs() << valueToRegMap.size() << " regions :\n";
+  for (auto I : valueToRegMap) {
+    llvm::errs() << *I.second->value
+                 << (I.second->isCudaShared ? " (shared)\n" : "\n");
+  }
 }
 
-MemReg *
-MemReg::getValueRegion(const llvm::Value *v) {
-    auto I = valueToRegMap.find(v);
-    if (I == valueToRegMap.end())
-      return NULL;
+MemReg *MemReg::getValueRegion(const llvm::Value *v) {
+  auto I = valueToRegMap.find(v);
+  if (I == valueToRegMap.end())
+    return NULL;
 
-    return I->second;
+  return I->second;
 }
 
-void
-MemReg::getValuesRegion(std::vector<const Value *> &ptsSet,
-		     std::vector<MemReg *> &regs) {
+void MemReg::getValuesRegion(std::vector<const Value *> &ptsSet,
+                             std::vector<MemReg *> &regs) {
   std::set<MemReg *> regions;
   for (const Value *v : ptsSet) {
     MemReg *r = getValueRegion(v);
@@ -81,17 +75,12 @@ MemReg::getValuesRegion(std::vector<const Value *> &ptsSet,
   regs.insert(regs.begin(), regions.begin(), regions.end());
 }
 
-const std::set<MemReg *> &
-MemReg::getCudaSharedRegions() {
+const std::set<MemReg *> &MemReg::getCudaSharedRegions() {
   return sharedCudaRegions;
 }
 
-const std::set<MemReg *> &
-MemReg::getOmpSharedRegions(const llvm::Function *F) {
+const std::set<MemReg *> &MemReg::getOmpSharedRegions(const llvm::Function *F) {
   return func2SharedOmpRegs[F];
 }
 
-std::string
-MemReg::getName() const {
-  return name;
-}
+std::string MemReg::getName() const { return name; }

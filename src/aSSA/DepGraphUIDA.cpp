@@ -8,13 +8,12 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <algorithm>
 #include <fstream>
 #include <queue>
-#include <algorithm>
 
 using namespace llvm;
 using namespace std;
-
 
 struct functionArg {
   functionArg(string name, int arg) : name(name), arg(arg) {}
@@ -26,13 +25,9 @@ static vector<functionArg> valueSourceFunctions;
 static vector<const char *> loadValueSources;
 static vector<functionArg> resetFunctions;
 
-
 DepGraphUIDA::DepGraphUIDA(PTACallGraph *CG, Pass *pass)
-  : DepGraph(CG),
-    CG(CG), pass(pass),
-    buildGraphTime(0), phiElimTime(0),
-    floodDepTime(0), floodCallTime(0),
-    dotTime(0) {
+    : DepGraph(CG), CG(CG), pass(pass), buildGraphTime(0), phiElimTime(0),
+      floodDepTime(0), floodCallTime(0), dotTime(0) {
 
   if (optMpiTaint)
     enableMPI();
@@ -47,18 +42,18 @@ DepGraphUIDA::DepGraphUIDA(PTACallGraph *CG, Pass *pass)
   for (Function &F : CG->getModule()) {
     for (BasicBlock &BB : F) {
       for (Instruction &I : BB) {
-	CallInst *CI = dyn_cast<CallInst>(&I);
-	if (!CI)
-	  continue;
+        CallInst *CI = dyn_cast<CallInst>(&I);
+        if (!CI)
+          continue;
 
-	const Function *callee = CI->getCalledFunction();
-	if (callee) {
-	  funcToCallSites[callee].insert(CI);
-	} else {
-	  for (const Function *mayCallee : CG->indirectCallMap[&I]) {
-	    funcToCallSites[mayCallee].insert(CI);
-	  }
-	}
+        const Function *callee = CI->getCalledFunction();
+        if (callee) {
+          funcToCallSites[callee].insert(CI);
+        } else {
+          for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+            funcToCallSites[mayCallee].insert(CI);
+          }
+        }
       }
     }
   }
@@ -66,36 +61,29 @@ DepGraphUIDA::DepGraphUIDA(PTACallGraph *CG, Pass *pass)
 
 DepGraphUIDA::~DepGraphUIDA() {}
 
-void
-DepGraphUIDA::enableMPI() {
+void DepGraphUIDA::enableMPI() {
   valueSourceFunctions.push_back(functionArg("MPI_Comm_rank", 1));
   valueSourceFunctions.push_back(functionArg("MPI_Group_rank", 1));
 }
 
-void
-DepGraphUIDA::enableOMP() {
+void DepGraphUIDA::enableOMP() {
   valueSourceFunctions.push_back(functionArg("__kmpc_global_thread_num", -1));
   valueSourceFunctions.push_back(functionArg("_omp_get_thread_num", -1));
   valueSourceFunctions.push_back(functionArg("omp_get_thread_num", -1));
 }
 
-void
-DepGraphUIDA::enableUPC() {
-  loadValueSources.push_back("gasneti_mynode");
+void DepGraphUIDA::enableUPC() { loadValueSources.push_back("gasneti_mynode"); }
+
+void DepGraphUIDA::enableCUDA() {
+  valueSourceFunctions.push_back(
+      functionArg("llvm.nvvm.read.ptx.sreg.tid.x", -1)); // threadIdx.x
+  valueSourceFunctions.push_back(
+      functionArg("llvm.nvvm.read.ptx.sreg.tid.y", -1)); // threadIdx.y
+  valueSourceFunctions.push_back(
+      functionArg("llvm.nvvm.read.ptx.sreg.tid.z", -1)); // threadIdx.z
 }
 
-void
-DepGraphUIDA::enableCUDA() {
-  valueSourceFunctions.
-    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.x", -1)); // threadIdx.x
-  valueSourceFunctions.
-    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.y", -1)); // threadIdx.y
-  valueSourceFunctions.
-    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.z", -1)); // threadIdx.z
-}
-
-void
-DepGraphUIDA::buildFunction(const llvm::Function *F) {
+void DepGraphUIDA::buildFunction(const llvm::Function *F) {
   double t1 = gettime();
 
   curFunc = F;
@@ -103,10 +91,9 @@ DepGraphUIDA::buildFunction(const llvm::Function *F) {
   if (F->isDeclaration())
     curPDT = NULL;
   else
-    curPDT =
-      &pass->getAnalysis<PostDominatorTreeWrapperPass>
-      (*const_cast<Function *>(F)).getPostDomTree();
-
+    curPDT = &pass->getAnalysis<PostDominatorTreeWrapperPass>(
+                      *const_cast<Function *>(F))
+                  .getPostDomTree();
 
   visit(*const_cast<Function *>(F));
 
@@ -124,8 +111,8 @@ DepGraphUIDA::buildFunction(const llvm::Function *F) {
       addEdge(src, dst);
       // llvm.mempcy instrinsic returns void whereas memcpy returns dst
       if (F->getReturnType()->isPointerTy()) {
-	for (const Value *cs : funcToCallSites[F])
-	  addEdge(dst, cs);
+        for (const Value *cs : funcToCallSites[F])
+          addEdge(dst, cs);
       }
     }
 
@@ -136,19 +123,18 @@ DepGraphUIDA::buildFunction(const llvm::Function *F) {
       addEdge(src, dst);
       // llvm.memmove instrinsic returns void whereas memmove returns dst
       if (F->getReturnType()->isPointerTy()) {
-	for (const Value *cs : funcToCallSites[F])
-	  addEdge(dst, cs);
+        for (const Value *cs : funcToCallSites[F])
+          addEdge(dst, cs);
       }
     }
 
     // memset
     else if (F->getName().find("memset") != StringRef::npos) {
-      addEdge(getFunctionArgument(F, 1),
-	      getFunctionArgument(F, 0));
+      addEdge(getFunctionArgument(F, 1), getFunctionArgument(F, 0));
       // llvm.memset instrinsic returns void whereas memset returns dst
       if (F->getReturnType()->isPointerTy()) {
-	for (const Value *cs : funcToCallSites[F])
-	  addEdge(getFunctionArgument(F, 0), cs);
+        for (const Value *cs : funcToCallSites[F])
+          addEdge(getFunctionArgument(F, 0), cs);
       }
     }
 
@@ -165,35 +151,35 @@ DepGraphUIDA::buildFunction(const llvm::Function *F) {
     else {
       // Connect LLVM arguments to LLVM arguments
       for (const Argument &arg1 : F->getArgumentList()) {
-	funcToLLVMNodesMap[F].insert(&arg1);
-	assert(!isa<GlobalValue>(&arg1));
-	for (const Argument &arg2 : F->getArgumentList()) {
-	  addEdge(&arg1, &arg2);
-	}
+        funcToLLVMNodesMap[F].insert(&arg1);
+        assert(!isa<GlobalValue>(&arg1));
+        for (const Argument &arg2 : F->getArgumentList()) {
+          addEdge(&arg1, &arg2);
+        }
       }
 
       if (F->getReturnType()->isPointerTy()) {
-	for (const Argument &arg : F->getArgumentList()) {
-	  for (const Value *cs : funcToCallSites[F]) {
-	    addEdge(&arg, cs);
-	  }
-	}
+        for (const Argument &arg : F->getArgumentList()) {
+          for (const Value *cs : funcToCallSites[F]) {
+            addEdge(&arg, cs);
+          }
+        }
       }
     }
   }
 
   // Value Source functions
-  for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
+  for (unsigned i = 0; i < valueSourceFunctions.size(); ++i) {
     if (!F->getName().equals(valueSourceFunctions[i].name))
       continue;
     int argNo = valueSourceFunctions[i].arg;
     if (argNo == -1) {
       for (const Value *cs : funcToCallSites[F]) {
-	valueSources.insert(cs);
-	const Instruction *csInst = dyn_cast<Instruction>(cs);
-	if (!csInst)
-	  continue;
-	funcToLLVMNodesMap[csInst->getParent()->getParent()].insert(cs);
+        valueSources.insert(cs);
+        const Instruction *csInst = dyn_cast<Instruction>(cs);
+        if (!csInst)
+          continue;
+        funcToLLVMNodesMap[csInst->getParent()->getParent()].insert(cs);
       }
     } else {
       valueSources.insert(getFunctionArgument(F, argNo));
@@ -207,23 +193,19 @@ DepGraphUIDA::buildFunction(const llvm::Function *F) {
   buildGraphTime += t2 - t1;
 }
 
-void
-DepGraphUIDA::visitBasicBlock(llvm::BasicBlock &BB) {
+void DepGraphUIDA::visitBasicBlock(llvm::BasicBlock &BB) {
   // Do nothing
 }
 
-void
-DepGraphUIDA::visitAllocaInst(llvm::AllocaInst &I) {
+void DepGraphUIDA::visitAllocaInst(llvm::AllocaInst &I) {
   // Do nothing
 }
 
-void
-DepGraphUIDA::visitTerminatorInst(llvm::TerminatorInst &I) {
+void DepGraphUIDA::visitTerminatorInst(llvm::TerminatorInst &I) {
   // Do nothing
 }
 
-void
-DepGraphUIDA::visitCmpInst(llvm::CmpInst &I) {
+void DepGraphUIDA::visitCmpInst(llvm::CmpInst &I) {
   // Cmp instruction is a value, connect the result to its operands.
   funcToLLVMNodesMap[curFunc].insert(&I);
   assert(!isa<GlobalValue>(&I));
@@ -235,8 +217,7 @@ DepGraphUIDA::visitCmpInst(llvm::CmpInst &I) {
   }
 }
 
-void
-DepGraphUIDA::visitLoadInst(llvm::LoadInst &I) {
+void DepGraphUIDA::visitLoadInst(llvm::LoadInst &I) {
   funcToLLVMNodesMap[curFunc].insert(&I);
   if (!isa<GlobalValue>(I.getPointerOperand()))
     funcToLLVMNodesMap[curFunc].insert(I.getPointerOperand());
@@ -244,10 +225,10 @@ DepGraphUIDA::visitLoadInst(llvm::LoadInst &I) {
   addEdge(I.getPointerOperand(), &I);
 
   if (I.getType()->isPointerTy())
-      addEdge(&I, I.getPointerOperand());
+    addEdge(&I, I.getPointerOperand());
 
   // Load value rank source
-  for (unsigned i=0; i<loadValueSources.size(); i++) {
+  for (unsigned i = 0; i < loadValueSources.size(); i++) {
     if (I.getPointerOperand()->getName().equals(loadValueSources[i])) {
       valueSources.insert(&I);
       break;
@@ -255,8 +236,7 @@ DepGraphUIDA::visitLoadInst(llvm::LoadInst &I) {
   }
 }
 
-void
-DepGraphUIDA::visitStoreInst(llvm::StoreInst &I) {
+void DepGraphUIDA::visitStoreInst(llvm::StoreInst &I) {
   if (!isa<GlobalValue>(I.getValueOperand()))
     funcToLLVMNodesMap[curFunc].insert(I.getValueOperand());
   if (!isa<GlobalValue>(I.getPointerOperand()))
@@ -267,8 +247,7 @@ DepGraphUIDA::visitStoreInst(llvm::StoreInst &I) {
     addEdge(I.getPointerOperand(), I.getValueOperand());
 }
 
-void
-DepGraphUIDA::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
+void DepGraphUIDA::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
   // GetElementPtr, connect operands.
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -284,14 +263,12 @@ DepGraphUIDA::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
     addEdge(&I, I.getPointerOperand());
   }
 }
-void
-DepGraphUIDA::visitPHINode(llvm::PHINode &I) {
+void DepGraphUIDA::visitPHINode(llvm::PHINode &I) {
   // Compute PHI predicates
-  for (unsigned i=0; i<I.getNumIncomingValues(); ++i) {
+  for (unsigned i = 0; i < I.getNumIncomingValues(); ++i) {
     // Get IPDF
     vector<BasicBlock *> IPDF =
-      iterated_postdominance_frontier(*curPDT,
-				      I.getIncomingBlock(i));
+        iterated_postdominance_frontier(*curPDT, I.getIncomingBlock(i));
 
     for (unsigned n = 0; n < IPDF.size(); ++n) {
       // Push conditions of each BB in the IPDF
@@ -299,20 +276,20 @@ DepGraphUIDA::visitPHINode(llvm::PHINode &I) {
       assert(ti);
 
       if (isa<BranchInst>(ti)) {
-	const BranchInst *bi = cast<BranchInst>(ti);
-	assert(bi);
+        const BranchInst *bi = cast<BranchInst>(ti);
+        assert(bi);
 
-	if (bi->isUnconditional())
-	  continue;
+        if (bi->isUnconditional())
+          continue;
 
-	const Value *cond = bi->getCondition();
+        const Value *cond = bi->getCondition();
 
-	llvmPhiToPredMap[&I].insert(cond);
-      } else if(isa<SwitchInst>(ti)) {
-	const SwitchInst *si = cast<SwitchInst>(ti);
-	assert(si);
-	const Value *cond = si->getCondition();
-	llvmPhiToPredMap[&I].insert(cond);
+        llvmPhiToPredMap[&I].insert(cond);
+      } else if (isa<SwitchInst>(ti)) {
+        const SwitchInst *si = cast<SwitchInst>(ti);
+        assert(si);
+        const Value *cond = si->getCondition();
+        llvmPhiToPredMap[&I].insert(cond);
       }
     }
   }
@@ -337,8 +314,7 @@ DepGraphUIDA::visitPHINode(llvm::PHINode &I) {
   }
 }
 
-void
-DepGraphUIDA::visitCastInst(llvm::CastInst &I) {
+void DepGraphUIDA::visitCastInst(llvm::CastInst &I) {
   // Cast inst, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -351,8 +327,7 @@ DepGraphUIDA::visitCastInst(llvm::CastInst &I) {
       addEdge(&I, v);
   }
 }
-void
-DepGraphUIDA::visitSelectInst(llvm::SelectInst &I) {
+void DepGraphUIDA::visitSelectInst(llvm::SelectInst &I) {
   // Select inst, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -365,8 +340,7 @@ DepGraphUIDA::visitSelectInst(llvm::SelectInst &I) {
       addEdge(&I, v);
   }
 }
-void
-DepGraphUIDA::visitBinaryOperator(llvm::BinaryOperator &I) {
+void DepGraphUIDA::visitBinaryOperator(llvm::BinaryOperator &I) {
   // Binary op, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -380,8 +354,7 @@ DepGraphUIDA::visitBinaryOperator(llvm::BinaryOperator &I) {
   }
 }
 
-void
-DepGraphUIDA::visitCallInst(llvm::CallInst &I) {
+void DepGraphUIDA::visitCallInst(llvm::CallInst &I) {
   if (isIntrinsicDbgInst(&I))
     return;
 
@@ -407,13 +380,13 @@ DepGraphUIDA::visitCallInst(llvm::CallInst &I) {
     funcToCallSites[callee].insert(&I);
 
     // Return value source
-    for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
+    for (unsigned i = 0; i < valueSourceFunctions.size(); ++i) {
       if (!callee->getName().equals(valueSourceFunctions[i].name))
-	continue;
+        continue;
 
       int argNo = valueSourceFunctions[i].arg;
       if (argNo != -1)
-	continue;
+        continue;
 
       valueSources.insert(&I);
     }
@@ -426,22 +399,21 @@ DepGraphUIDA::visitCallInst(llvm::CallInst &I) {
       funcToCallSites[mayCallee].insert(&I);
 
       // Return value source
-      for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
-	if (!mayCallee->getName().equals(valueSourceFunctions[i].name))
-	  continue;
+      for (unsigned i = 0; i < valueSourceFunctions.size(); ++i) {
+        if (!mayCallee->getName().equals(valueSourceFunctions[i].name))
+          continue;
 
-	int argNo = valueSourceFunctions[i].arg;
-	if (argNo != -1)
-	  continue;
+        int argNo = valueSourceFunctions[i].arg;
+        if (argNo != -1)
+          continue;
 
-	valueSources.insert(&I);
+        valueSources.insert(&I);
       }
     }
   }
 }
 
-void
-DepGraphUIDA::connectCSEffectiveParameters(llvm::CallInst &I) {
+void DepGraphUIDA::connectCSEffectiveParameters(llvm::CallInst &I) {
   // Connect effective parameters to formal parameters.
   const Function *callee = I.getCalledFunction();
 
@@ -455,13 +427,13 @@ DepGraphUIDA::connectCSEffectiveParameters(llvm::CallInst &I) {
     unsigned argIdx = 0;
     for (const Argument &arg : callee->getArgumentList()) {
       if (!isa<GlobalValue>(I.getArgOperand(argIdx)))
-	funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
+        funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
       funcToLLVMNodesMap[callee].insert(&arg);
 
       addEdge(I.getArgOperand(argIdx), &arg); // rule1
 
       if (arg.getType()->isPointerTy())
-	addEdge(&arg, I.getArgOperand(argIdx));
+        addEdge(&arg, I.getArgOperand(argIdx));
 
       argIdx++;
     }
@@ -471,30 +443,30 @@ DepGraphUIDA::connectCSEffectiveParameters(llvm::CallInst &I) {
   else {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
       if (mayCallee->isDeclaration()) {
-	connectCSEffectiveParametersExt(I, mayCallee);
-	return;
+        connectCSEffectiveParametersExt(I, mayCallee);
+        return;
       }
 
       unsigned argIdx = 0;
       for (const Argument &arg : mayCallee->getArgumentList()) {
-	if (!isa<GlobalValue>(I.getArgOperand(argIdx)))
-	  funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
-	funcToLLVMNodesMap[callee].insert(&arg);
+        if (!isa<GlobalValue>(I.getArgOperand(argIdx)))
+          funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
+        funcToLLVMNodesMap[callee].insert(&arg);
 
-	addEdge(I.getArgOperand(argIdx), &arg); // rule1
+        addEdge(I.getArgOperand(argIdx), &arg); // rule1
 
-	if (arg.getType()->isPointerTy())
-	  addEdge(&arg, I.getArgOperand(argIdx));
+        if (arg.getType()->isPointerTy())
+          addEdge(&arg, I.getArgOperand(argIdx));
 
-	argIdx++;
+        argIdx++;
       }
     }
   }
 }
 
-void
-DepGraphUIDA::connectCSEffectiveParametersExt(CallInst &I, const Function *callee) {
-  for (unsigned i=0; i<I.getNumArgOperands(); i++) {
+void DepGraphUIDA::connectCSEffectiveParametersExt(CallInst &I,
+                                                   const Function *callee) {
+  for (unsigned i = 0; i < I.getNumArgOperands(); i++) {
     Value *op = I.getArgOperand(i);
     addEdge(op, getFunctionArgument(callee, i));
     if (op->getType()->isPointerTy())
@@ -502,8 +474,7 @@ DepGraphUIDA::connectCSEffectiveParametersExt(CallInst &I, const Function *calle
   }
 }
 
-void
-DepGraphUIDA::connectCSCalledReturnValue(llvm::CallInst &I) {
+void DepGraphUIDA::connectCSCalledReturnValue(llvm::CallInst &I) {
   // If the function called returns a value, connect the return value to the
   // call value.
 
@@ -517,7 +488,7 @@ DepGraphUIDA::connectCSCalledReturnValue(llvm::CallInst &I) {
       const Value *retVal = getReturnValue(callee);
       addEdge(retVal, &I); // rule2
       if (retVal->getType()->isPointerTy())
-	addEdge(&I, retVal);
+        addEdge(&I, retVal);
     }
   }
 
@@ -525,20 +496,18 @@ DepGraphUIDA::connectCSCalledReturnValue(llvm::CallInst &I) {
   else {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
       if (!mayCallee->isDeclaration() &&
-	  !mayCallee->getReturnType()->isVoidTy()) {
-	funcToLLVMNodesMap[curFunc].insert(&I);
-	const Value *retVal = getReturnValue(mayCallee);
-	addEdge(retVal, &I); // rule2
-	if (retVal->getType()->isPointerTy())
-	  addEdge(&I, retVal);
+          !mayCallee->getReturnType()->isVoidTy()) {
+        funcToLLVMNodesMap[curFunc].insert(&I);
+        const Value *retVal = getReturnValue(mayCallee);
+        addEdge(retVal, &I); // rule2
+        if (retVal->getType()->isPointerTy())
+          addEdge(&I, retVal);
       }
     }
   }
 }
 
-
-void
-DepGraphUIDA::visitExtractValueInst(llvm::ExtractValueInst &I) {
+void DepGraphUIDA::visitExtractValueInst(llvm::ExtractValueInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -555,8 +524,7 @@ DepGraphUIDA::visitExtractValueInst(llvm::ExtractValueInst &I) {
   }
 }
 
-void
-DepGraphUIDA::visitExtractElementInst(llvm::ExtractElementInst &I) {
+void DepGraphUIDA::visitExtractElementInst(llvm::ExtractElementInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -573,8 +541,7 @@ DepGraphUIDA::visitExtractElementInst(llvm::ExtractElementInst &I) {
   }
 }
 
-void
-DepGraphUIDA::visitInsertElementInst(llvm::InsertElementInst &I) {
+void DepGraphUIDA::visitInsertElementInst(llvm::InsertElementInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -588,8 +555,7 @@ DepGraphUIDA::visitInsertElementInst(llvm::InsertElementInst &I) {
   }
 }
 
-void
-DepGraphUIDA::visitInsertValueInst(llvm::InsertValueInst &I) {
+void DepGraphUIDA::visitInsertValueInst(llvm::InsertValueInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -603,8 +569,7 @@ DepGraphUIDA::visitInsertValueInst(llvm::InsertValueInst &I) {
   }
 }
 
-void
-DepGraphUIDA::visitShuffleVectorInst(llvm::ShuffleVectorInst &I) {
+void DepGraphUIDA::visitShuffleVectorInst(llvm::ShuffleVectorInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -618,13 +583,11 @@ DepGraphUIDA::visitShuffleVectorInst(llvm::ShuffleVectorInst &I) {
   }
 }
 
-void
-DepGraphUIDA::visitInstruction(llvm::Instruction &I) {
+void DepGraphUIDA::visitInstruction(llvm::Instruction &I) {
   errs() << "Error: Unhandled instruction " << I << "\n";
 }
 
-void
-DepGraphUIDA::toDot(string filename) {
+void DepGraphUIDA::toDot(string filename) {
   errs() << "Writing '" << filename << "' ...\n";
 
   double t1 = gettime();
@@ -636,21 +599,19 @@ DepGraphUIDA::toDot(string filename) {
   stream << "compound=true;\n";
   stream << "rankdir=LR;\n";
 
-
   // dot global LLVM values in a separate cluster
   stream << "\tsubgraph cluster_globalsvar {\n";
   stream << "style=filled;\ncolor=lightgrey;\n";
   stream << "label=< <B>  Global Values </B> >;\n";
   stream << "node [style=filled,color=white];\n";
   for (const Value &g : CG->getModule().globals()) {
-    stream << "Node" << ((void *) &g) << " [label=\""
-	   << getValueLabel(&g) << "\" "
-	   << getNodeStyle(&g) << "];\n";
+    stream << "Node" << ((void *)&g) << " [label=\"" << getValueLabel(&g)
+           << "\" " << getNodeStyle(&g) << "];\n";
   }
   stream << "}\n;";
 
-  for (auto I = CG->getModule().begin(), E = CG->getModule().end();
-       I != E; ++I) {
+  for (auto I = CG->getModule().begin(), E = CG->getModule().end(); I != E;
+       ++I) {
     const Function *F = &*I;
     if (isIntrinsicDbgFunction(F))
       continue;
@@ -665,30 +626,29 @@ DepGraphUIDA::toDot(string filename) {
   for (auto I : llvmToLLVMChildren) {
     const Value *s = I.first;
     for (const Value *d : I.second) {
-      stream << "Node" << ((void *) s) << " -> "
-      	     << "Node" << ((void *) d) << "\n";
+      stream << "Node" << ((void *)s) << " -> "
+             << "Node" << ((void *)d) << "\n";
     }
   }
 
   for (auto I : callToFuncEdges) {
     const Value *call = I.first;
     const Function *f = I.second;
-    stream << "NodeCall" << ((void *) call) << " -> "
-	   << "Node" << ((void *) f)
-      	   << " [lhead=cluster_" << ((void *) f)
-	   <<"]\n";
+    stream << "NodeCall" << ((void *)call) << " -> "
+           << "Node" << ((void *)f) << " [lhead=cluster_" << ((void *)f)
+           << "]\n";
   }
 
   for (auto I : condToCallEdges) {
     const Value *s = I.first;
     for (const Value *call : I.second) {
-      stream << "Node" << ((void *) s) << " -> "
-  	     << "NodeCall" << ((void *) call) << "\n";
+      stream << "Node" << ((void *)s) << " -> "
+             << "NodeCall" << ((void *)call) << "\n";
     }
-	/*if (taintedLLVMNodes.count(s) != 0){
-		errs() << "DBG: " << s->getName() << " is a tainted condition \n";
-      		s->dump();
-	}*/
+    /*if (taintedLLVMNodes.count(s) != 0){
+            errs() << "DBG: " << s->getName() << " is a tainted condition \n";
+            s->dump();
+    }*/
   }
 
   stream << "}\n";
@@ -698,77 +658,62 @@ DepGraphUIDA::toDot(string filename) {
   dotTime += t2 - t1;
 }
 
-
-void
-DepGraphUIDA::dotFunction(raw_fd_ostream &stream, const Function *F) {
-  stream << "\tsubgraph cluster_" << ((void *) F) << " {\n";
-  stream << "style=filled;\ncolor=lightgrey;\n";
-  stream << "label=< <B>" << F->getName() << "</B> >;\n";
-  stream << "node [style=filled,color=white];\n";
-
-
-  // Nodes with label
-  for (const Value *v : funcToLLVMNodesMap[F]) {
-    if (isa<GlobalValue>(v))
-      continue;
-    stream << "Node" << ((void *) v) << " [label=\""
-	   << getValueLabel(v) << "\" "
-	   << getNodeStyle(v) << "];\n";
-
-  }
-
-  for (const Value *v : funcToCallNodes[F]) {
-    stream << "NodeCall" << ((void *) v) << " [label=\""
-	   << getCallValueLabel(v)
-	   <<  "\" shape=rectangle "
-	   << getCallNodeStyle(v) << "];\n";
-  }
-
-  stream << "Node" << ((void *) F) << " [style=invisible];\n";
-
-  stream << "}\n";
-}
-
-void
-DepGraphUIDA::dotExtFunction(raw_fd_ostream &stream, const Function *F) {
+void DepGraphUIDA::dotFunction(raw_fd_ostream &stream, const Function *F) {
   stream << "\tsubgraph cluster_" << ((void *)F) << " {\n";
   stream << "style=filled;\ncolor=lightgrey;\n";
   stream << "label=< <B>" << F->getName() << "</B> >;\n";
   stream << "node [style=filled,color=white];\n";
 
-
   // Nodes with label
   for (const Value *v : funcToLLVMNodesMap[F]) {
-    stream << "Node" << ((void *) v) << " [label=\""
-	   << getValueLabel(v) << "\" "
-	   << getNodeStyle(v) << "];\n";
+    if (isa<GlobalValue>(v))
+      continue;
+    stream << "Node" << ((void *)v) << " [label=\"" << getValueLabel(v) << "\" "
+           << getNodeStyle(v) << "];\n";
   }
 
-  stream << "Node" << ((void *) F) << " [style=invisible];\n";
+  for (const Value *v : funcToCallNodes[F]) {
+    stream << "NodeCall" << ((void *)v) << " [label=\"" << getCallValueLabel(v)
+           << "\" shape=rectangle " << getCallNodeStyle(v) << "];\n";
+  }
+
+  stream << "Node" << ((void *)F) << " [style=invisible];\n";
 
   stream << "}\n";
 }
 
-std::string
-DepGraphUIDA::getNodeStyle(const llvm::Value *v) {
+void DepGraphUIDA::dotExtFunction(raw_fd_ostream &stream, const Function *F) {
+  stream << "\tsubgraph cluster_" << ((void *)F) << " {\n";
+  stream << "style=filled;\ncolor=lightgrey;\n";
+  stream << "label=< <B>" << F->getName() << "</B> >;\n";
+  stream << "node [style=filled,color=white];\n";
+
+  // Nodes with label
+  for (const Value *v : funcToLLVMNodesMap[F]) {
+    stream << "Node" << ((void *)v) << " [label=\"" << getValueLabel(v) << "\" "
+           << getNodeStyle(v) << "];\n";
+  }
+
+  stream << "Node" << ((void *)F) << " [style=invisible];\n";
+
+  stream << "}\n";
+}
+
+std::string DepGraphUIDA::getNodeStyle(const llvm::Value *v) {
   if (taintedLLVMNodes.count(v) != 0)
     return "style=filled, color=red";
   return "style=filled, color=white";
 }
 
-std::string
-DepGraphUIDA::getNodeStyle(const Function *f) {
+std::string DepGraphUIDA::getNodeStyle(const Function *f) {
   return "style=filled, color=white";
 }
 
-std::string
-DepGraphUIDA::getCallNodeStyle(const llvm::Value *v) {
+std::string DepGraphUIDA::getCallNodeStyle(const llvm::Value *v) {
   return "style=filled, color=white";
 }
 
-
-void
-DepGraphUIDA::computeTaintedValuesContextInsensitive() {
+void DepGraphUIDA::computeTaintedValuesContextInsensitive() {
   unsigned funcToLLVMNodesMapSize = funcToLLVMNodesMap.size();
   unsigned varArgNodeSize = varArgNodes.size();
   unsigned llvmToLLVMChildrenSize = llvmToLLVMChildren.size();
@@ -784,7 +729,7 @@ DepGraphUIDA::computeTaintedValuesContextInsensitive() {
   std::queue<const Value *> valueToVisit;
 
   // Value sources
-  for(const Value *src : valueSources) {
+  for (const Value *src : valueSources) {
     taintedLLVMNodes.insert(src);
     valueToVisit.push(src);
   }
@@ -795,11 +740,11 @@ DepGraphUIDA::computeTaintedValuesContextInsensitive() {
 
     if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
       for (const Value *d : llvmToLLVMChildren[s]) {
-	if (taintedLLVMNodes.count(d) != 0)
-	  continue;
+        if (taintedLLVMNodes.count(d) != 0)
+          continue;
 
-	taintedLLVMNodes.insert(d);
-	valueToVisit.push(d);
+        taintedLLVMNodes.insert(d);
+        valueToVisit.push(d);
       }
     }
   }
@@ -822,23 +767,19 @@ DepGraphUIDA::computeTaintedValuesContextInsensitive() {
   assert(callsiteToCondsSize == callsiteToConds.size());
 }
 
-
-void
-DepGraphUIDA::printTimers() const {
-  errs() << "Build graph time : " << buildGraphTime*1.0e3 << " ms\n";
-  errs() << "Flood dependencies time : " << floodDepTime*1.0e3 << " ms\n";
-  errs() << "Flood calls PDF+ time : " << floodCallTime*1.0e3 << " ms\n";
-  errs() << "Dot graph time : " << dotTime*1.0e3 << " ms\n";
+void DepGraphUIDA::printTimers() const {
+  errs() << "Build graph time : " << buildGraphTime * 1.0e3 << " ms\n";
+  errs() << "Flood dependencies time : " << floodDepTime * 1.0e3 << " ms\n";
+  errs() << "Flood calls PDF+ time : " << floodCallTime * 1.0e3 << " ms\n";
+  errs() << "Dot graph time : " << dotTime * 1.0e3 << " ms\n";
 }
 
-bool
-DepGraphUIDA::isTaintedValue(const Value *v){
+bool DepGraphUIDA::isTaintedValue(const Value *v) {
   return taintedConditions.find(v) != taintedConditions.end();
 }
 
-void
-DepGraphUIDA::getCallInterIPDF(const llvm::CallInst *call,
-				  std::set<const llvm::BasicBlock *> &ipdf) {
+void DepGraphUIDA::getCallInterIPDF(const llvm::CallInst *call,
+                                    std::set<const llvm::BasicBlock *> &ipdf) {
   std::set<const llvm::CallInst *> visitedCallSites;
   queue<const CallInst *> callsitesToVisit;
   callsitesToVisit.push(call);
@@ -851,29 +792,26 @@ DepGraphUIDA::getCallInterIPDF(const llvm::CallInst *call,
 
     BasicBlock *BB = const_cast<BasicBlock *>(CS->getParent());
     PostDominatorTree *PDT =
-      &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
+        &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
     vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
     ipdf.insert(funcIPDF.begin(), funcIPDF.end());
 
     if (funcToCallSites.find(F) != funcToCallSites.end()) {
       for (const Value *v : funcToCallSites[F]) {
-	const CallInst *CS2 = cast<CallInst>(v);
-	if (visitedCallSites.count(CS2) != 0)
-	  continue;
-	callsitesToVisit.push(CS2);
+        const CallInst *CS2 = cast<CallInst>(v);
+        if (visitedCallSites.count(CS2) != 0)
+          continue;
+        callsitesToVisit.push(CS2);
       }
     }
   }
 }
 
 // EMMA
-void
-DepGraphUIDA::getCallIntraIPDF(const llvm::CallInst *call,
-                                  std::set<const llvm::BasicBlock *> &ipdf) {
-}
+void DepGraphUIDA::getCallIntraIPDF(const llvm::CallInst *call,
+                                    std::set<const llvm::BasicBlock *> &ipdf) {}
 
-void
-DepGraphUIDA::addEdge(const llvm::Value *s, const llvm::Value *d) {
+void DepGraphUIDA::addEdge(const llvm::Value *s, const llvm::Value *d) {
   assert(s);
   assert(d);
 
@@ -901,7 +839,7 @@ DepGraphUIDA::addEdge(const llvm::Value *s, const llvm::Value *d) {
     for (const Value *op : CE->operands()) {
       addEdge(op, CE);
       if (op->getType()->isPointerTy())
-	addEdge(CE, op);
+        addEdge(CE, op);
     }
   }
 
@@ -910,13 +848,12 @@ DepGraphUIDA::addEdge(const llvm::Value *s, const llvm::Value *d) {
     for (const Value *op : CE->operands()) {
       addEdge(op, CE);
       if (op->getType()->isPointerTy())
-	addEdge(CE, op);
+        addEdge(CE, op);
     }
   }
 }
 
-void
-DepGraphUIDA::removeEdge(const llvm::Value *s, const llvm::Value *d) {
+void DepGraphUIDA::removeEdge(const llvm::Value *s, const llvm::Value *d) {
   int n;
   n = llvmToLLVMChildren[s].erase(d);
   assert(n == 1);
@@ -924,15 +861,14 @@ DepGraphUIDA::removeEdge(const llvm::Value *s, const llvm::Value *d) {
   assert(n == 1);
 }
 
-void
-DepGraphUIDA::dotTaintPath(const Value *v, string filename,
-		       const Instruction *collective) {
+void DepGraphUIDA::dotTaintPath(const Value *v, string filename,
+                                const Instruction *collective) {
   errs() << "Writing '" << filename << "' ...\n";
 
   // Parcours en largeur
   unsigned curDist = 0;
   unsigned curSize = 128;
-  std::vector<std::set<const Value *> > visitedLLVMNodesByDist;
+  std::vector<std::set<const Value *>> visitedLLVMNodesByDist;
   std::set<const Value *> visitedLLVMNodes;
 
   visitedLLVMNodesByDist.resize(curSize);
@@ -954,30 +890,30 @@ DepGraphUIDA::dotTaintPath(const Value *v, string filename,
 
   while (true) {
     if (curDist >= curSize) {
-      curSize *=2;
+      curSize *= 2;
       visitedLLVMNodesByDist.resize(curSize);
     }
 
     // Visit parents of llvm values
     for (const Value *v : visitedLLVMNodesByDist[curDist]) {
       if (valueSources.find(v) != valueSources.end()) {
-	llvmRoot = v;
-	visitedLLVMNodes.insert(v);
-	errs() << "found a path of size " << curDist << "\n";
-	stop = true;
-	break;
+        llvmRoot = v;
+        visitedLLVMNodes.insert(v);
+        errs() << "found a path of size " << curDist << "\n";
+        stop = true;
+        break;
       }
 
       visitedLLVMNodes.insert(v);
 
       for (const Value *p : llvmToLLVMParents[v]) {
-	if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
-	  continue;
+        if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
+          continue;
 
-	if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
-	  continue;
+        if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
+          continue;
 
-	visitedLLVMNodesByDist[curDist+1].insert(p);
+        visitedLLVMNodesByDist[curDist + 1].insert(p);
       }
     }
 
@@ -1016,21 +952,21 @@ DepGraphUIDA::dotTaintPath(const Value *v, string filename,
     debugLocs.push_back(DL);
 
   // Compute edges of the shortest path to strStream
-  for (unsigned i=curDist-1; i>0; i--) {
+  for (unsigned i = curDist - 1; i > 0; i--) {
     bool found = false;
 
     for (const Value *v : visitedLLVMNodesByDist[i]) {
       if (llvmToLLVMParents[v].find(lastValue) == llvmToLLVMParents[v].end())
-	continue;
+        continue;
 
       visitedLLVMNodes.insert(v);
-      strStream << "Node" << ((void *) lastValue) << " -> "
-		<< "Node" << ((void *) v) << "\n";
+      strStream << "Node" << ((void *)lastValue) << " -> "
+                << "Node" << ((void *)v) << "\n";
       lastValue = v;
       found = true;
       debugMsgs.push_back(getStringMsg(v));
       if (getDGDebugLoc(v, DL))
-	debugLocs.push_back(DL);
+        debugLocs.push_back(DL);
       break;
     }
 
@@ -1042,24 +978,23 @@ DepGraphUIDA::dotTaintPath(const Value *v, string filename,
   for (auto I : funcToLLVMNodesMap) {
     for (const Value *v : I.second) {
       if (visitedLLVMNodes.find(v) != visitedLLVMNodes.end())
-	visitedFunctions.insert(I.first);
+        visitedFunctions.insert(I.first);
     }
   }
 
   // Dot visited functions and nodes
   for (const Function *F : visitedFunctions) {
-    stream << "\tsubgraph cluster_" << ((void *) F) << " {\n";
+    stream << "\tsubgraph cluster_" << ((void *)F) << " {\n";
     stream << "style=filled;\ncolor=lightgrey;\n";
     stream << "label=< <B>" << F->getName() << "</B> >;\n";
     stream << "node [style=filled,color=white];\n";
 
     for (const Value *v : visitedLLVMNodes) {
       if (funcToLLVMNodesMap[F].find(v) == funcToLLVMNodesMap[F].end())
-	continue;
+        continue;
 
-      stream << "Node" << ((void *) v) << " [label=\""
-	     << getValueLabel(v) << "\" "
-	     << getNodeStyle(v) << "];\n";
+      stream << "Node" << ((void *)v) << " [label=\"" << getValueLabel(v)
+             << "\" " << getNodeStyle(v) << "];\n";
     }
 
     stream << "}\n";
@@ -1070,9 +1005,8 @@ DepGraphUIDA::dotTaintPath(const Value *v, string filename,
 
   stream << "}\n";
 
-  for (unsigned i=0; i<debugMsgs.size(); i++)
+  for (unsigned i = 0; i < debugMsgs.size(); i++)
     stream << debugMsgs[i];
-
 
   // Write trace
   string trace;
@@ -1084,9 +1018,7 @@ DepGraphUIDA::dotTaintPath(const Value *v, string filename,
   }
 }
 
-
-string
-DepGraphUIDA::getStringMsg(const Value *v) {
+string DepGraphUIDA::getStringMsg(const Value *v) {
   string msg;
   msg.append("# ");
   msg.append(getValueLabel(v));
@@ -1115,8 +1047,7 @@ DepGraphUIDA::getStringMsg(const Value *v) {
   return msg;
 }
 
-bool
-DepGraphUIDA::getDGDebugLoc(const Value *v, DGDebugLoc &DL) {
+bool DepGraphUIDA::getDGDebugLoc(const Value *v, DGDebugLoc &DL) {
   DL.F = NULL;
   DL.line = -1;
   DL.filename = "unknown";
@@ -1139,19 +1070,18 @@ DepGraphUIDA::getDGDebugLoc(const Value *v, DGDebugLoc &DL) {
   return DL.F != NULL;
 }
 
-static bool getStrLine(ifstream &file, int line, string &str)  {
-    // go to line
-    file.seekg(std::ios::beg);
-    for (int i=0; i < line-1; ++i)
-      file.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+static bool getStrLine(ifstream &file, int line, string &str) {
+  // go to line
+  file.seekg(std::ios::beg);
+  for (int i = 0; i < line - 1; ++i)
+    file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    getline(file, str);
+  getline(file, str);
 
-    return true;
+  return true;
 }
 
-void
-DepGraphUIDA::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
+void DepGraphUIDA::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
   vector<DGDebugLoc> sameFuncDL;
   vector<DGDebugLoc> res;
 
@@ -1167,9 +1097,9 @@ DepGraphUIDA::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
     // new function or end
     if (DL.F != prev || DLs.empty()) {
       if (!DLs.empty())
-	DLs.insert(DLs.begin(), DL);
+        DLs.insert(DLs.begin(), DL);
       else
-	sameFuncDL.push_back(DL);
+        sameFuncDL.push_back(DL);
 
       prev = DL.F;
 
@@ -1178,14 +1108,14 @@ DepGraphUIDA::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
 
       // remove duplicates
       int line_prev = -1;
-      for (unsigned i=0; i<sameFuncDL.size(); ++i) {
-	if (sameFuncDL[i].line == line_prev) {
-	  line_prev = sameFuncDL[i].line;
-	  sameFuncDL.erase(sameFuncDL.begin() + i);
-	  i--;
-	} else {
-	  line_prev = sameFuncDL[i].line;
-	}
+      for (unsigned i = 0; i < sameFuncDL.size(); ++i) {
+        if (sameFuncDL[i].line == line_prev) {
+          line_prev = sameFuncDL[i].line;
+          sameFuncDL.erase(sameFuncDL.begin() + i);
+          i--;
+        } else {
+          line_prev = sameFuncDL[i].line;
+        }
       }
 
       // append to res
@@ -1200,9 +1130,8 @@ DepGraphUIDA::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
   DLs.insert(DLs.begin(), res.begin(), res.end());
 }
 
-bool
-DepGraphUIDA::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
-			const Instruction *collective) {
+bool DepGraphUIDA::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
+                                 const Instruction *collective) {
   DGDebugLoc collectiveLoc;
   if (getDGDebugLoc(collective, collectiveLoc))
     DLs.push_back(collectiveLoc);
@@ -1212,7 +1141,7 @@ DepGraphUIDA::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
 
   reorderAndRemoveDup(DLs);
 
-  for (unsigned i=0; i<DLs.size(); ++i) {
+  for (unsigned i = 0; i < DLs.size(); ++i) {
     string strline;
     const Function *F = DLs[i].F;
     if (!F)
@@ -1224,20 +1153,18 @@ DepGraphUIDA::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
       prevFunc = F;
       DISubprogram *DI = F->getSubprogram();
       if (!DI)
-	return false;
+        return false;
 
       string filename = DI->getFilename();
       string dir = DI->getDirectory();
       string path = dir + "/" + filename;
       int line = DI->getLine();
 
-
       file.open(path, ios::in);
       if (!file.good()) {
-	errs() << "error opening file: " << path << "\n";
-	return false;
+        errs() << "error opening file: " << path << "\n";
+        return false;
       }
-
 
       getStrLine(file, line, strline);
       trace.append("\n" + filename + "\n");
@@ -1254,8 +1181,7 @@ DepGraphUIDA::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
   return true;
 }
 
-void
-DepGraphUIDA::floodFunction(const Function *F) {
+void DepGraphUIDA::floodFunction(const Function *F) {
   std::queue<const Value *> valueToVisit;
 
   // 1) taint LLVM sources
@@ -1279,7 +1205,7 @@ DepGraphUIDA::floodFunction(const Function *F) {
   if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
     for (const Value *v : funcToLLVMNodesMap[F]) {
       if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
-	valueToVisit.push(v);
+        valueToVisit.push(v);
       }
     }
   }
@@ -1291,13 +1217,13 @@ DepGraphUIDA::floodFunction(const Function *F) {
 
     if (llvmToLLVMChildren.find(&v) != llvmToLLVMChildren.end()) {
       for (const Value *d : llvmToLLVMChildren[&v]) {
-	if (funcToLLVMNodesMap.find(F) == funcToLLVMNodesMap.end())
-	  continue;
-	if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
-	  continue;
-	//      assert(false);
-	taintedLLVMNodes.insert(d);
-	valueToVisit.push(d);
+        if (funcToLLVMNodesMap.find(F) == funcToLLVMNodesMap.end())
+          continue;
+        if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
+          continue;
+        //      assert(false);
+        taintedLLVMNodes.insert(d);
+        valueToVisit.push(d);
       }
     }
   }
@@ -1312,89 +1238,86 @@ DepGraphUIDA::floodFunction(const Function *F) {
 
       if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
 
-	for (const Value *d : llvmToLLVMChildren[s]) {
-	  if (isa<GlobalValue>(d)) {
-	    taintedLLVMNodes.insert(d);
-	    valueToVisit.push(d);
-	    continue;
-	  }
+        for (const Value *d : llvmToLLVMChildren[s]) {
+          if (isa<GlobalValue>(d)) {
+            taintedLLVMNodes.insert(d);
+            valueToVisit.push(d);
+            continue;
+          }
 
-	  //	  errs() << "d = " << *d << "\n";
-	  if (funcToLLVMNodesMap.find(F) == funcToLLVMNodesMap.end())
-	    continue;
+          //	  errs() << "d = " << *d << "\n";
+          if (funcToLLVMNodesMap.find(F) == funcToLLVMNodesMap.end())
+            continue;
 
-	  if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
-	    continue;
+          if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
+            continue;
 
-	  if (taintedLLVMNodes.count(d) != 0)
-	    continue;
+          if (taintedLLVMNodes.count(d) != 0)
+            continue;
 
-	  taintedLLVMNodes.insert(d);
-	  //	  errs() << "TTAINTING " << *d << "\n";
-	  valueToVisit.push(d);
-	}
+          taintedLLVMNodes.insert(d);
+          //	  errs() << "TTAINTING " << *d << "\n";
+          valueToVisit.push(d);
+        }
       }
     }
   }
 }
 
-void
-DepGraphUIDA::floodFunctionFromFunction(const Function *to, const Function *from) {
+void DepGraphUIDA::floodFunctionFromFunction(const Function *to,
+                                             const Function *from) {
   if (funcToLLVMNodesMap.find(from) != funcToLLVMNodesMap.end()) {
     for (const Value *s : funcToLLVMNodesMap[from]) {
       if (taintedLLVMNodes.find(s) == taintedLLVMNodes.end())
-	continue;
+        continue;
 
       if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
-	for (const Value *d : llvmToLLVMChildren[s]) {
-	  if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
-	    continue;
-	  if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
-	    continue;
-	  taintedLLVMNodes.insert(d);
-	}
+        for (const Value *d : llvmToLLVMChildren[s]) {
+          if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
+            continue;
+          if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+            continue;
+          taintedLLVMNodes.insert(d);
+        }
       }
     }
   }
 }
 
-void
-DepGraphUIDA::resetFunctionTaint(const Function *F) {
+void DepGraphUIDA::resetFunctionTaint(const Function *F) {
   assert(CG->isReachableFromEntry(F));
   if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
     for (const Value *v : funcToLLVMNodesMap[F]) {
 
       // Do not reset taint for constant
       if (isa<Constant>(v))
-	continue;
+        continue;
 
       if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
-	taintedLLVMNodes.erase(v);
+        taintedLLVMNodes.erase(v);
       }
     }
   }
 }
 
-void
-DepGraphUIDA::computeFunctionCSTaintedConds(const llvm::Function *F) {
+void DepGraphUIDA::computeFunctionCSTaintedConds(const llvm::Function *F) {
   for (const BasicBlock &BB : *F) {
     for (const Instruction &I : BB) {
       if (!isa<CallInst>(I))
-  	continue;
+        continue;
 
       if (callsiteToConds.find(cast<Value>(&I)) != callsiteToConds.end()) {
-	for (const Value *v : callsiteToConds[cast<Value>(&I)]) {
-	  if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
-	    taintedConditions.insert(v);
-	  }
-	}
+        for (const Value *v : callsiteToConds[cast<Value>(&I)]) {
+          if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
+            taintedConditions.insert(v);
+          }
+        }
       }
     }
   }
 }
 
-void
-DepGraphUIDA::computeTaintedValuesContextSensitive() {
+void DepGraphUIDA::computeTaintedValuesContextSensitive() {
   unsigned funcToLLVMNodesMapSize = funcToLLVMNodesMap.size();
   unsigned varArgNodeSize = varArgNodes.size();
   unsigned llvmToLLVMChildrenSize = llvmToLLVMChildren.size();
@@ -1426,11 +1349,10 @@ DepGraphUIDA::computeTaintedValuesContextSensitive() {
   assert(callsiteToCondsSize == callsiteToConds.size());
 }
 
-void
-DepGraphUIDA::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
- vector<PTACallGraphNode *> S;
+void DepGraphUIDA::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
+  vector<PTACallGraphNode *> S;
 
-  map<PTACallGraphNode *, set<PTACallGraphNode *> > node2VisitedChildrenMap;
+  map<PTACallGraphNode *, set<PTACallGraphNode *>> node2VisitedChildrenMap;
   S.push_back(entry);
 
   bool goingDown = true;
@@ -1440,63 +1362,65 @@ DepGraphUIDA::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
     PTACallGraphNode *N = S.back();
     bool foundChildren = false;
 
-   // if (N->getFunction())
-  //    errs() << "current =" << N->getFunction()->getName() << "\n";
+    // if (N->getFunction())
+    //    errs() << "current =" << N->getFunction()->getName() << "\n";
 
- /*   if (goingDown)
-      errs() << "down\n";
-    else
-      errs() << "up\n";
-*/
+    /*   if (goingDown)
+         errs() << "down\n";
+       else
+         errs() << "up\n";
+   */
     if (prev) {
       if (goingDown) {
-	//errs() << "tainting " << N->getFunction()->getName() << " from "
-	      // << prev->getName() << "\n";
-	floodFunctionFromFunction(N->getFunction(), prev);
+        // errs() << "tainting " << N->getFunction()->getName() << " from "
+        // << prev->getName() << "\n";
+        floodFunctionFromFunction(N->getFunction(), prev);
 
-	//errs() << "tainting " << N->getFunction()->getName() << "\n";
-	floodFunction(N->getFunction());
+        // errs() << "tainting " << N->getFunction()->getName() << "\n";
+        floodFunction(N->getFunction());
 
-	//errs() << "for each call site get PDF+ and save tainted conditions\n";
-	computeFunctionCSTaintedConds(N->getFunction());
+        // errs() << "for each call site get PDF+ and save tainted
+        // conditions\n";
+        computeFunctionCSTaintedConds(N->getFunction());
       } else {
-	//errs() << "tainting " << N->getFunction()->getName() << " from "
-	  //     << prev->getName() << "\n";
-	floodFunctionFromFunction(N->getFunction(), prev);
+        // errs() << "tainting " << N->getFunction()->getName() << " from "
+        //     << prev->getName() << "\n";
+        floodFunctionFromFunction(N->getFunction(), prev);
 
-	//errs() << "tainting " << N->getFunction()->getName() << "\n";
-	floodFunction(N->getFunction());
+        // errs() << "tainting " << N->getFunction()->getName() << "\n";
+        floodFunction(N->getFunction());
 
-	//errs() << "for each call site get PDF+ and save tainted conditions\n";
-	computeFunctionCSTaintedConds(N->getFunction());
+        // errs() << "for each call site get PDF+ and save tainted
+        // conditions\n";
+        computeFunctionCSTaintedConds(N->getFunction());
 
-	//errs() << "untainting " << prev->getName() << "\n";
-	resetFunctionTaint(prev);
+        // errs() << "untainting " << prev->getName() << "\n";
+        resetFunctionTaint(prev);
       }
     } else {
-      //errs() << "tainting " << N->getFunction()->getName() << "\n";
+      // errs() << "tainting " << N->getFunction()->getName() << "\n";
       floodFunction(N->getFunction());
 
-      //errs() << "for each call site get PDF+ and save tainted conditions\n";
-      	computeFunctionCSTaintedConds(N->getFunction());
+      // errs() << "for each call site get PDF+ and save tainted conditions\n";
+      computeFunctionCSTaintedConds(N->getFunction());
     }
 
-    //errs() << "stack : ";
-  /*  for (PTACallGraphNode *node : S)
-      errs() << node->getFunction()->getName() << " ";
-    errs() << "\n";
-*/
+    // errs() << "stack : ";
+    /*  for (PTACallGraphNode *node : S)
+        errs() << node->getFunction()->getName() << " ";
+      errs() << "\n";
+  */
     // Add first unvisited callee to stack if any
     for (auto I = N->begin(), E = N->end(); I != E; ++I) {
       PTACallGraphNode *calleeNode = I->second;
       if (node2VisitedChildrenMap[N].find(calleeNode) ==
-	  node2VisitedChildrenMap[N].end()) {
-	foundChildren = true;
-	node2VisitedChildrenMap[N].insert(calleeNode);
-	if (calleeNode->getFunction()) {
-	  S.push_back(calleeNode);
-	  break;
-	}
+          node2VisitedChildrenMap[N].end()) {
+        foundChildren = true;
+        node2VisitedChildrenMap[N].insert(calleeNode);
+        if (calleeNode->getFunction()) {
+          S.push_back(calleeNode);
+          break;
+        }
       }
     }
 

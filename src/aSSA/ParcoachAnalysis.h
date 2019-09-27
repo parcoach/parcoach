@@ -4,25 +4,19 @@
 #include "DepGraph.h"
 #include <map>
 
-
 class ParcoachAnalysis {
- public:
-  ParcoachAnalysis(llvm::Module &M, DepGraph *DG, bool disableInstru=false)
-    : M(M), DG(DG),
-      nbCollectivesFound(0),nbCollectivesCondCalled(0), nbCollectivesFoundParcoachOnly(0),
-      nbWarnings(0), nbWarningsParcoachOnly(0),
-      nbConds(0), nbCondsParcoachOnly(0),
-      nbCC(0),
-      disableInstru(disableInstru) {
-  }
+public:
+  ParcoachAnalysis(llvm::Module &M, DepGraph *DG, bool disableInstru = false)
+      : M(M), DG(DG), nbCollectivesFound(0), nbCollectivesCondCalled(0),
+        nbCollectivesFoundParcoachOnly(0), nbWarnings(0),
+        nbWarningsParcoachOnly(0), nbConds(0), nbCondsParcoachOnly(0), nbCC(0),
+        disableInstru(disableInstru) {}
 
   virtual ~ParcoachAnalysis() {}
 
   virtual void run() = 0;
 
-  unsigned getNbCollectivesFound() const {
-    return nbCollectivesFound;
-  }
+  unsigned getNbCollectivesFound() const { return nbCollectivesFound; }
 
   unsigned getNbCollectivesCondCalled() const {
     return nbCollectivesCondCalled;
@@ -32,25 +26,15 @@ class ParcoachAnalysis {
     return nbCollectivesFoundParcoachOnly;
   }
 
-  unsigned getNbWarnings() const {
-    return nbWarnings;
-  }
+  unsigned getNbWarnings() const { return nbWarnings; }
 
-  unsigned getNbWarningsParcoachOnly() const {
-    return nbWarningsParcoachOnly;
-  }
+  unsigned getNbWarningsParcoachOnly() const { return nbWarningsParcoachOnly; }
 
-  unsigned getNbConds() const {
-    return nbConds;
-  }
+  unsigned getNbConds() const { return nbConds; }
 
-  unsigned getNbCondsParcoachOnly() const {
-    return nbCondsParcoachOnly;
-  }
+  unsigned getNbCondsParcoachOnly() const { return nbCondsParcoachOnly; }
 
-  unsigned getNbCC() const {
-    return nbCC;
-  }
+  unsigned getNbCC() const { return nbCC; }
 
   std::set<const llvm::BasicBlock *> getConditionSet() const {
     return conditionSet;
@@ -68,7 +52,7 @@ class ParcoachAnalysis {
     return warningSetParcoachOnly;
   }
 
- protected:
+protected:
   llvm::Module &M;
   DepGraph *DG;
 
@@ -85,8 +69,6 @@ class ParcoachAnalysis {
   std::set<const llvm::BasicBlock *> conditionSetParcoachOnly;
   std::set<const llvm::Instruction *> warningSet;
   std::set<const llvm::Instruction *> warningSetParcoachOnly;
-
-
 
   bool disableInstru;
 };

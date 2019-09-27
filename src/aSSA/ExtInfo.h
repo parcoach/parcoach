@@ -15,7 +15,7 @@ struct extModInfo {
 
 struct extDepInfo {
   unsigned nbArgs;
-  std::map<int, std::vector<int> > argsDeps;
+  std::map<int, std::vector<int>> argsDeps;
   std::vector<int> retDeps;
 };
 

@@ -20,8 +20,8 @@ protected:
   ~MemReg() {}
   static std::map<const llvm::Value *, MemReg *> valueToRegMap;
   static std::set<MemReg *> sharedCudaRegions;
-  static std::map<const llvm::Function *, std::set<MemReg *> >
-  func2SharedOmpRegs;
+  static std::map<const llvm::Function *, std::set<MemReg *>>
+      func2SharedOmpRegs;
   const llvm::Value *value;
   bool isCudaShared;
 
@@ -30,16 +30,13 @@ public:
 
   static void createRegion(const llvm::Value *v);
   static void setOmpSharedRegions(const llvm::Function *F,
-				  std::vector<MemReg *> &regs);
+                                  std::vector<MemReg *> &regs);
   static void dumpRegions();
   static MemReg *getValueRegion(const llvm::Value *v);
   static void getValuesRegion(std::vector<const llvm::Value *> &ptsSet,
-			      std::vector<MemReg *> &regs);
-  static const std::set<MemReg *> & getCudaSharedRegions();
-  static const std::set<MemReg *> &
-  getOmpSharedRegions(const llvm::Function *F);
+                              std::vector<MemReg *> &regs);
+  static const std::set<MemReg *> &getCudaSharedRegions();
+  static const std::set<MemReg *> &getOmpSharedRegions(const llvm::Function *F);
 };
-
-
 
 #endif /* MEMORYREGION_H */

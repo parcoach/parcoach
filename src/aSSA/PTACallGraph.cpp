@@ -7,9 +7,9 @@ using namespace llvm;
 #include <queue>
 
 PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
-  : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),
-    ExternalCallingNode(getOrInsertFunction(nullptr)),
-    CallsExternalNode(llvm::make_unique<PTACallGraphNode>(nullptr)) {
+    : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),
+      ExternalCallingNode(getOrInsertFunction(nullptr)),
+      CallsExternalNode(llvm::make_unique<PTACallGraphNode>(nullptr)) {
 
   for (Function &F : M)
     addToCallGraph(&F);
@@ -33,15 +33,15 @@ PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
 
       Function *F = N->getFunction();
       if (F)
-	reachableFunctions.insert(F);
+        reachableFunctions.insert(F);
 
       for (auto I = N->begin(), E = N->end(); I != E; ++I) {
-	PTACallGraphNode *calleeNode = I->second;
-	assert(calleeNode);
-	if (visited.find(calleeNode) == visited.end()) {
-	  visited.insert(calleeNode);
-	  toVisit.push(calleeNode);
-	}
+        PTACallGraphNode *calleeNode = I->second;
+        assert(calleeNode);
+        if (visited.find(calleeNode) == visited.end()) {
+          visited.insert(calleeNode);
+          toVisit.push(calleeNode);
+        }
       }
     }
   }
@@ -51,8 +51,7 @@ PTACallGraph::~PTACallGraph() {
   // TODO
 }
 
-void
-PTACallGraph::addToCallGraph(Function *F) {
+void PTACallGraph::addToCallGraph(Function *F) {
   PTACallGraphNode *Node = getOrInsertFunction(F);
 
   // If this function has external linkage, anything could call it.
@@ -93,51 +92,49 @@ PTACallGraph::addToCallGraph(Function *F) {
         else if (!Callee->isIntrinsic())
           Node->addCalledFunction(CS, getOrInsertFunction(Callee));
 
-	// Indirect calls
-	if (!Callee && isa<CallInst>(I)) {
-	  CallInst &CI = cast<CallInst>(I);
-	  const Value *calledValue = CI.getCalledValue();
-	  assert(calledValue);
+        // Indirect calls
+        if (!Callee && isa<CallInst>(I)) {
+          CallInst &CI = cast<CallInst>(I);
+          const Value *calledValue = CI.getCalledValue();
+          assert(calledValue);
 
-	  std::vector<const Value *> ptsSet;
-	  if (!AA->getPointsToSet(calledValue, ptsSet)) {
-	    errs() << "coult not compute points to set for call inst : "
-		   << I << "\n";
-	    continue;
-	  }
+          std::vector<const Value *> ptsSet;
+          if (!AA->getPointsToSet(calledValue, ptsSet)) {
+            errs() << "coult not compute points to set for call inst : " << I
+                   << "\n";
+            continue;
+          }
 
-	  bool found = false;
-	  for (const Value *v : ptsSet) {
-	    Callee = dyn_cast<Function>(v);
-	    if (!Callee)
-	      continue;
+          bool found = false;
+          for (const Value *v : ptsSet) {
+            Callee = dyn_cast<Function>(v);
+            if (!Callee)
+              continue;
 
-	    if (CS.arg_size() != Callee->arg_size())
-	      continue;
+            if (CS.arg_size() != Callee->arg_size())
+              continue;
 
-	    found = true;
+            found = true;
 
-	    indirectCallMap[&CI].insert(Callee);
+            indirectCallMap[&CI].insert(Callee);
 
-	    if (Intrinsic::isLeaf(Callee->getIntrinsicID()))
-	      Node->addCalledFunction(CS, getOrInsertFunction(Callee));
-	  }
+            if (Intrinsic::isLeaf(Callee->getIntrinsicID()))
+              Node->addCalledFunction(CS, getOrInsertFunction(Callee));
+          }
 
-	  if (!found)
-	    errs() << "could not find called function for call inst : "
-		   << I << "\n";
-	}
+          if (!found)
+            errs() << "could not find called function for call inst : " << I
+                   << "\n";
+        }
       }
     }
 }
 
-bool
-PTACallGraph::isReachableFromEntry(const Function *F) const {
+bool PTACallGraph::isReachableFromEntry(const Function *F) const {
   return !ProgEntry || reachableFunctions.find(F) != reachableFunctions.end();
 }
 
-PTACallGraphNode *
-PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
+PTACallGraphNode *PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
   auto &CGN = FunctionMap[F];
   if (CGN)
     return CGN.get();

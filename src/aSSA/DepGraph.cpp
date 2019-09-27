@@ -4,8 +4,7 @@
 using namespace llvm;
 using namespace std;
 
-void
-DepGraph::build() {
+void DepGraph::build() {
   unsigned counter = 0;
   unsigned nbFunctions = PTACG->getModule().getFunctionList().size();
 
@@ -14,8 +13,9 @@ DepGraph::build() {
       continue;
 
     if (counter % 100 == 0)
-      errs() << "DepGraph: visited " << counter << " functions over " << nbFunctions
-	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
+      errs() << "DepGraph: visited " << counter << " functions over "
+             << nbFunctions << " (" << (((float)counter) / nbFunctions * 100)
+             << "%)\n";
 
     counter++;
 

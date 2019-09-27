@@ -8,13 +8,12 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <algorithm>
 #include <fstream>
 #include <queue>
-#include <algorithm>
 
 using namespace llvm;
 using namespace std;
-
 
 struct functionArg {
   functionArg(string name, int arg) : name(name), arg(arg) {}
@@ -27,15 +26,11 @@ static vector<functionArg> valueSourceFunctions;
 static vector<const char *> loadValueSources;
 static vector<functionArg> resetFunctions;
 
-
 DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, Pass *pass,
-			 bool noPtrDep, bool noPred, bool disablePhiElim)
-  : DepGraph(CG),
-    mssa(mssa), CG(CG), pass(pass),
-    buildGraphTime(0), phiElimTime(0),
-    floodDepTime(0), floodCallTime(0),
-    dotTime(0), noPtrDep(noPtrDep), noPred(noPred),
-    disablePhiElim(disablePhiElim) {
+                         bool noPtrDep, bool noPred, bool disablePhiElim)
+    : DepGraph(CG), mssa(mssa), CG(CG), pass(pass), buildGraphTime(0),
+      phiElimTime(0), floodDepTime(0), floodCallTime(0), dotTime(0),
+      noPtrDep(noPtrDep), noPred(noPred), disablePhiElim(disablePhiElim) {
 
   if (optMpiTaint)
     enableMPI();
@@ -49,8 +44,7 @@ DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, Pass *pass,
 
 DepGraphDCF::~DepGraphDCF() {}
 
-void
-DepGraphDCF::build() {
+void DepGraphDCF::build() {
   unsigned counter = 0;
   unsigned nbFunctions = PTACG->getModule().getFunctionList().size();
 
@@ -59,8 +53,9 @@ DepGraphDCF::build() {
       continue;
 
     if (counter % 100 == 0)
-      errs() << "DepGraph: visited " << counter << " functions over " << nbFunctions
-	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
+      errs() << "DepGraph: visited " << counter << " functions over "
+             << nbFunctions << " (" << (((float)counter) / nbFunctions * 100)
+             << "%)\n";
 
     counter++;
 
@@ -74,9 +69,7 @@ DepGraphDCF::build() {
     phiElimination();
 }
 
-
-void
-DepGraphDCF::enableMPI() {
+void DepGraphDCF::enableMPI() {
   resetFunctions.push_back(functionArg("MPI_Bcast", 0));
   resetFunctions.push_back(functionArg("MPI_Allgather", 3));
   resetFunctions.push_back(functionArg("MPI_Allgatherv", 3));
@@ -88,30 +81,24 @@ DepGraphDCF::enableMPI() {
   ssaSourceFunctions.push_back(functionArg("MPI_Group_rank", 1));
 }
 
-void
-DepGraphDCF::enableOMP() {
+void DepGraphDCF::enableOMP() {
   valueSourceFunctions.push_back(functionArg("__kmpc_global_thread_num", -1));
   valueSourceFunctions.push_back(functionArg("_omp_get_thread_num", -1));
   valueSourceFunctions.push_back(functionArg("omp_get_thread_num", -1));
 }
 
-void
-DepGraphDCF::enableUPC() {
-  loadValueSources.push_back("gasneti_mynode");
+void DepGraphDCF::enableUPC() { loadValueSources.push_back("gasneti_mynode"); }
+
+void DepGraphDCF::enableCUDA() {
+  valueSourceFunctions.push_back(
+      functionArg("llvm.nvvm.read.ptx.sreg.tid.x", -1)); // threadIdx.x
+  valueSourceFunctions.push_back(
+      functionArg("llvm.nvvm.read.ptx.sreg.tid.y", -1)); // threadIdx.y
+  valueSourceFunctions.push_back(
+      functionArg("llvm.nvvm.read.ptx.sreg.tid.z", -1)); // threadIdx.z
 }
 
-void
-DepGraphDCF::enableCUDA() {
-  valueSourceFunctions.
-    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.x", -1)); // threadIdx.x
-  valueSourceFunctions.
-    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.y", -1)); // threadIdx.y
-  valueSourceFunctions.
-    push_back(functionArg("llvm.nvvm.read.ptx.sreg.tid.z", -1)); // threadIdx.z
-}
-
-void
-DepGraphDCF::buildFunction(const llvm::Function *F) {
+void DepGraphDCF::buildFunction(const llvm::Function *F) {
   double t1 = gettime();
 
   curFunc = F;
@@ -119,9 +106,9 @@ DepGraphDCF::buildFunction(const llvm::Function *F) {
   if (F->isDeclaration())
     curPDT = NULL;
   else
-    curPDT =
-      &pass->getAnalysis<PostDominatorTreeWrapperPass>
-      (*const_cast<Function *>(F)).getPostDomTree();
+    curPDT = &pass->getAnalysis<PostDominatorTreeWrapperPass>(
+                      *const_cast<Function *>(F))
+                  .getPostDomTree();
 
   visit(*const_cast<Function *>(F));
 
@@ -141,15 +128,15 @@ DepGraphDCF::buildFunction(const llvm::Function *F) {
     // Add var arg entry and exit chi nodes.
     if (F->isVarArg()) {
       for (auto I : mssa->extCallSiteToVarArgEntryChi[F]) {
-	MSSAChi *entryChi = I.second;
-	assert(entryChi && entryChi->var);
-	funcToSSANodesMap[F].insert(entryChi->var);
+        MSSAChi *entryChi = I.second;
+        assert(entryChi && entryChi->var);
+        funcToSSANodesMap[F].insert(entryChi->var);
       }
       for (auto I : mssa->extCallSiteToVarArgExitChi[F]) {
-	MSSAChi *exitChi = I.second;
-	assert(exitChi && exitChi->var);
-	funcToSSANodesMap[F].insert(exitChi->var);
-	addEdge(exitChi->opVar, exitChi->var);
+        MSSAChi *exitChi = I.second;
+        assert(exitChi && exitChi->var);
+        funcToSSANodesMap[F].insert(exitChi->var);
+        addEdge(exitChi->opVar, exitChi->var);
       }
     }
 
@@ -157,20 +144,20 @@ DepGraphDCF::buildFunction(const llvm::Function *F) {
     unsigned argNo = 0;
     for (const Argument &arg : F->getArgumentList()) {
       if (!arg.getType()->isPointerTy()) {
-	argNo++;
-	continue;
+        argNo++;
+        continue;
       }
 
       for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
-	MSSAChi *entryChi = I.second[argNo];
-	assert(entryChi && entryChi->var);
-	funcToSSANodesMap[F].insert(entryChi->var);
+        MSSAChi *entryChi = I.second[argNo];
+        assert(entryChi && entryChi->var);
+        funcToSSANodesMap[F].insert(entryChi->var);
       }
       for (auto I : mssa->extCallSiteToArgExitChi[F]) {
-	MSSAChi *exitChi =  I.second[argNo];
-	assert(exitChi && exitChi->var);
-	funcToSSANodesMap[F].insert(exitChi->var);
-	addEdge(exitChi->opVar, exitChi->var);
+        MSSAChi *exitChi = I.second[argNo];
+        assert(exitChi && exitChi->var);
+        funcToSSANodesMap[F].insert(exitChi->var);
+        addEdge(exitChi->opVar, exitChi->var);
       }
 
       argNo++;
@@ -179,60 +166,60 @@ DepGraphDCF::buildFunction(const llvm::Function *F) {
     // Add retval chi node for external functions
     if (F->getReturnType()->isPointerTy()) {
       for (auto I : mssa->extCallSiteToCalleeRetChi[F]) {
-	MSSAChi *retChi = I.second;
-	assert(retChi && retChi->var);
-	funcToSSANodesMap[F].insert(retChi->var);
+        MSSAChi *retChi = I.second;
+        assert(retChi && retChi->var);
+        funcToSSANodesMap[F].insert(retChi->var);
       }
     }
 
     // memcpy
     if (F->getName().find("memcpy") != StringRef::npos) {
       for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
-	CallSite CS = I.first;
-	MSSAChi *srcEntryChi = mssa->extCallSiteToArgEntryChi[F][CS][1];
-	MSSAChi *dstExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
+        CallSite CS = I.first;
+        MSSAChi *srcEntryChi = mssa->extCallSiteToArgEntryChi[F][CS][1];
+        MSSAChi *dstExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
 
-	addEdge(srcEntryChi->var, dstExitChi->var);
+        addEdge(srcEntryChi->var, dstExitChi->var);
 
-	// llvm.mempcy instrinsic returns void whereas memcpy returns dst
-	if (F->getReturnType()->isPointerTy()) {
-	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
-	  addEdge(dstExitChi->var, retChi->var);
-	}
+        // llvm.mempcy instrinsic returns void whereas memcpy returns dst
+        if (F->getReturnType()->isPointerTy()) {
+          MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
+          addEdge(dstExitChi->var, retChi->var);
+        }
       }
     }
 
     // memmove
     else if (F->getName().find("memmove") != StringRef::npos) {
       for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
-	CallSite CS = I.first;
+        CallSite CS = I.first;
 
-	MSSAChi *srcEntryChi = mssa->extCallSiteToArgEntryChi[F][CS][1];
-	MSSAChi *dstExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
+        MSSAChi *srcEntryChi = mssa->extCallSiteToArgEntryChi[F][CS][1];
+        MSSAChi *dstExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
 
-	addEdge(srcEntryChi->var, dstExitChi->var);
+        addEdge(srcEntryChi->var, dstExitChi->var);
 
-	// llvm.memmove instrinsic returns void whereas memmove returns dst
-	if (F->getReturnType()->isPointerTy()) {
-	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
-	  addEdge(dstExitChi->var, retChi->var);
-	}
+        // llvm.memmove instrinsic returns void whereas memmove returns dst
+        if (F->getReturnType()->isPointerTy()) {
+          MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
+          addEdge(dstExitChi->var, retChi->var);
+        }
       }
     }
 
     // memset
     else if (F->getName().find("memset") != StringRef::npos) {
       for (auto I : mssa->extCallSiteToArgExitChi[F]) {
-	CallSite CS = I.first;
+        CallSite CS = I.first;
 
-	MSSAChi *argExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
-	addEdge(getFunctionArgument(F, 1), argExitChi->var);
+        MSSAChi *argExitChi = mssa->extCallSiteToArgExitChi[F][CS][0];
+        addEdge(getFunctionArgument(F, 1), argExitChi->var);
 
-	// llvm.memset instrinsic returns void whereas memset returns dst
-	if (F->getReturnType()->isPointerTy()) {
-	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
-	  addEdge(argExitChi->var, retChi->var);
-	}
+        // llvm.memset instrinsic returns void whereas memset returns dst
+        if (F->getReturnType()->isPointerTy()) {
+          MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][CS];
+          addEdge(argExitChi->var, retChi->var);
+        }
       }
     }
 
@@ -240,57 +227,57 @@ DepGraphDCF::buildFunction(const llvm::Function *F) {
     // output.
     else {
       for (CallSite cs : mssa->extFuncToCSMap[F]) {
-	std::set<MSSAVar *> ssaOutputs;
-	std::set<MSSAVar *> ssaInputs;
+        std::set<MSSAVar *> ssaOutputs;
+        std::set<MSSAVar *> ssaInputs;
 
-	// Compute SSA outputs
-	for (auto I : mssa->extCallSiteToArgExitChi[F][cs]) {
-	  MSSAChi *argExitChi = I.second;
-	  ssaOutputs.insert(argExitChi->var);
-	}
-	if (F->isVarArg()) {
-	  MSSAChi *varArgExitChi = mssa->extCallSiteToVarArgExitChi[F][cs];
-	  ssaOutputs.insert(varArgExitChi->var);
-	}
-	if (F->getReturnType()->isPointerTy()) {
-	  MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][cs];
-	  ssaOutputs.insert(retChi->var);
-	}
+        // Compute SSA outputs
+        for (auto I : mssa->extCallSiteToArgExitChi[F][cs]) {
+          MSSAChi *argExitChi = I.second;
+          ssaOutputs.insert(argExitChi->var);
+        }
+        if (F->isVarArg()) {
+          MSSAChi *varArgExitChi = mssa->extCallSiteToVarArgExitChi[F][cs];
+          ssaOutputs.insert(varArgExitChi->var);
+        }
+        if (F->getReturnType()->isPointerTy()) {
+          MSSAChi *retChi = mssa->extCallSiteToCalleeRetChi[F][cs];
+          ssaOutputs.insert(retChi->var);
+        }
 
-	// Compute SSA inputs
-	for (auto I : mssa->extCallSiteToArgEntryChi[F][cs]) {
-	  MSSAChi *argEntryChi = I.second;
-	  ssaInputs.insert(argEntryChi->var);
-	}
-	if (F->isVarArg()) {
-	  MSSAChi *varArgEntryChi = mssa->extCallSiteToVarArgEntryChi[F][cs];
-	  ssaInputs.insert(varArgEntryChi->var);
-	}
+        // Compute SSA inputs
+        for (auto I : mssa->extCallSiteToArgEntryChi[F][cs]) {
+          MSSAChi *argEntryChi = I.second;
+          ssaInputs.insert(argEntryChi->var);
+        }
+        if (F->isVarArg()) {
+          MSSAChi *varArgEntryChi = mssa->extCallSiteToVarArgEntryChi[F][cs];
+          ssaInputs.insert(varArgEntryChi->var);
+        }
 
-	// Connect SSA inputs to SSA outputs
-	for (MSSAVar *in : ssaInputs) {
-	  for (MSSAVar *out : ssaOutputs) {
-	    addEdge(in, out);
-	  }
-	}
+        // Connect SSA inputs to SSA outputs
+        for (MSSAVar *in : ssaInputs) {
+          for (MSSAVar *out : ssaOutputs) {
+            addEdge(in, out);
+          }
+        }
 
-	// Connect LLVM arguments to SSA outputs
-	for (const Argument &arg : F->getArgumentList()) {
-	  for (MSSAVar *out : ssaOutputs) {
-	    addEdge(&arg, out);
-	  }
-	}
+        // Connect LLVM arguments to SSA outputs
+        for (const Argument &arg : F->getArgumentList()) {
+          for (MSSAVar *out : ssaOutputs) {
+            addEdge(&arg, out);
+          }
+        }
       }
     }
 
     // SSA Source functions
-    for (unsigned i=0; i<ssaSourceFunctions.size(); ++i) {
+    for (unsigned i = 0; i < ssaSourceFunctions.size(); ++i) {
       if (!F->getName().equals(ssaSourceFunctions[i].name))
-	continue;
+        continue;
       unsigned argNo = ssaSourceFunctions[i].arg;
       for (auto I : mssa->extCallSiteToArgExitChi[F]) {
-	assert(I.second[argNo]);
-	ssaSources.insert(I.second[argNo]->var);
+        assert(I.second[argNo]);
+        ssaSources.insert(I.second[argNo]->var);
       }
     }
   }
@@ -300,8 +287,7 @@ DepGraphDCF::buildFunction(const llvm::Function *F) {
   buildGraphTime += t2 - t1;
 }
 
-void
-DepGraphDCF::visitBasicBlock(llvm::BasicBlock &BB) {
+void DepGraphDCF::visitBasicBlock(llvm::BasicBlock &BB) {
   // Add MSSA Phi nodes and edges to the graph.
   for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
     assert(phi && phi->var);
@@ -314,25 +300,22 @@ DepGraphDCF::visitBasicBlock(llvm::BasicBlock &BB) {
 
     if (!noPred) {
       for (const Value *pred : phi->preds) {
-	funcToLLVMNodesMap[curFunc].insert(pred);
-	addEdge(pred, phi->var);
+        funcToLLVMNodesMap[curFunc].insert(pred);
+        addEdge(pred, phi->var);
       }
     }
   }
 }
 
-void
-DepGraphDCF::visitAllocaInst(llvm::AllocaInst &I) {
+void DepGraphDCF::visitAllocaInst(llvm::AllocaInst &I) {
   // Do nothing
 }
 
-void
-DepGraphDCF::visitTerminatorInst(llvm::TerminatorInst &I) {
+void DepGraphDCF::visitTerminatorInst(llvm::TerminatorInst &I) {
   // Do nothing
 }
 
-void
-DepGraphDCF::visitCmpInst(llvm::CmpInst &I) {
+void DepGraphDCF::visitCmpInst(llvm::CmpInst &I) {
   // Cmp instruction is a value, connect the result to its operands.
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -342,8 +325,7 @@ DepGraphDCF::visitCmpInst(llvm::CmpInst &I) {
   }
 }
 
-void
-DepGraphDCF::visitLoadInst(llvm::LoadInst &I) {
+void DepGraphDCF::visitLoadInst(llvm::LoadInst &I) {
   // Load inst, connect MSSA mus and the pointer loaded.
   funcToLLVMNodesMap[curFunc].insert(&I);
   funcToLLVMNodesMap[curFunc].insert(I.getPointerOperand());
@@ -355,11 +337,11 @@ DepGraphDCF::visitLoadInst(llvm::LoadInst &I) {
   }
 
   // Load value rank source
-  for (unsigned i=0; i<loadValueSources.size(); i++) {
+  for (unsigned i = 0; i < loadValueSources.size(); i++) {
     if (I.getPointerOperand()->getName().equals(loadValueSources[i])) {
       for (MSSAMu *mu : mssa->loadToMuMap[&I]) {
-	assert(mu && mu->var);
-	ssaSources.insert(mu->var);
+        assert(mu && mu->var);
+        ssaSources.insert(mu->var);
       }
 
       break;
@@ -370,8 +352,7 @@ DepGraphDCF::visitLoadInst(llvm::LoadInst &I) {
     addEdge(I.getPointerOperand(), &I);
 }
 
-void
-DepGraphDCF::visitStoreInst(llvm::StoreInst &I) {
+void DepGraphDCF::visitStoreInst(llvm::StoreInst &I) {
   // Store inst
   // For each chi, connect the pointer, the value stored and the MSSA operand.
   for (MSSAChi *chi : mssa->storeToChiMap[&I]) {
@@ -380,7 +361,6 @@ DepGraphDCF::visitStoreInst(llvm::StoreInst &I) {
     funcToSSANodesMap[curFunc].insert(chi->opVar);
     funcToLLVMNodesMap[curFunc].insert(I.getPointerOperand());
     funcToLLVMNodesMap[curFunc].insert(I.getValueOperand());
-
 
     addEdge(I.getValueOperand(), chi->var);
 
@@ -392,8 +372,7 @@ DepGraphDCF::visitStoreInst(llvm::StoreInst &I) {
   }
 }
 
-void
-DepGraphDCF::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
+void DepGraphDCF::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
   // GetElementPtr, connect operands.
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -402,8 +381,7 @@ DepGraphDCF::visitGetElementPtrInst(llvm::GetElementPtrInst &I) {
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
-void
-DepGraphDCF::visitPHINode(llvm::PHINode &I) {
+void DepGraphDCF::visitPHINode(llvm::PHINode &I) {
   // Connect LLVM Phi, connect operands and predicates.
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -419,8 +397,7 @@ DepGraphDCF::visitPHINode(llvm::PHINode &I) {
     }
   }
 }
-void
-DepGraphDCF::visitCastInst(llvm::CastInst &I) {
+void DepGraphDCF::visitCastInst(llvm::CastInst &I) {
   // Cast inst, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -429,8 +406,7 @@ DepGraphDCF::visitCastInst(llvm::CastInst &I) {
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
-void
-DepGraphDCF::visitSelectInst(llvm::SelectInst &I) {
+void DepGraphDCF::visitSelectInst(llvm::SelectInst &I) {
   // Select inst, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -439,8 +415,7 @@ DepGraphDCF::visitSelectInst(llvm::SelectInst &I) {
     funcToLLVMNodesMap[curFunc].insert(v);
   }
 }
-void
-DepGraphDCF::visitBinaryOperator(llvm::BinaryOperator &I) {
+void DepGraphDCF::visitBinaryOperator(llvm::BinaryOperator &I) {
   // Binary op, connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -450,8 +425,7 @@ DepGraphDCF::visitBinaryOperator(llvm::BinaryOperator &I) {
   }
 }
 
-void
-DepGraphDCF::visitCallInst(llvm::CallInst &I) {
+void DepGraphDCF::visitCallInst(llvm::CallInst &I) {
   /* Building rules for call sites :
    *
    * %c = call f (..., %a, ...)
@@ -511,13 +485,13 @@ DepGraphDCF::visitCallInst(llvm::CallInst &I) {
     funcToCallSites[callee].insert(&I);
 
     // Return value source
-    for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
+    for (unsigned i = 0; i < valueSourceFunctions.size(); ++i) {
       if (!callee->getName().equals(valueSourceFunctions[i].name))
-	continue;
+        continue;
 
       int argNo = valueSourceFunctions[i].arg;
       if (argNo != -1)
-	continue;
+        continue;
 
       valueSources.insert(&I);
     }
@@ -530,15 +504,15 @@ DepGraphDCF::visitCallInst(llvm::CallInst &I) {
       funcToCallSites[mayCallee].insert(&I);
 
       // Return value source
-      for (unsigned i=0; i<valueSourceFunctions.size(); ++i) {
-	if (!mayCallee->getName().equals(valueSourceFunctions[i].name))
-	  continue;
+      for (unsigned i = 0; i < valueSourceFunctions.size(); ++i) {
+        if (!mayCallee->getName().equals(valueSourceFunctions[i].name))
+          continue;
 
-	int argNo = valueSourceFunctions[i].arg;
-	if (argNo != -1)
-	  continue;
+        int argNo = valueSourceFunctions[i].arg;
+        if (argNo != -1)
+          continue;
 
-	valueSources.insert(&I);
+        valueSources.insert(&I);
       }
     }
   }
@@ -554,8 +528,7 @@ DepGraphDCF::visitCallInst(llvm::CallInst &I) {
   }
 }
 
-void
-DepGraphDCF::connectCSMus(llvm::CallInst &I) {
+void DepGraphDCF::connectCSMus(llvm::CallInst &I) {
   // Mu of the call site.
   for (MSSAMu *mu : mssa->callSiteToMuMap[CallSite(&I)]) {
     assert(mu && mu->var);
@@ -573,20 +546,20 @@ DepGraphDCF::connectCSMus(llvm::CallInst &I) {
 
       // Case where this is a var arg parameter
       if (argNo >= called->arg_size()) {
-	assert(called->isVarArg());
+        assert(called->isVarArg());
 
-	assert(mssa->extCallSiteToVarArgEntryChi[called][CS]);
-	MSSAVar *var = mssa->extCallSiteToVarArgEntryChi[called][CS]->var;
-	assert(var);
-	funcToSSANodesMap[called].insert(var);
-	addEdge(mu->var, var); // rule3
+        assert(mssa->extCallSiteToVarArgEntryChi[called][CS]);
+        MSSAVar *var = mssa->extCallSiteToVarArgEntryChi[called][CS]->var;
+        assert(var);
+        funcToSSANodesMap[called].insert(var);
+        addEdge(mu->var, var); // rule3
       }
 
       else {
-	// rule3
-	assert(mssa->extCallSiteToArgEntryChi[called][CS][argNo]);
-	addEdge(mu->var,
-		mssa->extCallSiteToArgEntryChi[called][CS][argNo]->var);
+        // rule3
+        assert(mssa->extCallSiteToArgEntryChi[called][CS][argNo]);
+        addEdge(mu->var,
+                mssa->extCallSiteToArgEntryChi[called][CS][argNo]->var);
       }
 
       continue;
@@ -605,8 +578,7 @@ DepGraphDCF::connectCSMus(llvm::CallInst &I) {
   }
 }
 
-void
-DepGraphDCF::connectCSChis(llvm::CallInst &I) {
+void DepGraphDCF::connectCSChis(llvm::CallInst &I) {
   // Chi of the callsite.
   for (MSSAChi *chi : mssa->callSiteToChiMap[CallSite(&I)]) {
     assert(chi && chi->var && chi->opVar);
@@ -628,30 +600,31 @@ DepGraphDCF::connectCSChis(llvm::CallInst &I) {
 
       // Case where this is a var arg parameter.
       if (argNo >= called->arg_size()) {
-	assert(called->isVarArg());
+        assert(called->isVarArg());
 
-	assert(mssa->extCallSiteToVarArgExitChi[called][CS]);
-	MSSAVar *var = mssa->extCallSiteToVarArgExitChi[called][CS]->var;
-	assert(var);
-	funcToSSANodesMap[called].insert(var);
-	addEdge(var, chi->var); // rule5
+        assert(mssa->extCallSiteToVarArgExitChi[called][CS]);
+        MSSAVar *var = mssa->extCallSiteToVarArgExitChi[called][CS]->var;
+        assert(var);
+        funcToSSANodesMap[called].insert(var);
+        addEdge(var, chi->var); // rule5
       }
 
       else {
-	// rule5
-	assert(mssa->extCallSiteToArgExitChi[called][CS][argNo]);
-	addEdge(mssa->extCallSiteToArgExitChi[called][CS][argNo]->var, chi->var);
+        // rule5
+        assert(mssa->extCallSiteToArgExitChi[called][CS][argNo]);
+        addEdge(mssa->extCallSiteToArgExitChi[called][CS][argNo]->var,
+                chi->var);
 
-	// Reset functions
-	for (unsigned i=0; i<resetFunctions.size(); ++i) {
-	  if (!called->getName().equals(resetFunctions[i].name))
-	    continue;
+        // Reset functions
+        for (unsigned i = 0; i < resetFunctions.size(); ++i) {
+          if (!called->getName().equals(resetFunctions[i].name))
+            continue;
 
-	  if ((int) argNo != resetFunctions[i].arg)
-	    continue;
+          if ((int)argNo != resetFunctions[i].arg)
+            continue;
 
-	  taintResetSSANodes.insert(chi->var);
-	}
+          taintResetSSANodes.insert(chi->var);
+        }
       }
 
       continue;
@@ -670,8 +643,7 @@ DepGraphDCF::connectCSChis(llvm::CallInst &I) {
   }
 }
 
-void
-DepGraphDCF::connectCSEffectiveParameters(llvm::CallInst &I) {
+void DepGraphDCF::connectCSEffectiveParameters(llvm::CallInst &I) {
   // Connect effective parameters to formal parameters.
   const Function *callee = I.getCalledFunction();
 
@@ -697,25 +669,25 @@ DepGraphDCF::connectCSEffectiveParameters(llvm::CallInst &I) {
   else {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
       if (mayCallee->isDeclaration()) {
-	connectCSEffectiveParametersExt(I, mayCallee);
-	return;
+        connectCSEffectiveParametersExt(I, mayCallee);
+        return;
       }
 
       unsigned argIdx = 0;
       for (const Argument &arg : mayCallee->getArgumentList()) {
-	funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
-	funcToLLVMNodesMap[callee].insert(&arg);
+        funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
+        funcToLLVMNodesMap[callee].insert(&arg);
 
-	addEdge(I.getArgOperand(argIdx), &arg); // rule1
+        addEdge(I.getArgOperand(argIdx), &arg); // rule1
 
-	argIdx++;
+        argIdx++;
       }
     }
   }
 }
 
-void
-DepGraphDCF::connectCSEffectiveParametersExt(CallInst &I, const Function *callee) {
+void DepGraphDCF::connectCSEffectiveParametersExt(CallInst &I,
+                                                  const Function *callee) {
   CallSite CS(&I);
 
   if (callee->getName().find("memset") != StringRef::npos) {
@@ -724,12 +696,10 @@ DepGraphDCF::connectCSEffectiveParametersExt(CallInst &I, const Function *callee
     assert(cArg);
     funcToLLVMNodesMap[I.getParent()->getParent()].insert(cArg);
     addEdge(cArg, argExitChi->var);
-
   }
 }
 
-void
-DepGraphDCF::connectCSCalledReturnValue(llvm::CallInst &I) {
+void DepGraphDCF::connectCSCalledReturnValue(llvm::CallInst &I) {
   // If the function called returns a value, connect the return value to the
   // call value.
 
@@ -747,16 +717,15 @@ DepGraphDCF::connectCSCalledReturnValue(llvm::CallInst &I) {
   else {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
       if (!mayCallee->isDeclaration() &&
-	        !mayCallee->getReturnType()->isVoidTy()) {
-				funcToLLVMNodesMap[curFunc].insert(&I);
-				addEdge(getReturnValue(mayCallee), &I); // rule2
+          !mayCallee->getReturnType()->isVoidTy()) {
+        funcToLLVMNodesMap[curFunc].insert(&I);
+        addEdge(getReturnValue(mayCallee), &I); // rule2
       }
     }
   }
 }
 
-void
-DepGraphDCF::connectCSRetChi(llvm::CallInst &I) {
+void DepGraphDCF::connectCSRetChi(llvm::CallInst &I) {
   // External function, if the function called returns a pointer, connect the
   // artifical ret chi to the retcallchi
   // return chi of the caller.
@@ -768,12 +737,12 @@ DepGraphDCF::connectCSRetChi(llvm::CallInst &I) {
   if (callee) {
     if (callee->isDeclaration() && callee->getReturnType()->isPointerTy()) {
       for (MSSAChi *chi : mssa->extCallSiteToCallerRetChi[CallSite(&I)]) {
-	assert(chi && chi->var && chi->opVar);
-	funcToSSANodesMap[curFunc].insert(chi->var);
-	funcToSSANodesMap[curFunc].insert(chi->opVar);
+        assert(chi && chi->var && chi->opVar);
+        funcToSSANodesMap[curFunc].insert(chi->var);
+        funcToSSANodesMap[curFunc].insert(chi->opVar);
 
-	addEdge(chi->opVar, chi->var);
-	addEdge(mssa->extCallSiteToCalleeRetChi[callee][CS]->var, chi->var);
+        addEdge(chi->opVar, chi->var);
+        addEdge(mssa->extCallSiteToCalleeRetChi[callee][CS]->var, chi->var);
       }
     }
   }
@@ -782,23 +751,22 @@ DepGraphDCF::connectCSRetChi(llvm::CallInst &I) {
   else {
     for (const Function *mayCallee : CG->indirectCallMap[&I]) {
       if (mayCallee->isDeclaration() &&
-	  mayCallee->getReturnType()->isPointerTy()) {
-	for (MSSAChi *chi : mssa->extCallSiteToCallerRetChi[CallSite(&I)]) {
-	  assert(chi && chi->var && chi->opVar);
-	  funcToSSANodesMap[curFunc].insert(chi->var);
-	  funcToSSANodesMap[curFunc].insert(chi->opVar);
+          mayCallee->getReturnType()->isPointerTy()) {
+        for (MSSAChi *chi : mssa->extCallSiteToCallerRetChi[CallSite(&I)]) {
+          assert(chi && chi->var && chi->opVar);
+          funcToSSANodesMap[curFunc].insert(chi->var);
+          funcToSSANodesMap[curFunc].insert(chi->opVar);
 
-	  addEdge(chi->opVar, chi->var);
-	  addEdge(mssa->extCallSiteToCalleeRetChi[mayCallee][CS]->var,
-		  chi->var);
-	}
+          addEdge(chi->opVar, chi->var);
+          addEdge(mssa->extCallSiteToCalleeRetChi[mayCallee][CS]->var,
+                  chi->var);
+        }
       }
     }
   }
 }
 
-void
-DepGraphDCF::visitExtractValueInst(llvm::ExtractValueInst &I) {
+void DepGraphDCF::visitExtractValueInst(llvm::ExtractValueInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -808,8 +776,7 @@ DepGraphDCF::visitExtractValueInst(llvm::ExtractValueInst &I) {
   }
 }
 
-void
-DepGraphDCF::visitExtractElementInst(llvm::ExtractElementInst &I) {
+void DepGraphDCF::visitExtractElementInst(llvm::ExtractElementInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -819,8 +786,7 @@ DepGraphDCF::visitExtractElementInst(llvm::ExtractElementInst &I) {
   }
 }
 
-void
-DepGraphDCF::visitInsertElementInst(llvm::InsertElementInst &I) {
+void DepGraphDCF::visitInsertElementInst(llvm::InsertElementInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -830,8 +796,7 @@ DepGraphDCF::visitInsertElementInst(llvm::InsertElementInst &I) {
   }
 }
 
-void
-DepGraphDCF::visitInsertValueInst(llvm::InsertValueInst &I) {
+void DepGraphDCF::visitInsertValueInst(llvm::InsertValueInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -841,8 +806,7 @@ DepGraphDCF::visitInsertValueInst(llvm::InsertValueInst &I) {
   }
 }
 
-void
-DepGraphDCF::visitShuffleVectorInst(llvm::ShuffleVectorInst &I) {
+void DepGraphDCF::visitShuffleVectorInst(llvm::ShuffleVectorInst &I) {
   // Connect operands
   funcToLLVMNodesMap[curFunc].insert(&I);
 
@@ -852,13 +816,11 @@ DepGraphDCF::visitShuffleVectorInst(llvm::ShuffleVectorInst &I) {
   }
 }
 
-void
-DepGraphDCF::visitInstruction(llvm::Instruction &I) {
+void DepGraphDCF::visitInstruction(llvm::Instruction &I) {
   errs() << "Error: Unhandled instruction " << I << "\n";
 }
 
-void
-DepGraphDCF::toDot(string filename) {
+void DepGraphDCF::toDot(string filename) {
   errs() << "Writing '" << filename << "' ...\n";
 
   double t1 = gettime();
@@ -870,16 +832,14 @@ DepGraphDCF::toDot(string filename) {
   stream << "compound=true;\n";
   stream << "rankdir=LR;\n";
 
-
   // dot global LLVM values in a separate cluster
   stream << "\tsubgraph cluster_globalsvar {\n";
   stream << "style=filled;\ncolor=lightgrey;\n";
   stream << "label=< <B>  Global Values </B> >;\n";
   stream << "node [style=filled,color=white];\n";
   for (const Value &g : mssa->m->globals()) {
-    stream << "Node" << ((void *) &g) << " [label=\""
-	   << getValueLabel(&g) << "\" "
-	   << getNodeStyle(&g) << "];\n";
+    stream << "Node" << ((void *)&g) << " [label=\"" << getValueLabel(&g)
+           << "\" " << getNodeStyle(&g) << "];\n";
   }
   stream << "}\n;";
 
@@ -898,54 +858,53 @@ DepGraphDCF::toDot(string filename) {
   for (auto I : llvmToLLVMChildren) {
     const Value *s = I.first;
     for (const Value *d : I.second) {
-      stream << "Node" << ((void *) s) << " -> "
-      	     << "Node" << ((void *) d) << "\n";
+      stream << "Node" << ((void *)s) << " -> "
+             << "Node" << ((void *)d) << "\n";
     }
   }
 
   for (auto I : llvmToSSAChildren) {
     const Value *s = I.first;
     for (MSSAVar *d : I.second) {
-      stream << "Node" << ((void *) s) << " -> "
-  	     << "Node" << ((void *) d) << "\n";
+      stream << "Node" << ((void *)s) << " -> "
+             << "Node" << ((void *)d) << "\n";
     }
   }
 
   for (auto I : ssaToSSAChildren) {
     MSSAVar *s = I.first;
     for (MSSAVar *d : I.second) {
-      stream << "Node" << ((void *) s) << " -> "
-  	     << "Node" << ((void *) d) << "\n";
+      stream << "Node" << ((void *)s) << " -> "
+             << "Node" << ((void *)d) << "\n";
     }
   }
 
   for (auto I : ssaToLLVMChildren) {
     MSSAVar *s = I.first;
     for (const Value *d : I.second) {
-      stream << "Node" << ((void *) s) << " -> "
-  	     << "Node" << ((void *) d) << "\n";
+      stream << "Node" << ((void *)s) << " -> "
+             << "Node" << ((void *)d) << "\n";
     }
   }
 
   for (auto I : callToFuncEdges) {
     const Value *call = I.first;
     const Function *f = I.second;
-    stream << "NodeCall" << ((void *) call) << " -> "
-	   << "Node" << ((void *) f)
-      	   << " [lhead=cluster_" << ((void *) f)
-	   <<"]\n";
+    stream << "NodeCall" << ((void *)call) << " -> "
+           << "Node" << ((void *)f) << " [lhead=cluster_" << ((void *)f)
+           << "]\n";
   }
 
   for (auto I : condToCallEdges) {
     const Value *s = I.first;
     for (const Value *call : I.second) {
-      stream << "Node" << ((void *) s) << " -> "
-  	     << "NodeCall" << ((void *) call) << "\n";
+      stream << "Node" << ((void *)s) << " -> "
+             << "NodeCall" << ((void *)call) << "\n";
     }
-	/*if (taintedLLVMNodes.count(s) != 0){
-		errs() << "DBG: " << s->getName() << " is a tainted condition \n";
-      		s->dump();
-	}*/
+    /*if (taintedLLVMNodes.count(s) != 0){
+            errs() << "DBG: " << s->getName() << " is a tainted condition \n";
+            s->dump();
+    }*/
   }
 
   stream << "}\n";
@@ -955,98 +914,78 @@ DepGraphDCF::toDot(string filename) {
   dotTime += t2 - t1;
 }
 
-
-void
-DepGraphDCF::dotFunction(raw_fd_ostream &stream, const Function *F) {
-  stream << "\tsubgraph cluster_" << ((void *) F) << " {\n";
-  stream << "style=filled;\ncolor=lightgrey;\n";
-  stream << "label=< <B>" << F->getName() << "</B> >;\n";
-  stream << "node [style=filled,color=white];\n";
-
-
-  // Nodes with label
-  for (const Value *v : funcToLLVMNodesMap[F]) {
-    if (isa<GlobalValue>(v))
-      continue;
-    stream << "Node" << ((void *) v) << " [label=\""
-	   << getValueLabel(v) << "\" "
-	   << getNodeStyle(v) << "];\n";
-
-  }
-
-  for (const MSSAVar *v : funcToSSANodesMap[F]) {
-    stream << "Node" << ((void *) v) << " [label=\""
-	   << v->getName()
-	   <<  "\" shape=diamond "
-	   << getNodeStyle(v) << "];\n";
-  }
-
-  for (const Value *v : funcToCallNodes[F]) {
-    stream << "NodeCall" << ((void *) v) << " [label=\""
-	   << getCallValueLabel(v)
-	   <<  "\" shape=rectangle "
-	   << getCallNodeStyle(v) << "];\n";
-  }
-
-  stream << "Node" << ((void *) F) << " [style=invisible];\n";
-
-  stream << "}\n";
-}
-
-void
-DepGraphDCF::dotExtFunction(raw_fd_ostream &stream, const Function *F) {
+void DepGraphDCF::dotFunction(raw_fd_ostream &stream, const Function *F) {
   stream << "\tsubgraph cluster_" << ((void *)F) << " {\n";
   stream << "style=filled;\ncolor=lightgrey;\n";
   stream << "label=< <B>" << F->getName() << "</B> >;\n";
   stream << "node [style=filled,color=white];\n";
 
-
   // Nodes with label
   for (const Value *v : funcToLLVMNodesMap[F]) {
-    stream << "Node" << ((void *) v) << " [label=\""
-	   << getValueLabel(v) << "\" "
-	   << getNodeStyle(v) << "];\n";
+    if (isa<GlobalValue>(v))
+      continue;
+    stream << "Node" << ((void *)v) << " [label=\"" << getValueLabel(v) << "\" "
+           << getNodeStyle(v) << "];\n";
   }
 
   for (const MSSAVar *v : funcToSSANodesMap[F]) {
-    stream << "Node" << ((void *) v) << " [label=\""
-	   << v->getName()
-	   <<  "\" shape=diamond "
-	   << getNodeStyle(v) << "];\n";
+    stream << "Node" << ((void *)v) << " [label=\"" << v->getName()
+           << "\" shape=diamond " << getNodeStyle(v) << "];\n";
   }
 
-  stream << "Node" << ((void *) F) << " [style=invisible];\n";
+  for (const Value *v : funcToCallNodes[F]) {
+    stream << "NodeCall" << ((void *)v) << " [label=\"" << getCallValueLabel(v)
+           << "\" shape=rectangle " << getCallNodeStyle(v) << "];\n";
+  }
+
+  stream << "Node" << ((void *)F) << " [style=invisible];\n";
 
   stream << "}\n";
 }
 
-std::string
-DepGraphDCF::getNodeStyle(const llvm::Value *v) {
+void DepGraphDCF::dotExtFunction(raw_fd_ostream &stream, const Function *F) {
+  stream << "\tsubgraph cluster_" << ((void *)F) << " {\n";
+  stream << "style=filled;\ncolor=lightgrey;\n";
+  stream << "label=< <B>" << F->getName() << "</B> >;\n";
+  stream << "node [style=filled,color=white];\n";
+
+  // Nodes with label
+  for (const Value *v : funcToLLVMNodesMap[F]) {
+    stream << "Node" << ((void *)v) << " [label=\"" << getValueLabel(v) << "\" "
+           << getNodeStyle(v) << "];\n";
+  }
+
+  for (const MSSAVar *v : funcToSSANodesMap[F]) {
+    stream << "Node" << ((void *)v) << " [label=\"" << v->getName()
+           << "\" shape=diamond " << getNodeStyle(v) << "];\n";
+  }
+
+  stream << "Node" << ((void *)F) << " [style=invisible];\n";
+
+  stream << "}\n";
+}
+
+std::string DepGraphDCF::getNodeStyle(const llvm::Value *v) {
   if (taintedLLVMNodes.count(v) != 0)
     return "style=filled, color=red";
   return "style=filled, color=white";
 }
 
-std::string
-DepGraphDCF::getNodeStyle(const MSSAVar *v) {
+std::string DepGraphDCF::getNodeStyle(const MSSAVar *v) {
   if (taintedSSANodes.count(v) != 0)
     return "style=filled, color=red";
   return "style=filled, color=white";
 }
 
-std::string
-DepGraphDCF::getNodeStyle(const Function *f) {
+std::string DepGraphDCF::getNodeStyle(const Function *f) {
   return "style=filled, color=white";
 }
 
-std::string
-DepGraphDCF::getCallNodeStyle(const llvm::Value *v) {
+std::string DepGraphDCF::getCallNodeStyle(const llvm::Value *v) {
   return "style=filled, color=white";
 }
 
-
-void
-DepGraphDCF::computeTaintedValuesContextInsensitive() {
+void DepGraphDCF::computeTaintedValuesContextInsensitive() {
   unsigned funcToLLVMNodesMapSize = funcToLLVMNodesMap.size();
   unsigned funcToSSANodesMapSize = funcToSSANodesMap.size();
   unsigned varArgNodeSize = varArgNodes.size();
@@ -1070,13 +1009,13 @@ DepGraphDCF::computeTaintedValuesContextInsensitive() {
   std::queue<const Value *> valueToVisit;
 
   // SSA sources
-  for(const MSSAVar *src : ssaSources) {
+  for (const MSSAVar *src : ssaSources) {
     taintedSSANodes.insert(src);
     varToVisit.push(const_cast<MSSAVar *>(src));
   }
 
   // Value sources
-  for(const Value *src : valueSources) {
+  for (const Value *src : valueSources) {
     taintedLLVMNodes.insert(src);
     valueToVisit.push(src);
   }
@@ -1087,26 +1026,26 @@ DepGraphDCF::computeTaintedValuesContextInsensitive() {
       varToVisit.pop();
 
       if (taintResetSSANodes.find(s) != taintResetSSANodes.end())
-	continue;
+        continue;
 
       if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
-	for (MSSAVar *d : ssaToSSAChildren[s]) {
-	  if (taintedSSANodes.count(d) != 0)
-	    continue;
+        for (MSSAVar *d : ssaToSSAChildren[s]) {
+          if (taintedSSANodes.count(d) != 0)
+            continue;
 
-	  taintedSSANodes.insert(d);
-	  varToVisit.push(d);
-	}
+          taintedSSANodes.insert(d);
+          varToVisit.push(d);
+        }
       }
 
       if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
-	for (const Value *d : ssaToLLVMChildren[s]) {
-	  if (taintedLLVMNodes.count(d) != 0)
-	    continue;
+        for (const Value *d : ssaToLLVMChildren[s]) {
+          if (taintedLLVMNodes.count(d) != 0)
+            continue;
 
-	  taintedLLVMNodes.insert(d);
-	  valueToVisit.push(d);
-	}
+          taintedLLVMNodes.insert(d);
+          valueToVisit.push(d);
+        }
       }
     }
 
@@ -1115,22 +1054,22 @@ DepGraphDCF::computeTaintedValuesContextInsensitive() {
       valueToVisit.pop();
 
       if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
-	for (const Value *d : llvmToLLVMChildren[s]) {
-	  if (taintedLLVMNodes.count(d) != 0)
-	    continue;
+        for (const Value *d : llvmToLLVMChildren[s]) {
+          if (taintedLLVMNodes.count(d) != 0)
+            continue;
 
-	  taintedLLVMNodes.insert(d);
-	  valueToVisit.push(d);
-	}
+          taintedLLVMNodes.insert(d);
+          valueToVisit.push(d);
+        }
       }
 
       if (llvmToSSAChildren.find(s) != llvmToSSAChildren.end()) {
-	for (MSSAVar *d : llvmToSSAChildren[s]) {
-	  if (taintedSSANodes.count(d) != 0)
-	    continue;
-	  taintedSSANodes.insert(d);
-	  varToVisit.push(d);
-	}
+        for (MSSAVar *d : llvmToSSAChildren[s]) {
+          if (taintedSSANodes.count(d) != 0)
+            continue;
+          taintedSSANodes.insert(d);
+          varToVisit.push(d);
+        }
       }
     }
   }
@@ -1158,27 +1097,22 @@ DepGraphDCF::computeTaintedValuesContextInsensitive() {
   assert(condToCallEdgesSize == condToCallEdges.size());
   assert(funcToCallSitesSize == funcToCallSites.size());
   assert(callsiteToCondsSize == callsiteToConds.size());
-
 }
 
-
-void
-DepGraphDCF::printTimers() const {
-  errs() << "Build graph time : " << buildGraphTime*1.0e3 << " ms\n";
-  errs() << "Phi elimination time : " << phiElimTime*1.0e3 << " ms\n";
-  errs() << "Flood dependencies time : " << floodDepTime*1.0e3 << " ms\n";
-  errs() << "Flood calls PDF+ time : " << floodCallTime*1.0e3 << " ms\n";
-  errs() << "Dot graph time : " << dotTime*1.0e3 << " ms\n";
+void DepGraphDCF::printTimers() const {
+  errs() << "Build graph time : " << buildGraphTime * 1.0e3 << " ms\n";
+  errs() << "Phi elimination time : " << phiElimTime * 1.0e3 << " ms\n";
+  errs() << "Flood dependencies time : " << floodDepTime * 1.0e3 << " ms\n";
+  errs() << "Flood calls PDF+ time : " << floodCallTime * 1.0e3 << " ms\n";
+  errs() << "Dot graph time : " << dotTime * 1.0e3 << " ms\n";
 }
 
-bool
-DepGraphDCF::isTaintedValue(const Value *v){
+bool DepGraphDCF::isTaintedValue(const Value *v) {
   return taintedConditions.find(v) != taintedConditions.end();
 }
 
-void
-DepGraphDCF::getCallInterIPDF(const llvm::CallInst *call,
-				  std::set<const llvm::BasicBlock *> &ipdf) {
+void DepGraphDCF::getCallInterIPDF(const llvm::CallInst *call,
+                                   std::set<const llvm::BasicBlock *> &ipdf) {
   std::set<const llvm::CallInst *> visitedCallSites;
   queue<const CallInst *> callsitesToVisit;
   callsitesToVisit.push(call);
@@ -1191,40 +1125,34 @@ DepGraphDCF::getCallInterIPDF(const llvm::CallInst *call,
 
     BasicBlock *BB = const_cast<BasicBlock *>(CS->getParent());
     PostDominatorTree *PDT =
-      &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
+        &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
     vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
     ipdf.insert(funcIPDF.begin(), funcIPDF.end());
 
     if (funcToCallSites.find(F) != funcToCallSites.end()) {
       for (const Value *v : funcToCallSites[F]) {
-	const CallInst *CS2 = cast<CallInst>(v);
-	if (visitedCallSites.count(CS2) != 0)
-	  continue;
-	callsitesToVisit.push(CS2);
+        const CallInst *CS2 = cast<CallInst>(v);
+        if (visitedCallSites.count(CS2) != 0)
+          continue;
+        callsitesToVisit.push(CS2);
       }
     }
   }
 }
 
-
-
 // Function used for summary-based approach
-void
-DepGraphDCF::getCallIntraIPDF(const llvm::CallInst *call,
-                                  std::set<const llvm::BasicBlock *> &ipdf) {
+void DepGraphDCF::getCallIntraIPDF(const llvm::CallInst *call,
+                                   std::set<const llvm::BasicBlock *> &ipdf) {
 
   Function *F = const_cast<Function *>(call->getParent()->getParent());
   BasicBlock *BB = const_cast<BasicBlock *>(call->getParent());
   PostDominatorTree *PDT =
       &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
-    vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
-    ipdf.insert(funcIPDF.begin(), funcIPDF.end());
+  vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
+  ipdf.insert(funcIPDF.begin(), funcIPDF.end());
 }
 
-
-
-bool
-DepGraphDCF::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
+bool DepGraphDCF::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
   assert(var1);
   assert(var2);
 
@@ -1280,13 +1208,13 @@ DepGraphDCF::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
   if (ssaToSSAChildren.find(var1) != ssaToSSAChildren.end()) {
     for (MSSAVar *v : ssaToSSAChildren[var1]) {
       if (ssaToSSAChildren[var2].find(v) == ssaToSSAChildren[var2].end())
-	return false;
+        return false;
     }
   }
   if (ssaToLLVMChildren.find(var1) != ssaToLLVMChildren.end()) {
     for (const Value *v : ssaToLLVMChildren[var1]) {
       if (ssaToLLVMChildren[var2].find(v) == ssaToLLVMChildren[var2].end())
-	return false;
+        return false;
     }
   }
 
@@ -1294,21 +1222,20 @@ DepGraphDCF::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {
   if (ssaToSSAParents.find(var1) != ssaToSSAParents.end()) {
     for (MSSAVar *v : ssaToSSAParents[var1]) {
       if (ssaToSSAParents[var2].find(v) == ssaToSSAParents[var2].end())
-	return false;
+        return false;
     }
   }
   if (ssaToLLVMParents.find(var1) != ssaToLLVMParents.end()) {
     for (const Value *v : ssaToLLVMParents[var1]) {
       if (ssaToLLVMParents[var2].find(v) == ssaToLLVMParents[var2].end())
-	return false;
+        return false;
     }
   }
 
   return true;
 }
 
-void
-DepGraphDCF::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
+void DepGraphDCF::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *> ops) {
   struct ssa2SSAEdge {
     ssa2SSAEdge(MSSAVar *s, MSSAVar *d) : s(s), d(d) {}
     MSSAVar *s;
@@ -1329,7 +1256,6 @@ DepGraphDCF::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
     const Value *s;
     const Value *d;
   };
-
 
   // Singlify operands
   std::set<MSSAVar *> opsSet;
@@ -1354,24 +1280,24 @@ DepGraphDCF::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
     vector<ssa2SSAEdge> edgesToRemove;
     if (ssaToSSAChildren.find(phi->var) != ssaToSSAChildren.end()) {
       for (MSSAVar *v : ssaToSSAChildren[phi->var]) {
-	edgesToAdd.push_back(ssa2SSAEdge(ops[0], v));
-	edgesToRemove.push_back(ssa2SSAEdge(phi->var, v));
+        edgesToAdd.push_back(ssa2SSAEdge(ops[0], v));
+        edgesToRemove.push_back(ssa2SSAEdge(phi->var, v));
 
-	// If N is a phi replace the phi operand of N with op1
-	if (v->def->type == MSSADef::PHI) {
-	  MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
+        // If N is a phi replace the phi operand of N with op1
+        if (v->def->type == MSSADef::PHI) {
+          MSSAPhi *outPHI = cast<MSSAPhi>(v->def);
 
-	  bool found = false;
-	  for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end(); I != E;
-	       ++I) {
-	    if (I->second == phi->var) {
-	      found = true;
-	      I->second = ops[0];
-	      break;
-	    }
-	  }
-	  assert(found);
-	}
+          bool found = false;
+          for (auto I = outPHI->opsVar.begin(), E = outPHI->opsVar.end();
+               I != E; ++I) {
+            if (I->second == phi->var) {
+              found = true;
+              I->second = ops[0];
+              break;
+            }
+          }
+          assert(found);
+        }
       }
     }
     for (ssa2SSAEdge e : edgesToAdd)
@@ -1388,10 +1314,10 @@ DepGraphDCF::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
     // connect op1 to N and remove the link from PHI to N.
     if (ssaToLLVMChildren.find(phi->var) != ssaToLLVMChildren.end()) {
       for (const Value *v : ssaToLLVMChildren[phi->var]) {
-	// addEdge(ops[0], v);
-	// removeEdge(phi->var, v);
-	edgesToAdd.push_back(ssa2LLVMEdge(ops[0], v));
-	edgesToRemove.push_back(ssa2LLVMEdge(phi->var, v));
+        // addEdge(ops[0], v);
+        // removeEdge(phi->var, v);
+        edgesToAdd.push_back(ssa2LLVMEdge(ops[0], v));
+        edgesToRemove.push_back(ssa2LLVMEdge(phi->var, v));
       }
     }
     for (ssa2LLVMEdge e : edgesToAdd)
@@ -1412,22 +1338,22 @@ DepGraphDCF::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
     vector<ssa2SSAEdge> toRemove1;
     vector<ssa2LLVMEdge> toRemove2;
     vector<llvm2SSAEdge> toRemove3;
-    for (unsigned i=1; i<ops.size(); ++i) {
+    for (unsigned i = 1; i < ops.size(); ++i) {
       if (ssaToSSAParents.find(ops[i]) != ssaToSSAParents.end()) {
-	for (MSSAVar *v : ssaToSSAParents[ops[i]])
-	  toRemove1.push_back(ssa2SSAEdge(v, ops[i]));
+        for (MSSAVar *v : ssaToSSAParents[ops[i]])
+          toRemove1.push_back(ssa2SSAEdge(v, ops[i]));
       }
       if (ssaToLLVMParents.find(ops[i]) != ssaToLLVMParents.end()) {
-	for (const Value *v : ssaToLLVMParents[ops[i]])
-	  toRemove3.push_back(llvm2SSAEdge(v, ops[i]));
+        for (const Value *v : ssaToLLVMParents[ops[i]])
+          toRemove3.push_back(llvm2SSAEdge(v, ops[i]));
       }
       if (ssaToSSAChildren.find(ops[i]) != ssaToSSAChildren.end()) {
-	for (MSSAVar *v : ssaToSSAChildren[ops[i]])
-	  toRemove1.push_back(ssa2SSAEdge(ops[i], v));
+        for (MSSAVar *v : ssaToSSAChildren[ops[i]])
+          toRemove1.push_back(ssa2SSAEdge(ops[i], v));
       }
       if (ssaToLLVMChildren.find(ops[i]) != ssaToLLVMChildren.end()) {
-	for (const Value *v : ssaToLLVMChildren[ops[i]])
-	  toRemove2.push_back(ssa2LLVMEdge(ops[i], v));
+        for (const Value *v : ssaToLLVMChildren[ops[i]])
+          toRemove2.push_back(ssa2LLVMEdge(ops[i], v));
       }
     }
     for (ssa2SSAEdge e : toRemove1)
@@ -1439,15 +1365,14 @@ DepGraphDCF::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *>ops) {
   }
 
   // Remove other operands than op 0 from the graph
-  for (unsigned i=1; i<ops.size(); ++i) {
+  for (unsigned i = 1; i < ops.size(); ++i) {
     auto it2 = funcToSSANodesMap[F].find(ops[i]);
     assert(it2 != funcToSSANodesMap[F].end());
     funcToSSANodesMap[F].erase(it2);
   }
 }
 
-void
-DepGraphDCF::phiElimination() {
+void DepGraphDCF::phiElimination() {
   double t1 = gettime();
 
   // For each function, iterate through its basic block and try to eliminate phi
@@ -1459,37 +1384,37 @@ DepGraphDCF::phiElimination() {
       changed = false;
 
       for (const BasicBlock &BB : F) {
-	if (mssa->bbToPhiMap.find(&BB) == mssa->bbToPhiMap.end())
-	  continue;
+        if (mssa->bbToPhiMap.find(&BB) == mssa->bbToPhiMap.end())
+          continue;
 
-	for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
+        for (MSSAPhi *phi : mssa->bbToPhiMap[&BB]) {
 
-	  assert(funcToSSANodesMap.find(&F) != funcToSSANodesMap.end());
+          assert(funcToSSANodesMap.find(&F) != funcToSSANodesMap.end());
 
-	  // Has the phi node been removed already ?
-	  if (funcToSSANodesMap[&F].count(phi->var) == 0)
-	    continue;
+          // Has the phi node been removed already ?
+          if (funcToSSANodesMap[&F].count(phi->var) == 0)
+            continue;
 
-	  // For each phi we test if its operands (chi) are not PHI and
-	  // are equivalent
-	  vector<MSSAVar *> phiOperands;
-	  for (auto J : phi->opsVar)
-	    phiOperands.push_back(J.second);
+          // For each phi we test if its operands (chi) are not PHI and
+          // are equivalent
+          vector<MSSAVar *> phiOperands;
+          for (auto J : phi->opsVar)
+            phiOperands.push_back(J.second);
 
-	  bool canElim = true;
-	  for (unsigned i=0; i<phiOperands.size() - 1; i++) {
-	    if (!areSSANodesEquivalent(phiOperands[i], phiOperands[i+1])) {
-	      canElim = false;
-	      break;
-	    }
-	  }
-	  if (!canElim)
-	    continue;
+          bool canElim = true;
+          for (unsigned i = 0; i < phiOperands.size() - 1; i++) {
+            if (!areSSANodesEquivalent(phiOperands[i], phiOperands[i + 1])) {
+              canElim = false;
+              break;
+            }
+          }
+          if (!canElim)
+            continue;
 
-	  // PHI Node can be eliminated !
-	  changed = true;
-	  eliminatePhi(phi, phiOperands);
-	}
+          // PHI Node can be eliminated !
+          changed = true;
+          eliminatePhi(phi, phiOperands);
+        }
       }
     }
   }
@@ -1498,32 +1423,27 @@ DepGraphDCF::phiElimination() {
   phiElimTime += t2 - t1;
 }
 
-void
-DepGraphDCF::addEdge(const llvm::Value *s, const llvm::Value *d) {
+void DepGraphDCF::addEdge(const llvm::Value *s, const llvm::Value *d) {
   llvmToLLVMChildren[s].insert(d);
   llvmToLLVMParents[d].insert(s);
 }
 
-void
-DepGraphDCF::addEdge(const llvm::Value *s, MSSAVar *d) {
+void DepGraphDCF::addEdge(const llvm::Value *s, MSSAVar *d) {
   llvmToSSAChildren[s].insert(d);
   ssaToLLVMParents[d].insert(s);
 }
 
-void
-DepGraphDCF::addEdge(MSSAVar *s, const llvm::Value *d) {
+void DepGraphDCF::addEdge(MSSAVar *s, const llvm::Value *d) {
   ssaToLLVMChildren[s].insert(d);
   llvmToSSAParents[d].insert(s);
 }
 
-void
-DepGraphDCF::addEdge(MSSAVar *s, MSSAVar *d) {
+void DepGraphDCF::addEdge(MSSAVar *s, MSSAVar *d) {
   ssaToSSAChildren[s].insert(d);
   ssaToSSAParents[d].insert(s);
 }
 
-void
-DepGraphDCF::removeEdge(const llvm::Value *s, const llvm::Value *d) {
+void DepGraphDCF::removeEdge(const llvm::Value *s, const llvm::Value *d) {
   int n;
   n = llvmToLLVMChildren[s].erase(d);
   assert(n == 1);
@@ -1531,8 +1451,7 @@ DepGraphDCF::removeEdge(const llvm::Value *s, const llvm::Value *d) {
   assert(n == 1);
 }
 
-void
-DepGraphDCF::removeEdge(const llvm::Value *s, MSSAVar *d) {
+void DepGraphDCF::removeEdge(const llvm::Value *s, MSSAVar *d) {
   int n;
   n = llvmToSSAChildren[s].erase(d);
   assert(n == 1);
@@ -1540,8 +1459,7 @@ DepGraphDCF::removeEdge(const llvm::Value *s, MSSAVar *d) {
   assert(n == 1);
 }
 
-void
-DepGraphDCF::removeEdge(MSSAVar *s, const llvm::Value *d) {
+void DepGraphDCF::removeEdge(MSSAVar *s, const llvm::Value *d) {
   int n;
   n = ssaToLLVMChildren[s].erase(d);
   assert(n == 1);
@@ -1549,8 +1467,7 @@ DepGraphDCF::removeEdge(MSSAVar *s, const llvm::Value *d) {
   assert(n == 1);
 }
 
-void
-DepGraphDCF::removeEdge(MSSAVar *s, MSSAVar *d) {
+void DepGraphDCF::removeEdge(MSSAVar *s, MSSAVar *d) {
   int n;
   n = ssaToSSAChildren[s].erase(d);
   assert(n == 1);
@@ -1558,17 +1475,16 @@ DepGraphDCF::removeEdge(MSSAVar *s, MSSAVar *d) {
   assert(n == 1);
 }
 
-void
-DepGraphDCF::dotTaintPath(const Value *v, string filename,
-		       const Instruction *collective) {
+void DepGraphDCF::dotTaintPath(const Value *v, string filename,
+                               const Instruction *collective) {
   errs() << "Writing '" << filename << "' ...\n";
 
   // Parcours en largeur
   unsigned curDist = 0;
   unsigned curSize = 128;
-  std::vector<std::set<const Value *> > visitedLLVMNodesByDist;
+  std::vector<std::set<const Value *>> visitedLLVMNodesByDist;
   std::set<const Value *> visitedLLVMNodes;
-  std::vector<std::set<MSSAVar *> > visitedSSANodesByDist;
+  std::vector<std::set<MSSAVar *>> visitedSSANodesByDist;
   std::set<MSSAVar *> visitedSSANodes;
 
   visitedSSANodesByDist.resize(curSize);
@@ -1601,7 +1517,7 @@ DepGraphDCF::dotTaintPath(const Value *v, string filename,
 
   while (true) {
     if (curDist >= curSize) {
-      curSize *=2;
+      curSize *= 2;
       visitedLLVMNodesByDist.resize(curSize);
       visitedSSANodesByDist.resize(curSize);
     }
@@ -1609,32 +1525,32 @@ DepGraphDCF::dotTaintPath(const Value *v, string filename,
     // Visit parents of llvm values
     for (const Value *v : visitedLLVMNodesByDist[curDist]) {
       if (valueSources.find(v) != valueSources.end()) {
-	llvmRoot = v;
-	visitedLLVMNodes.insert(v);
-	errs() << "found a path of size " << curDist << "\n";
-	stop = true;
-	break;
+        llvmRoot = v;
+        visitedLLVMNodes.insert(v);
+        errs() << "found a path of size " << curDist << "\n";
+        stop = true;
+        break;
       }
 
       visitedLLVMNodes.insert(v);
 
       for (const Value *p : llvmToLLVMParents[v]) {
-	if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
-	  continue;
+        if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
+          continue;
 
-	if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
-	  continue;
+        if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
+          continue;
 
-	visitedLLVMNodesByDist[curDist+1].insert(p);
+        visitedLLVMNodesByDist[curDist + 1].insert(p);
       }
       for (MSSAVar *p : llvmToSSAParents[v]) {
-	if (visitedSSANodes.find(p) != visitedSSANodes.end())
-	  continue;
+        if (visitedSSANodes.find(p) != visitedSSANodes.end())
+          continue;
 
-	if (taintedSSANodes.find(p) == taintedSSANodes.end())
-	  continue;
+        if (taintedSSANodes.find(p) == taintedSSANodes.end())
+          continue;
 
-	visitedSSANodesByDist[curDist+1].insert(p);
+        visitedSSANodesByDist[curDist + 1].insert(p);
       }
     }
 
@@ -1644,36 +1560,36 @@ DepGraphDCF::dotTaintPath(const Value *v, string filename,
     // Visit parents of ssa variables
     for (MSSAVar *v : visitedSSANodesByDist[curDist]) {
       if (ssaSources.find(v) != ssaSources.end()) {
-	ssaRoot = v;
-	visitedSSANodes.insert(v);
-	errs() << "found a path of size " << curDist << "\n";
-	stop = true;
-	break;
+        ssaRoot = v;
+        visitedSSANodes.insert(v);
+        errs() << "found a path of size " << curDist << "\n";
+        stop = true;
+        break;
       }
 
       visitedSSANodes.insert(v);
 
       for (const Value *p : ssaToLLVMParents[v]) {
-	if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
-	  continue;
+        if (visitedLLVMNodes.find(p) != visitedLLVMNodes.end())
+          continue;
 
-	if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
-	  continue;
+        if (taintedLLVMNodes.find(p) == taintedLLVMNodes.end())
+          continue;
 
-	visitedLLVMNodesByDist[curDist+1].insert(p);
+        visitedLLVMNodesByDist[curDist + 1].insert(p);
       }
       for (MSSAVar *p : ssaToSSAParents[v]) {
-	if (visitedSSANodes.find(p) != visitedSSANodes.end())
-	  continue;
+        if (visitedSSANodes.find(p) != visitedSSANodes.end())
+          continue;
 
-	if (taintedSSANodes.find(p) == taintedSSANodes.end())
-	  continue;
+        if (taintedSSANodes.find(p) == taintedSSANodes.end())
+          continue;
 
-	visitedSSANodesByDist[curDist+1].insert(p);
+        visitedSSANodesByDist[curDist + 1].insert(p);
       }
 
       if (stop)
-	break;
+        break;
     }
 
     if (stop)
@@ -1725,41 +1641,41 @@ DepGraphDCF::dotTaintPath(const Value *v, string filename,
   bool lastIsVar = lastVar != NULL;
 
   // Compute edges of the shortest path to strStream
-  for (unsigned i=curDist-1; i>0; i--) {
+  for (unsigned i = curDist - 1; i > 0; i--) {
     bool found = false;
     if (lastIsVar) {
       for (MSSAVar *v : visitedSSANodesByDist[i]) {
-	if (ssaToSSAParents[v].find(lastVar) == ssaToSSAParents[v].end())
-	  continue;
+        if (ssaToSSAParents[v].find(lastVar) == ssaToSSAParents[v].end())
+          continue;
 
-	visitedSSANodes.insert(v);
-	strStream << "Node" << ((void *) lastVar) << " -> "
-		  << "Node" << ((void *) v) << "\n";
-	lastVar = v;
-	found = true;
-	debugMsgs.push_back(getStringMsg(v));
-	if (getDGDebugLoc(v, DL))
-	  debugLocs.push_back(DL);
-	break;
+        visitedSSANodes.insert(v);
+        strStream << "Node" << ((void *)lastVar) << " -> "
+                  << "Node" << ((void *)v) << "\n";
+        lastVar = v;
+        found = true;
+        debugMsgs.push_back(getStringMsg(v));
+        if (getDGDebugLoc(v, DL))
+          debugLocs.push_back(DL);
+        break;
       }
 
       if (found)
-	continue;
+        continue;
 
       for (const Value *v : visitedLLVMNodesByDist[i]) {
-	if (llvmToSSAParents[v].find(lastVar) == llvmToSSAParents[v].end())
-	  continue;
+        if (llvmToSSAParents[v].find(lastVar) == llvmToSSAParents[v].end())
+          continue;
 
-	visitedLLVMNodes.insert(v);
-	strStream << "Node" << ((void *) lastVar) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastValue = v;
-	lastIsVar = false;
-	found = true;
-	debugMsgs.push_back(getStringMsg(v));
-	if (getDGDebugLoc(v, DL))
-	  debugLocs.push_back(DL);
-	break;
+        visitedLLVMNodes.insert(v);
+        strStream << "Node" << ((void *)lastVar) << " -> "
+                  << "Node" << ((void *)v) << "\n";
+        lastValue = v;
+        lastIsVar = false;
+        found = true;
+        debugMsgs.push_back(getStringMsg(v));
+        if (getDGDebugLoc(v, DL))
+          debugLocs.push_back(DL);
+        break;
       }
 
       assert(found);
@@ -1768,38 +1684,38 @@ DepGraphDCF::dotTaintPath(const Value *v, string filename,
     // Last visited is a value
     else {
       for (MSSAVar *v : visitedSSANodesByDist[i]) {
-	if (ssaToLLVMParents[v].find(lastValue) == ssaToLLVMParents[v].end())
-	  continue;
+        if (ssaToLLVMParents[v].find(lastValue) == ssaToLLVMParents[v].end())
+          continue;
 
-	visitedSSANodes.insert(v);
-	strStream << "Node" << ((void *) lastValue) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastVar = v;
-	lastIsVar = true;
-	found = true;
-	debugMsgs.push_back(getStringMsg(v));
-	if (getDGDebugLoc(v, DL))
-	  debugLocs.push_back(DL);
-	break;
+        visitedSSANodes.insert(v);
+        strStream << "Node" << ((void *)lastValue) << " -> "
+                  << "Node" << ((void *)v) << "\n";
+        lastVar = v;
+        lastIsVar = true;
+        found = true;
+        debugMsgs.push_back(getStringMsg(v));
+        if (getDGDebugLoc(v, DL))
+          debugLocs.push_back(DL);
+        break;
       }
 
       if (found)
-	continue;
+        continue;
 
       for (const Value *v : visitedLLVMNodesByDist[i]) {
-	if (llvmToLLVMParents[v].find(lastValue) == llvmToLLVMParents[v].end())
-	  continue;
+        if (llvmToLLVMParents[v].find(lastValue) == llvmToLLVMParents[v].end())
+          continue;
 
-	visitedLLVMNodes.insert(v);
-	strStream << "Node" << ((void *) lastValue) << " -> "
-	       << "Node" << ((void *) v) << "\n";
-	lastValue = v;
-	lastIsVar = false;
-	found = true;
-	debugMsgs.push_back(getStringMsg(v));
-	if (getDGDebugLoc(v, DL))
-	  debugLocs.push_back(DL);
-	break;
+        visitedLLVMNodes.insert(v);
+        strStream << "Node" << ((void *)lastValue) << " -> "
+                  << "Node" << ((void *)v) << "\n";
+        lastValue = v;
+        lastIsVar = false;
+        found = true;
+        debugMsgs.push_back(getStringMsg(v));
+        if (getDGDebugLoc(v, DL))
+          debugLocs.push_back(DL);
+        break;
       }
 
       assert(found);
@@ -1811,41 +1727,38 @@ DepGraphDCF::dotTaintPath(const Value *v, string filename,
   for (auto I : funcToLLVMNodesMap) {
     for (const Value *v : I.second) {
       if (visitedLLVMNodes.find(v) != visitedLLVMNodes.end())
-	visitedFunctions.insert(I.first);
+        visitedFunctions.insert(I.first);
     }
   }
 
   for (auto I : funcToSSANodesMap) {
     for (MSSAVar *v : I.second) {
       if (visitedSSANodes.find(v) != visitedSSANodes.end())
-	visitedFunctions.insert(I.first);
+        visitedFunctions.insert(I.first);
     }
   }
 
   // Dot visited functions and nodes
   for (const Function *F : visitedFunctions) {
-    stream << "\tsubgraph cluster_" << ((void *) F) << " {\n";
+    stream << "\tsubgraph cluster_" << ((void *)F) << " {\n";
     stream << "style=filled;\ncolor=lightgrey;\n";
     stream << "label=< <B>" << F->getName() << "</B> >;\n";
     stream << "node [style=filled,color=white];\n";
 
     for (const Value *v : visitedLLVMNodes) {
       if (funcToLLVMNodesMap[F].find(v) == funcToLLVMNodesMap[F].end())
-	continue;
+        continue;
 
-      stream << "Node" << ((void *) v) << " [label=\""
-	     << getValueLabel(v) << "\" "
-	     << getNodeStyle(v) << "];\n";
+      stream << "Node" << ((void *)v) << " [label=\"" << getValueLabel(v)
+             << "\" " << getNodeStyle(v) << "];\n";
     }
 
     for (MSSAVar *v : visitedSSANodes) {
       if (funcToSSANodesMap[F].find(v) == funcToSSANodesMap[F].end())
-	continue;
+        continue;
 
-      stream << "Node" << ((void *) v) << " [label=\""
-	     << v->getName()
-	     <<  "\" shape=diamond "
-	     << getNodeStyle(v) << "];\n";
+      stream << "Node" << ((void *)v) << " [label=\"" << v->getName()
+             << "\" shape=diamond " << getNodeStyle(v) << "];\n";
     }
 
     stream << "}\n";
@@ -1856,9 +1769,8 @@ DepGraphDCF::dotTaintPath(const Value *v, string filename,
 
   stream << "}\n";
 
-  for (unsigned i=0; i<debugMsgs.size(); i++)
+  for (unsigned i = 0; i < debugMsgs.size(); i++)
     stream << debugMsgs[i];
-
 
   // Write trace
   string trace;
@@ -1870,9 +1782,7 @@ DepGraphDCF::dotTaintPath(const Value *v, string filename,
   }
 }
 
-
-string
-DepGraphDCF::getStringMsg(const Value *v) {
+string DepGraphDCF::getStringMsg(const Value *v) {
   string msg;
   msg.append("# ");
   msg.append(getValueLabel(v));
@@ -1901,8 +1811,7 @@ DepGraphDCF::getStringMsg(const Value *v) {
   return msg;
 }
 
-string
-DepGraphDCF::getStringMsg(MSSAVar *v) {
+string DepGraphDCF::getStringMsg(MSSAVar *v) {
   string msg;
   msg.append("# ");
   msg.append(v->getName());
@@ -1958,8 +1867,7 @@ DepGraphDCF::getStringMsg(MSSAVar *v) {
   return msg;
 }
 
-bool
-DepGraphDCF::getDGDebugLoc(const Value *v, DGDebugLoc &DL) {
+bool DepGraphDCF::getDGDebugLoc(const Value *v, DGDebugLoc &DL) {
   DL.F = NULL;
   DL.line = -1;
   DL.filename = "unknown";
@@ -1982,8 +1890,7 @@ DepGraphDCF::getDGDebugLoc(const Value *v, DGDebugLoc &DL) {
   return DL.F != NULL;
 }
 
-bool
-DepGraphDCF::getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL) {
+bool DepGraphDCF::getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL) {
   DL.F = NULL;
   DL.line = -1;
   DL.filename = "unknown";
@@ -2032,19 +1939,18 @@ DepGraphDCF::getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL) {
   return DL.F != NULL;
 }
 
-static bool getStrLine(ifstream &file, int line, string &str)  {
-    // go to line
-    file.seekg(std::ios::beg);
-    for (int i=0; i < line-1; ++i)
-      file.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+static bool getStrLine(ifstream &file, int line, string &str) {
+  // go to line
+  file.seekg(std::ios::beg);
+  for (int i = 0; i < line - 1; ++i)
+    file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    getline(file, str);
+  getline(file, str);
 
-    return true;
+  return true;
 }
 
-void
-DepGraphDCF::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
+void DepGraphDCF::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
   vector<DGDebugLoc> sameFuncDL;
   vector<DGDebugLoc> res;
 
@@ -2060,9 +1966,9 @@ DepGraphDCF::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
     // new function or end
     if (DL.F != prev || DLs.empty()) {
       if (!DLs.empty())
-	DLs.insert(DLs.begin(), DL);
+        DLs.insert(DLs.begin(), DL);
       else
-	sameFuncDL.push_back(DL);
+        sameFuncDL.push_back(DL);
 
       prev = DL.F;
 
@@ -2071,14 +1977,14 @@ DepGraphDCF::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
 
       // remove duplicates
       int line_prev = -1;
-      for (unsigned i=0; i<sameFuncDL.size(); ++i) {
-	if (sameFuncDL[i].line == line_prev) {
-	  line_prev = sameFuncDL[i].line;
-	  sameFuncDL.erase(sameFuncDL.begin() + i);
-	  i--;
-	} else {
-	  line_prev = sameFuncDL[i].line;
-	}
+      for (unsigned i = 0; i < sameFuncDL.size(); ++i) {
+        if (sameFuncDL[i].line == line_prev) {
+          line_prev = sameFuncDL[i].line;
+          sameFuncDL.erase(sameFuncDL.begin() + i);
+          i--;
+        } else {
+          line_prev = sameFuncDL[i].line;
+        }
       }
 
       // append to res
@@ -2093,9 +1999,8 @@ DepGraphDCF::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
   DLs.insert(DLs.begin(), res.begin(), res.end());
 }
 
-bool
-DepGraphDCF::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
-			const Instruction *collective) {
+bool DepGraphDCF::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
+                                const Instruction *collective) {
   DGDebugLoc collectiveLoc;
   if (getDGDebugLoc(collective, collectiveLoc))
     DLs.push_back(collectiveLoc);
@@ -2105,7 +2010,7 @@ DepGraphDCF::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
 
   reorderAndRemoveDup(DLs);
 
-  for (unsigned i=0; i<DLs.size(); ++i) {
+  for (unsigned i = 0; i < DLs.size(); ++i) {
     string strline;
     const Function *F = DLs[i].F;
     if (!F)
@@ -2117,20 +2022,18 @@ DepGraphDCF::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
       prevFunc = F;
       DISubprogram *DI = F->getSubprogram();
       if (!DI)
-	return false;
+        return false;
 
       string filename = DI->getFilename();
       string dir = DI->getDirectory();
       string path = dir + "/" + filename;
       int line = DI->getLine();
 
-
       file.open(path, ios::in);
       if (!file.good()) {
-	errs() << "error opening file: " << path << "\n";
-	return false;
+        errs() << "error opening file: " << path << "\n";
+        return false;
       }
-
 
       getStrLine(file, line, strline);
       trace.append("\n" + filename + "\n");
@@ -2147,8 +2050,7 @@ DepGraphDCF::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
   return true;
 }
 
-void
-DepGraphDCF::floodFunction(const Function *F) {
+void DepGraphDCF::floodFunction(const Function *F) {
   std::queue<MSSAVar *> varToVisit;
   std::queue<const Value *> valueToVisit;
 
@@ -2158,7 +2060,7 @@ DepGraphDCF::floodFunction(const Function *F) {
       continue;
 
     if (funcToSSANodesMap[F].find(const_cast<MSSAVar *>(s)) !=
-  	funcToSSANodesMap[F].end())
+        funcToSSANodesMap[F].end())
       taintedSSANodes.insert(s);
   }
 
@@ -2173,17 +2075,16 @@ DepGraphDCF::floodFunction(const Function *F) {
   // 2) Add tainted variables of the function to the queue.
   if (funcToSSANodesMap.find(F) != funcToSSANodesMap.end()) {
     for (MSSAVar *v : funcToSSANodesMap[F]) {
-      if (taintedSSANodes.find(v) != taintedSSANodes.end()){
-				varToVisit.push(v);
-			}
+      if (taintedSSANodes.find(v) != taintedSSANodes.end()) {
+        varToVisit.push(v);
+      }
     }
   }
   if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
     for (const Value *v : funcToLLVMNodesMap[F]) {
-      if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()){
-					valueToVisit.push(v);
-					
-			}
+      if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
+        valueToVisit.push(v);
+      }
     }
   }
 
@@ -2194,34 +2095,34 @@ DepGraphDCF::floodFunction(const Function *F) {
       varToVisit.pop();
 
       if (taintResetSSANodes.find(s) != taintResetSSANodes.end())
-	continue;
+        continue;
 
       if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
-	for (MSSAVar *d : ssaToSSAChildren[s]) {
-	  if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
-	    continue;
+        for (MSSAVar *d : ssaToSSAChildren[s]) {
+          if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
+            continue;
 
-	  if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
-	    continue;
-	  if (taintedSSANodes.count(d) != 0)
-	    continue;
+          if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
+            continue;
+          if (taintedSSANodes.count(d) != 0)
+            continue;
 
-	  taintedSSANodes.insert(d);
-	  varToVisit.push(d);
-	}
+          taintedSSANodes.insert(d);
+          varToVisit.push(d);
+        }
       }
 
       if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
-	for (const Value *d : ssaToLLVMChildren[s]) {
-	  if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
-	    continue;
+        for (const Value *d : ssaToLLVMChildren[s]) {
+          if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
+            continue;
 
-	  if (taintedLLVMNodes.count(d) != 0)
-	    continue;
+          if (taintedLLVMNodes.count(d) != 0)
+            continue;
 
-	  taintedLLVMNodes.insert(d);
-	  valueToVisit.push(d);
-	}
+          taintedLLVMNodes.insert(d);
+          valueToVisit.push(d);
+        }
       }
     }
 
@@ -2230,88 +2131,88 @@ DepGraphDCF::floodFunction(const Function *F) {
       valueToVisit.pop();
 
       if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
-	for (const Value *d : llvmToLLVMChildren[s]) {
-	  if (funcToLLVMNodesMap.find(F) == funcToLLVMNodesMap.end())
-	    continue;
+        for (const Value *d : llvmToLLVMChildren[s]) {
+          if (funcToLLVMNodesMap.find(F) == funcToLLVMNodesMap.end())
+            continue;
 
-	  if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
-	    continue;
+          if (funcToLLVMNodesMap[F].find(d) == funcToLLVMNodesMap[F].end())
+            continue;
 
-	  if (taintedLLVMNodes.count(d) != 0)
-	    continue;
+          if (taintedLLVMNodes.count(d) != 0)
+            continue;
 
-	  taintedLLVMNodes.insert(d);
-	  valueToVisit.push(d);
-	}
+          taintedLLVMNodes.insert(d);
+          valueToVisit.push(d);
+        }
       }
 
       if (llvmToSSAChildren.find(s) != llvmToSSAChildren.end()) {
-	for (MSSAVar *d : llvmToSSAChildren[s]) {
-	  if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
-	    continue;
-	  if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
-	    continue;
+        for (MSSAVar *d : llvmToSSAChildren[s]) {
+          if (funcToSSANodesMap.find(F) == funcToSSANodesMap.end())
+            continue;
+          if (funcToSSANodesMap[F].find(d) == funcToSSANodesMap[F].end())
+            continue;
 
-	  if (taintedSSANodes.count(d) != 0)
-	    continue;
-	  taintedSSANodes.insert(d);
-	  varToVisit.push(d);
-	}
+          if (taintedSSANodes.count(d) != 0)
+            continue;
+          taintedSSANodes.insert(d);
+          varToVisit.push(d);
+        }
       }
     }
   }
 }
 
-void
-DepGraphDCF::floodFunctionFromFunction(const Function *to, const Function *from) {
+void DepGraphDCF::floodFunctionFromFunction(const Function *to,
+                                            const Function *from) {
   if (funcToSSANodesMap.find(from) != funcToSSANodesMap.end()) {
     for (MSSAVar *s : funcToSSANodesMap[from]) {
       if (taintedSSANodes.find(s) == taintedSSANodes.end())
-	continue;
+        continue;
       if (taintResetSSANodes.find(s) != taintResetSSANodes.end()) {
-	if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
-	  for (MSSAVar *d : ssaToSSAChildren[s]) {
-	    if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
-	      continue;
-	    if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
-	      continue;
-	    taintedSSANodes.erase(d);
-	  }
-	}
+        if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
+          for (MSSAVar *d : ssaToSSAChildren[s]) {
+            if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
+              continue;
+            if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+              continue;
+            taintedSSANodes.erase(d);
+          }
+        }
 
-	if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
-	  for (const Value *d : ssaToLLVMChildren[s]) {
-	    if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
-	      continue;
+        if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
+          for (const Value *d : ssaToLLVMChildren[s]) {
+            if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
+              continue;
 
-	    if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
-	      continue;
-	    taintedLLVMNodes.erase(d);
-	  }
-	}
+            if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+              continue;
+            taintedLLVMNodes.erase(d);
+          }
+        }
 
-	continue;
+        continue;
       }
 
       if (ssaToSSAChildren.find(s) != ssaToSSAChildren.end()) {
-	for (MSSAVar *d : ssaToSSAChildren[s]) {
-	  if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
-	    continue;
-	  if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
-	    continue;
-	  taintedSSANodes.insert(d);
-	}
+        for (MSSAVar *d : ssaToSSAChildren[s]) {
+          if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
+            continue;
+          if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+            continue;
+          taintedSSANodes.insert(d);
+        }
       }
 
       if (ssaToLLVMChildren.find(s) != ssaToLLVMChildren.end()) {
-	for (const Value *d : ssaToLLVMChildren[s]) {
-	  if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
-	    continue;
+        for (const Value *d : ssaToLLVMChildren[s]) {
+          if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
+            continue;
 
-	  if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
-	    continue;
-	  taintedLLVMNodes.insert(d);
-	}
+          if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+            continue;
+          taintedLLVMNodes.insert(d);
+        }
       }
     }
   }
@@ -2319,39 +2220,38 @@ DepGraphDCF::floodFunctionFromFunction(const Function *to, const Function *from)
   if (funcToLLVMNodesMap.find(from) != funcToLLVMNodesMap.end()) {
     for (const Value *s : funcToLLVMNodesMap[from]) {
       if (taintedLLVMNodes.find(s) == taintedLLVMNodes.end())
-	continue;
+        continue;
 
       if (llvmToSSAChildren.find(s) != llvmToSSAChildren.end()) {
-	for (MSSAVar *d : llvmToSSAChildren[s]) {
-	  if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
-	    continue;
-	  if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
-	    continue;
-	  taintedSSANodes.insert(d);
-	}
+        for (MSSAVar *d : llvmToSSAChildren[s]) {
+          if (funcToSSANodesMap.find(to) == funcToSSANodesMap.end())
+            continue;
+          if (funcToSSANodesMap[to].find(d) == funcToSSANodesMap[to].end())
+            continue;
+          taintedSSANodes.insert(d);
+        }
       }
 
       if (llvmToLLVMChildren.find(s) != llvmToLLVMChildren.end()) {
-	for (const Value *d : llvmToLLVMChildren[s]) {
-	  if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
-	    continue;
-	  if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
-	    continue;
-	  taintedLLVMNodes.insert(d);
-	}
+        for (const Value *d : llvmToLLVMChildren[s]) {
+          if (funcToLLVMNodesMap.find(to) == funcToLLVMNodesMap.end())
+            continue;
+          if (funcToLLVMNodesMap[to].find(d) == funcToLLVMNodesMap[to].end())
+            continue;
+          taintedLLVMNodes.insert(d);
+        }
       }
     }
   }
 }
 
-void
-DepGraphDCF::resetFunctionTaint(const Function *F) {
+void DepGraphDCF::resetFunctionTaint(const Function *F) {
   assert(CG->isReachableFromEntry(F));
   // assert(funcToSSANodesMap.find(F) != funcToSSANodesMap.end());
   if (funcToSSANodesMap.find(F) != funcToSSANodesMap.end()) {
-    for (MSSAVar *v: funcToSSANodesMap[F]) {
+    for (MSSAVar *v : funcToSSANodesMap[F]) {
       if (taintedSSANodes.find(v) != taintedSSANodes.end()) {
-	taintedSSANodes.erase(v);
+        taintedSSANodes.erase(v);
       }
     }
   }
@@ -2359,35 +2259,33 @@ DepGraphDCF::resetFunctionTaint(const Function *F) {
   if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
     for (const Value *v : funcToLLVMNodesMap[F]) {
       if (funcToLLVMNodesMap.find(F) != funcToLLVMNodesMap.end()) {
-	taintedLLVMNodes.erase(v);
+        taintedLLVMNodes.erase(v);
       }
     }
   }
 }
 
-void
-DepGraphDCF::computeFunctionCSTaintedConds(const llvm::Function *F) {
+void DepGraphDCF::computeFunctionCSTaintedConds(const llvm::Function *F) {
   for (const BasicBlock &BB : *F) {
     for (const Instruction &I : BB) {
       if (!isa<CallInst>(I))
-  	continue;
+        continue;
 
       if (callsiteToConds.find(cast<Value>(&I)) != callsiteToConds.end()) {
-	for (const Value *v : callsiteToConds[cast<Value>(&I)]) {
-	  if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
-				//EMMA : if(v->getName() != "cmp1" && v->getName() != "cmp302"){
-	    		taintedConditions.insert(v);
-					//errs() << "EMMA: value tainted: " << v->getName() << "\n";
-				//}
-	  }
-	}
+        for (const Value *v : callsiteToConds[cast<Value>(&I)]) {
+          if (taintedLLVMNodes.find(v) != taintedLLVMNodes.end()) {
+            // EMMA : if(v->getName() != "cmp1" && v->getName() != "cmp302"){
+            taintedConditions.insert(v);
+            // errs() << "EMMA: value tainted: " << v->getName() << "\n";
+            //}
+          }
+        }
       }
     }
   }
 }
 
-void
-DepGraphDCF::computeTaintedValuesContextSensitive() {
+void DepGraphDCF::computeTaintedValuesContextSensitive() {
   unsigned funcToLLVMNodesMapSize = funcToLLVMNodesMap.size();
   unsigned funcToSSANodesMapSize = funcToSSANodesMap.size();
   unsigned varArgNodeSize = varArgNodes.size();
@@ -2433,11 +2331,10 @@ DepGraphDCF::computeTaintedValuesContextSensitive() {
   assert(callsiteToCondsSize == callsiteToConds.size());
 }
 
-void
-DepGraphDCF::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
- vector<PTACallGraphNode *> S;
+void DepGraphDCF::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
+  vector<PTACallGraphNode *> S;
 
-  map<PTACallGraphNode *, set<PTACallGraphNode *> > node2VisitedChildrenMap;
+  map<PTACallGraphNode *, set<PTACallGraphNode *>> node2VisitedChildrenMap;
   S.push_back(entry);
 
   bool goingDown = true;
@@ -2447,48 +2344,50 @@ DepGraphDCF::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
     PTACallGraphNode *N = S.back();
     bool foundChildren = false;
 
-//    if (N->getFunction())
-//      errs() << "current =" << N->getFunction()->getName() << "\n";
+    //    if (N->getFunction())
+    //      errs() << "current =" << N->getFunction()->getName() << "\n";
 
-/*    if (goingDown)
-      errs() << "down\n";
-    else
-      errs() << "up\n";
-*/
+    /*    if (goingDown)
+          errs() << "down\n";
+        else
+          errs() << "up\n";
+    */
     if (prev) {
       if (goingDown) {
-	//errs() << "tainting " << N->getFunction()->getName() << " from "
-	      // << prev->getName() << "\n";
-	floodFunctionFromFunction(N->getFunction(), prev);
+        // errs() << "tainting " << N->getFunction()->getName() << " from "
+        // << prev->getName() << "\n";
+        floodFunctionFromFunction(N->getFunction(), prev);
 
-	//errs() << "tainting " << N->getFunction()->getName() << "\n";
-	floodFunction(N->getFunction());
+        // errs() << "tainting " << N->getFunction()->getName() << "\n";
+        floodFunction(N->getFunction());
 
-	//errs() << "for each call site get PDF+ and save tainted conditions\n";
-	computeFunctionCSTaintedConds(N->getFunction());
+        // errs() << "for each call site get PDF+ and save tainted
+        // conditions\n";
+        computeFunctionCSTaintedConds(N->getFunction());
       } else {
-	//errs() << "tainting " << N->getFunction()->getName() << " from "
-	    //   << prev->getName() << "\n";
-	floodFunctionFromFunction(N->getFunction(), prev);
+        // errs() << "tainting " << N->getFunction()->getName() << " from "
+        //   << prev->getName() << "\n";
+        floodFunctionFromFunction(N->getFunction(), prev);
 
-	//errs() << "tainting " << N->getFunction()->getName() << "\n";
-	floodFunction(N->getFunction());
+        // errs() << "tainting " << N->getFunction()->getName() << "\n";
+        floodFunction(N->getFunction());
 
-	//errs() << "for each call site get PDF+ and save tainted conditions\n";
-	computeFunctionCSTaintedConds(N->getFunction());
+        // errs() << "for each call site get PDF+ and save tainted
+        // conditions\n";
+        computeFunctionCSTaintedConds(N->getFunction());
 
-	//errs() << "untainting " << prev->getName() << "\n";
-	resetFunctionTaint(prev);
+        // errs() << "untainting " << prev->getName() << "\n";
+        resetFunctionTaint(prev);
       }
     } else {
-      //errs() << "tainting " << N->getFunction()->getName() << "\n";
+      // errs() << "tainting " << N->getFunction()->getName() << "\n";
       floodFunction(N->getFunction());
 
       errs() << "for each call site get PDF+ and save tainted conditions\n";
-      	computeFunctionCSTaintedConds(N->getFunction());
+      computeFunctionCSTaintedConds(N->getFunction());
     }
 
-    //errs() << "stack : ";
+    // errs() << "stack : ";
     /*for (PTACallGraphNode *node : S)
       errs() << node->getFunction()->getName() << " ";
     errs() << "\n";
@@ -2498,13 +2397,13 @@ DepGraphDCF::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
     for (auto I = N->begin(), E = N->end(); I != E; ++I) {
       PTACallGraphNode *calleeNode = I->second;
       if (node2VisitedChildrenMap[N].find(calleeNode) ==
-	  node2VisitedChildrenMap[N].end()) {
-	foundChildren = true;
-	node2VisitedChildrenMap[N].insert(calleeNode);
-	if (calleeNode->getFunction()) {
-	  S.push_back(calleeNode);
-	  break;
-	}
+          node2VisitedChildrenMap[N].end()) {
+        foundChildren = true;
+        node2VisitedChildrenMap[N].insert(calleeNode);
+        if (calleeNode->getFunction()) {
+          S.push_back(calleeNode);
+          break;
+        }
       }
     }
 

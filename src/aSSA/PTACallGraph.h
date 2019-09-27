@@ -13,7 +13,6 @@
 #include <map>
 #include <set>
 
-
 class PTACallGraphNode;
 
 class PTACallGraph {
@@ -21,7 +20,7 @@ class PTACallGraph {
   Andersen *AA;
 
   typedef std::map<const llvm::Function *, std::unique_ptr<PTACallGraphNode>>
-  FunctionMapTy;
+      FunctionMapTy;
 
   /// \brief A map from \c Function* to \c CallGraphNode*.
   FunctionMapTy FunctionMap;
@@ -49,12 +48,10 @@ public:
   explicit PTACallGraph(llvm::Module &M, Andersen *AA);
   ~PTACallGraph();
 
-  PTACallGraphNode *getEntry() const {
-    return Root;
-  }
+  PTACallGraphNode *getEntry() const { return Root; }
 
-  std::map<const llvm::Instruction *, std::set<const llvm::Function *> >
-  indirectCallMap;
+  std::map<const llvm::Instruction *, std::set<const llvm::Function *>>
+      indirectCallMap;
 
   typedef FunctionMapTy::iterator iterator;
   typedef FunctionMapTy::const_iterator const_iterator;
@@ -83,7 +80,9 @@ public:
 
   /// \brief Returns the \c CallGraphNode which is used to represent
   /// undetermined calls into the callgraph.
-  PTACallGraphNode *getExternalCallingNode() const { return ExternalCallingNode; }
+  PTACallGraphNode *getExternalCallingNode() const {
+    return ExternalCallingNode;
+  }
 
   PTACallGraphNode *getCallsExternalNode() const {
     return CallsExternalNode.get();
@@ -149,104 +148,105 @@ private:
 
 namespace llvm {
 
-  template <> struct GraphTraits<PTACallGraphNode *> {
-    typedef PTACallGraphNode NodeType;
-    typedef PTACallGraphNode *NodeRef;
+template <> struct GraphTraits<PTACallGraphNode *> {
+  typedef PTACallGraphNode NodeType;
+  typedef PTACallGraphNode *NodeRef;
 
-    typedef PTACallGraphNode::CallRecord CGNPairTy;
-    typedef std::pointer_to_unary_function<CGNPairTy, PTACallGraphNode *>
-    CGNDerefFun;
+  typedef PTACallGraphNode::CallRecord CGNPairTy;
+  typedef std::pointer_to_unary_function<CGNPairTy, PTACallGraphNode *>
+      CGNDerefFun;
 
-    static NodeType *getEntryNode(PTACallGraphNode *CGN) { return CGN; }
+  static NodeType *getEntryNode(PTACallGraphNode *CGN) { return CGN; }
 
-    typedef mapped_iterator<NodeType::iterator, CGNDerefFun> ChildIteratorType;
+  typedef mapped_iterator<NodeType::iterator, CGNDerefFun> ChildIteratorType;
 
-    static inline ChildIteratorType child_begin(NodeType *N) {
-      return map_iterator(N->begin(), CGNDerefFun(CGNDeref));
-    }
-    static inline ChildIteratorType child_end(NodeType *N) {
-      return map_iterator(N->end(), CGNDerefFun(CGNDeref));
-    }
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return map_iterator(N->begin(), CGNDerefFun(CGNDeref));
+  }
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return map_iterator(N->end(), CGNDerefFun(CGNDeref));
+  }
 
-    static PTACallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
-  };
+  static PTACallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
+};
 
-  template <> struct GraphTraits<const PTACallGraphNode *> {
-    typedef const PTACallGraphNode NodeType;
-    typedef const PTACallGraphNode *NodeRef;
+template <> struct GraphTraits<const PTACallGraphNode *> {
+  typedef const PTACallGraphNode NodeType;
+  typedef const PTACallGraphNode *NodeRef;
 
-    typedef PTACallGraphNode::CallRecord CGNPairTy;
-    typedef std::pointer_to_unary_function<CGNPairTy, const PTACallGraphNode *>
-    CGNDerefFun;
+  typedef PTACallGraphNode::CallRecord CGNPairTy;
+  typedef std::pointer_to_unary_function<CGNPairTy, const PTACallGraphNode *>
+      CGNDerefFun;
 
-    static NodeType *getEntryNode(const PTACallGraphNode *CGN) { return CGN; }
+  static NodeType *getEntryNode(const PTACallGraphNode *CGN) { return CGN; }
 
-    typedef mapped_iterator<NodeType::const_iterator, CGNDerefFun>
-    ChildIteratorType;
+  typedef mapped_iterator<NodeType::const_iterator, CGNDerefFun>
+      ChildIteratorType;
 
-    static inline ChildIteratorType child_begin(NodeType *N) {
-      return map_iterator(N->begin(), CGNDerefFun(CGNDeref));
-    }
-    static inline ChildIteratorType child_end(NodeType *N) {
-      return map_iterator(N->end(), CGNDerefFun(CGNDeref));
-    }
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return map_iterator(N->begin(), CGNDerefFun(CGNDeref));
+  }
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return map_iterator(N->end(), CGNDerefFun(CGNDeref));
+  }
 
-    static const PTACallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
-  };
+  static const PTACallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
+};
 
-  template <>
-  struct GraphTraits<PTACallGraph *> : public GraphTraits<PTACallGraphNode *> {
-    static NodeType *getEntryNode(PTACallGraph *CGN) {
-      return CGN->getExternalCallingNode(); // Start at the external node!
-    }
-    typedef std::pair<const Function *const, std::unique_ptr<PTACallGraphNode>>
-    PairTy;
-    typedef std::pointer_to_unary_function<const PairTy &, PTACallGraphNode &>
-    DerefFun;
+template <>
+struct GraphTraits<PTACallGraph *> : public GraphTraits<PTACallGraphNode *> {
+  static NodeType *getEntryNode(PTACallGraph *CGN) {
+    return CGN->getExternalCallingNode(); // Start at the external node!
+  }
+  typedef std::pair<const Function *const, std::unique_ptr<PTACallGraphNode>>
+      PairTy;
+  typedef std::pointer_to_unary_function<const PairTy &, PTACallGraphNode &>
+      DerefFun;
 
-    // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
-    typedef mapped_iterator<PTACallGraph::iterator, DerefFun> nodes_iterator;
-    static nodes_iterator nodes_begin(PTACallGraph *CG) {
-      return map_iterator(CG->begin(), DerefFun(CGdereference));
-    }
-    static nodes_iterator nodes_end(PTACallGraph *CG) {
-      return map_iterator(CG->end(), DerefFun(CGdereference));
-    }
+  // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
+  typedef mapped_iterator<PTACallGraph::iterator, DerefFun> nodes_iterator;
+  static nodes_iterator nodes_begin(PTACallGraph *CG) {
+    return map_iterator(CG->begin(), DerefFun(CGdereference));
+  }
+  static nodes_iterator nodes_end(PTACallGraph *CG) {
+    return map_iterator(CG->end(), DerefFun(CGdereference));
+  }
 
-    static PTACallGraphNode &CGdereference(const PairTy &P) { return *P.second; }
-  };
+  static PTACallGraphNode &CGdereference(const PairTy &P) { return *P.second; }
+};
 
-  template <>
-  struct GraphTraits<const PTACallGraph *> : public GraphTraits<
-    const PTACallGraphNode *> {
-    static NodeType *getEntryNode(const PTACallGraph *CGN) {
-      return CGN->getExternalCallingNode(); // Start at the external node!
-    }
-    typedef std::pair<const Function *const, std::unique_ptr<PTACallGraphNode>>
-    PairTy;
-    typedef std::pointer_to_unary_function<const PairTy &, const PTACallGraphNode &>
-    DerefFun;
+template <>
+struct GraphTraits<const PTACallGraph *>
+    : public GraphTraits<const PTACallGraphNode *> {
+  static NodeType *getEntryNode(const PTACallGraph *CGN) {
+    return CGN->getExternalCallingNode(); // Start at the external node!
+  }
+  typedef std::pair<const Function *const, std::unique_ptr<PTACallGraphNode>>
+      PairTy;
+  typedef std::pointer_to_unary_function<const PairTy &,
+                                         const PTACallGraphNode &>
+      DerefFun;
 
-    // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
-    typedef mapped_iterator<PTACallGraph::const_iterator, DerefFun> nodes_iterator;
-    static nodes_iterator nodes_begin(const PTACallGraph *CG) {
-      return map_iterator(CG->begin(), DerefFun(CGdereference));
-    }
-    static nodes_iterator nodes_end(const PTACallGraph *CG) {
-      return map_iterator(CG->end(), DerefFun(CGdereference));
-    }
+  // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
+  typedef mapped_iterator<PTACallGraph::const_iterator, DerefFun>
+      nodes_iterator;
+  static nodes_iterator nodes_begin(const PTACallGraph *CG) {
+    return map_iterator(CG->begin(), DerefFun(CGdereference));
+  }
+  static nodes_iterator nodes_end(const PTACallGraph *CG) {
+    return map_iterator(CG->end(), DerefFun(CGdereference));
+  }
 
-    static const PTACallGraphNode &CGdereference(const PairTy &P) {
-      return *P.second;
-    }
-  };
-
+  static const PTACallGraphNode &CGdereference(const PairTy &P) {
+    return *P.second;
+  }
+};
 }
 
 class PTACallGraphSCC {
   const PTACallGraph &CG; // The call graph for this SCC.
   void *Context;
-  std::vector<PTACallGraphNode*> Nodes;
+  std::vector<PTACallGraphNode *> Nodes;
 
 public:
   PTACallGraphSCC(PTACallGraph &cg, void *context) : CG(cg), Context(context) {}

@@ -7,23 +7,20 @@ using namespace llvm;
 using namespace std;
 
 ModRefAnalysis::ModRefAnalysis(PTACallGraph &CG, Andersen *PTA,
-			       ExtInfo *extInfo)
-  : CG(CG), PTA(PTA), extInfo(extInfo) {
+                               ExtInfo *extInfo)
+    : CG(CG), PTA(PTA), extInfo(extInfo) {
   analyze();
 }
 
 ModRefAnalysis::~ModRefAnalysis() {}
 
-void
-ModRefAnalysis::visitAllocaInst(AllocaInst &I) {
+void ModRefAnalysis::visitAllocaInst(AllocaInst &I) {
   MemReg *r = MemReg::getValueRegion(&I);
   assert(r);
   funcLocalMap[curFunc].insert(r);
 }
 
-
-void
-ModRefAnalysis::visitLoadInst(LoadInst &I) {
+void ModRefAnalysis::visitLoadInst(LoadInst &I) {
   vector<const Value *> ptsSet;
   assert(PTA->getPointsToSet(I.getPointerOperand(), ptsSet));
   vector<MemReg *> regs;
@@ -36,8 +33,7 @@ ModRefAnalysis::visitLoadInst(LoadInst &I) {
   }
 }
 
-void
-ModRefAnalysis::visitStoreInst(StoreInst &I) {
+void ModRefAnalysis::visitStoreInst(StoreInst &I) {
   vector<const Value *> ptsSet;
   assert(PTA->getPointsToSet(I.getPointerOperand(), ptsSet));
   vector<MemReg *> regs;
@@ -50,8 +46,7 @@ ModRefAnalysis::visitStoreInst(StoreInst &I) {
   }
 }
 
-void
-ModRefAnalysis::visitCallSite(CallSite CS) {
+void ModRefAnalysis::visitCallSite(CallSite CS) {
   // For each external function called, add the region of each pointer
   // parameters passed to the function to the ref set of the called
   // function. Regions are added to the Mod set only if the parameter is
@@ -61,14 +56,13 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   CallInst *CI = cast<CallInst>(CS.getInstruction());
   const Function *callee = CI->getCalledFunction();
 
-
   // In CUDA after a synchronization, all region in shared memory are written.
   if (optCudaTaint) {
     if (callee && callee->getName().equals("llvm.nvvm.barrier0")) {
       for (MemReg *r : MemReg::getCudaSharedRegions()) {
-	if (globalKillSet.find(r) != globalKillSet.end())
-	  continue;
-	funcModMap[curFunc].insert(r);
+        if (globalKillSet.find(r) != globalKillSet.end())
+          continue;
+        funcModMap[curFunc].insert(r);
       }
     }
   }
@@ -77,10 +71,10 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   if (optOmpTaint) {
     if (callee && callee->getName().equals("__kmpc_barrier")) {
       for (MemReg *r :
-	     MemReg::getOmpSharedRegions(CI->getParent()->getParent())) {
-	if (globalKillSet.find(r) != globalKillSet.end())
-	  continue;
-	funcModMap[curFunc].insert(r);
+           MemReg::getOmpSharedRegions(CI->getParent()->getParent())) {
+        if (globalKillSet.find(r) != globalKillSet.end())
+          continue;
+        funcModMap[curFunc].insert(r);
       }
     }
   }
@@ -90,8 +84,8 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
     bool mayCallExternalFunction = false;
     for (const Function *mayCallee : CG.indirectCallMap[CI]) {
       if (mayCallee->isDeclaration() && !isIntrinsicDbgFunction(mayCallee)) {
-	mayCallExternalFunction = true;
-	break;
+        mayCallExternalFunction = true;
+        break;
       }
     }
     if (!mayCallExternalFunction)
@@ -107,7 +101,7 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
       return;
   }
 
-  for (unsigned i=0; i<CI->getNumArgOperands(); ++i) {
+  for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
     const Value *arg = CI->getArgOperand(i);
     if (arg->getType()->isPointerTy() == false)
       continue;
@@ -117,9 +111,9 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
     if (ce) {
       Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
       assert(inst);
-      if(isa<IntToPtrInst>(inst)) {
-	delete inst;
-	continue;
+      if (isa<IntToPtrInst>(inst)) {
+        delete inst;
+        continue;
       }
       delete inst;
     }
@@ -132,7 +126,7 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
 
     for (MemReg *r : regs) {
       if (globalKillSet.find(r) != globalKillSet.end())
-	continue;
+        continue;
       funcRefMap[curFunc].insert(r);
     }
 
@@ -143,62 +137,63 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
 
       // Variadic argument
       if (i >= info->nbArgs) {
-			//errs() << "Function: " << callee->getName() << " in " << callee->getParent()->getName() << "\n";
-				assert(callee->isVarArg());
+        // errs() << "Function: " << callee->getName() << " in " <<
+        // callee->getParent()->getName() << "\n";
+        assert(callee->isVarArg());
 
-	if (info->argIsMod[info->nbArgs-1]) {
-	  for (MemReg *r : regs) {
-	    if (globalKillSet.find(r) != globalKillSet.end())
-	      continue;
-	    funcModMap[curFunc].insert(r);
-	  }
-	}
+        if (info->argIsMod[info->nbArgs - 1]) {
+          for (MemReg *r : regs) {
+            if (globalKillSet.find(r) != globalKillSet.end())
+              continue;
+            funcModMap[curFunc].insert(r);
+          }
+        }
       }
 
       // Normal argument
       else {
-	if (info->argIsMod[i]) {
-	  for (MemReg *r : regs) {
-	    if (globalKillSet.find(r) != globalKillSet.end())
-	      continue;
-	    funcModMap[curFunc].insert(r);
-	  }
-	}
+        if (info->argIsMod[i]) {
+          for (MemReg *r : regs) {
+            if (globalKillSet.find(r) != globalKillSet.end())
+              continue;
+            funcModMap[curFunc].insert(r);
+          }
+        }
       }
     }
 
     // indirect call
     else {
       for (const Function *mayCallee : CG.indirectCallMap[CI]) {
-    	if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
-    	  continue;
+        if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
+          continue;
 
-	const extModInfo *info = extInfo->getExtModInfo(mayCallee);
-	assert(info);
+        const extModInfo *info = extInfo->getExtModInfo(mayCallee);
+        assert(info);
 
-	// Variadic argument
-	if (i >= info->nbArgs) {
-	  assert(mayCallee->isVarArg());
+        // Variadic argument
+        if (i >= info->nbArgs) {
+          assert(mayCallee->isVarArg());
 
-	  if (info->argIsMod[info->nbArgs-1]) {
-	    for (MemReg *r : regs) {
-	      if (globalKillSet.find(r) != globalKillSet.end())
-		continue;
-	      funcModMap[curFunc].insert(r);
-	    }
-	  }
-	}
+          if (info->argIsMod[info->nbArgs - 1]) {
+            for (MemReg *r : regs) {
+              if (globalKillSet.find(r) != globalKillSet.end())
+                continue;
+              funcModMap[curFunc].insert(r);
+            }
+          }
+        }
 
-	// Normal argument
-	else {
-	  if (info->argIsMod[i]) {
-	    for (MemReg *r : regs) {
-	      if (globalKillSet.find(r) != globalKillSet.end())
-		continue;
-	      funcModMap[curFunc].insert(r);
-	    }
-	  }
-	}
+        // Normal argument
+        else {
+          if (info->argIsMod[i]) {
+            for (MemReg *r : regs) {
+              if (globalKillSet.find(r) != globalKillSet.end())
+                continue;
+              funcModMap[curFunc].insert(r);
+            }
+          }
+        }
       }
     }
   }
@@ -214,17 +209,17 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
       vector<MemReg *> regs;
       MemReg::getValuesRegion(retPtsSet, regs);
       for (MemReg *r : regs) {
-	if (globalKillSet.find(r) != globalKillSet.end())
-	  continue;
-	funcRefMap[curFunc].insert(r);
+        if (globalKillSet.find(r) != globalKillSet.end())
+          continue;
+        funcRefMap[curFunc].insert(r);
       }
 
       if (info->retIsMod) {
-	for (MemReg *r : regs) {
-	  if (globalKillSet.find(r) != globalKillSet.end())
-	    continue;
-	  funcModMap[curFunc].insert(r);
-	}
+        for (MemReg *r : regs) {
+          if (globalKillSet.find(r) != globalKillSet.end())
+            continue;
+          funcModMap[curFunc].insert(r);
+        }
       }
     }
   }
@@ -232,37 +227,36 @@ ModRefAnalysis::visitCallSite(CallSite CS) {
   else {
     for (const Function *mayCallee : CG.indirectCallMap[CI]) {
       if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
-	continue;
+        continue;
 
       const extModInfo *info = extInfo->getExtModInfo(mayCallee);
       assert(info);
 
       if (mayCallee->getReturnType()->isPointerTy()) {
-	vector<const Value *> retPtsSet;
-	assert(PTA->getPointsToSet(CI, retPtsSet));
-	vector<MemReg *> regs;
-	MemReg::getValuesRegion(retPtsSet, regs);
-	for (MemReg *r : regs) {
-	  if (globalKillSet.find(r) != globalKillSet.end())
-	    continue;
-	  funcRefMap[curFunc].insert(r);
-	}
+        vector<const Value *> retPtsSet;
+        assert(PTA->getPointsToSet(CI, retPtsSet));
+        vector<MemReg *> regs;
+        MemReg::getValuesRegion(retPtsSet, regs);
+        for (MemReg *r : regs) {
+          if (globalKillSet.find(r) != globalKillSet.end())
+            continue;
+          funcRefMap[curFunc].insert(r);
+        }
 
-	if (info->retIsMod) {
-	  for (MemReg *r : regs) {
-	    if (globalKillSet.find(r) != globalKillSet.end())
-	      continue;
-	    funcModMap[curFunc].insert(r);
-	  }
-	}
+        if (info->retIsMod) {
+          for (MemReg *r : regs) {
+            if (globalKillSet.find(r) != globalKillSet.end())
+              continue;
+            funcModMap[curFunc].insert(r);
+          }
+        }
       }
     }
   }
 }
 
-void
-ModRefAnalysis::analyze() {
-  unsigned nbFunctions  = CG.getModule().getFunctionList().size();
+void ModRefAnalysis::analyze() {
+  unsigned nbFunctions = CG.getModule().getFunctionList().size();
   unsigned counter = 0;
 
   // Compute global kill set containing regions whose allocation sites are
@@ -292,57 +286,56 @@ ModRefAnalysis::analyze() {
   // Then iterate through the PTACallGraph with an SCC iterator
   // and add mod/ref sets from callee to caller.
   scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&CG);
-  while(!cgSccIter.isAtEnd()) {
+  while (!cgSccIter.isAtEnd()) {
 
-    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
+    const vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
 
     // For each function in the SCC compute kill sets
     // from callee not in the SCC and update mod/ref sets accordingly.
     for (PTACallGraphNode *node : nodeVec) {
       const Function *F = node->getFunction();
       if (F == NULL)
-	continue;
+        continue;
 
       for (auto it : *node) {
-	const Function *callee = it.second->getFunction();
-	if (callee == NULL || F == callee)
-	  continue;
+        const Function *callee = it.second->getFunction();
+        if (callee == NULL || F == callee)
+          continue;
 
-	// If callee is not in the scc
-	// kill(F) = kill(F) U kill(callee) U local(callee)
-	if (find(nodeVec.begin(), nodeVec.end(), it.second)
-	    == nodeVec.end()) {
-	  for (MemReg *r : funcLocalMap[callee])
-	    funcKillMap[F].insert(r);
+        // If callee is not in the scc
+        // kill(F) = kill(F) U kill(callee) U local(callee)
+        if (find(nodeVec.begin(), nodeVec.end(), it.second) == nodeVec.end()) {
+          for (MemReg *r : funcLocalMap[callee])
+            funcKillMap[F].insert(r);
 
-	  // Here we have to use a vector to store regions we want to add into
-	  // the funcKillMap because iterators in a DenseMap are invalidated
-	  // whenever an insertion occurs unlike map.
-	  vector<MemReg *> killToAdd;
-	  for (MemReg *r : funcKillMap[callee])
-	    killToAdd.push_back(r);
-	  for (MemReg *r : killToAdd)
-	    funcKillMap[F].insert(r);
-	}
+          // Here we have to use a vector to store regions we want to add into
+          // the funcKillMap because iterators in a DenseMap are invalidated
+          // whenever an insertion occurs unlike map.
+          vector<MemReg *> killToAdd;
+          for (MemReg *r : funcKillMap[callee])
+            killToAdd.push_back(r);
+          for (MemReg *r : killToAdd)
+            funcKillMap[F].insert(r);
+        }
       }
 
       // Mod(F) = Mod(F) \ kill(F)
       // Ref(F) = Ref(F) \ kill(F)
       vector<MemReg *> toRemove;
-      for (MemReg *r: funcModMap[F]) {
-	if (funcKillMap[F].find(r) != funcKillMap[F].end())
-	  toRemove.push_back(r);
+      for (MemReg *r : funcModMap[F]) {
+        if (funcKillMap[F].find(r) != funcKillMap[F].end())
+          toRemove.push_back(r);
       }
       for (MemReg *r : toRemove) {
-	funcModMap[F].erase(r);
+        funcModMap[F].erase(r);
       }
       toRemove.clear();
-      for (MemReg *r: funcRefMap[F]) {
-	if (funcKillMap[F].find(r) != funcKillMap[F].end())
-	  toRemove.push_back(r);
+      for (MemReg *r : funcRefMap[F]) {
+        if (funcKillMap[F].find(r) != funcKillMap[F].end())
+          toRemove.push_back(r);
       }
       for (MemReg *r : toRemove) {
-	funcRefMap[F].erase(r);
+        funcRefMap[F].erase(r);
       }
     }
 
@@ -354,92 +347,89 @@ ModRefAnalysis::analyze() {
       changed = false;
 
       for (PTACallGraphNode *node : nodeVec) {
-	const Function *F = node->getFunction();
-	if (F == NULL)
-	  continue;
+        const Function *F = node->getFunction();
+        if (F == NULL)
+          continue;
 
-	unsigned modSize = funcModMap[F].size();
-	unsigned refSize = funcRefMap[F].size();
+        unsigned modSize = funcModMap[F].size();
+        unsigned refSize = funcRefMap[F].size();
 
-	for (auto it : *node) {
-	  const Function *callee = it.second->getFunction();
-	  if (callee == NULL || F == callee)
-	    continue;
+        for (auto it : *node) {
+          const Function *callee = it.second->getFunction();
+          if (callee == NULL || F == callee)
+            continue;
 
-	  // Mod(caller) = Mod(caller) U (Mod(callee) \ Kill(caller)
-	  // Ref(caller) = Ref(caller) U (Ref(callee) \ Kill(caller)
-	  set<MemReg *> modToAdd;
-	  set<MemReg *> refToAdd;
-	  modToAdd.insert(funcModMap[callee].begin(), funcModMap[callee].end());
-	  refToAdd.insert(funcRefMap[callee].begin(), funcRefMap[callee].end());
-	  for (MemReg *r : modToAdd) {
-	    if (funcKillMap[F].find(r) == funcKillMap[F].end())
-	      funcModMap[F].insert(r);
-	  }
-	  for (MemReg *r : refToAdd) {
-	    if (funcKillMap[F].find(r) == funcKillMap[F].end())
-	      funcRefMap[F].insert(r);
-	  }
-	}
+          // Mod(caller) = Mod(caller) U (Mod(callee) \ Kill(caller)
+          // Ref(caller) = Ref(caller) U (Ref(callee) \ Kill(caller)
+          set<MemReg *> modToAdd;
+          set<MemReg *> refToAdd;
+          modToAdd.insert(funcModMap[callee].begin(), funcModMap[callee].end());
+          refToAdd.insert(funcRefMap[callee].begin(), funcRefMap[callee].end());
+          for (MemReg *r : modToAdd) {
+            if (funcKillMap[F].find(r) == funcKillMap[F].end())
+              funcModMap[F].insert(r);
+          }
+          for (MemReg *r : refToAdd) {
+            if (funcKillMap[F].find(r) == funcKillMap[F].end())
+              funcRefMap[F].insert(r);
+          }
+        }
 
-	if (funcModMap[F].size() > modSize || funcRefMap[F].size() > refSize)
-	  changed = true;
+        if (funcModMap[F].size() > modSize || funcRefMap[F].size() > refSize)
+          changed = true;
       }
     }
 
     counter += nodeVec.size();
 
-    if (counter%100 == 0) {
-      errs() << "Mod/Ref: visited " << counter << " functions over " << nbFunctions
-	     << " (" << (((float) counter)/nbFunctions*100) << "%)\n";
+    if (counter % 100 == 0) {
+      errs() << "Mod/Ref: visited " << counter << " functions over "
+             << nbFunctions << " (" << (((float)counter) / nbFunctions * 100)
+             << "%)\n";
     }
 
     ++cgSccIter;
   }
 }
 
-MemRegSet
-ModRefAnalysis::getFuncMod(const Function *F) {
+MemRegSet ModRefAnalysis::getFuncMod(const Function *F) {
   return funcModMap[F];
 }
 
-MemRegSet
-ModRefAnalysis::getFuncRef(const Function *F) {
+MemRegSet ModRefAnalysis::getFuncRef(const Function *F) {
   return funcRefMap[F];
 }
 
-MemRegSet
-ModRefAnalysis::getFuncKill(const Function *F) {
+MemRegSet ModRefAnalysis::getFuncKill(const Function *F) {
   return funcKillMap[F];
 }
 
-void
-ModRefAnalysis::dump() {
+void ModRefAnalysis::dump() {
   scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&CG);
-  while(!cgSccIter.isAtEnd()){
-    const vector<PTACallGraphNode*> &nodeVec = *cgSccIter;
+  while (!cgSccIter.isAtEnd()) {
+    const vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
 
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
       if (F == NULL || isIntrinsicDbgFunction(F))
-	continue;
+        continue;
 
       errs() << "Mod/Ref for function " << F->getName() << ":\n";
       errs() << "Mod(";
       for (MemReg *r : funcModMap[F])
-	errs() << r->getName() << ", ";
+        errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Ref(";
       for (MemReg *r : funcRefMap[F])
-	errs() << r->getName() << ", ";
+        errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Local(";
       for (MemReg *r : funcLocalMap[F])
-	errs() << r->getName() << ", ";
+        errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Kill(";
       for (MemReg *r : funcKillMap[F])
-	errs() << r->getName() << ", ";
+        errs() << r->getName() << ", ";
       errs() << ")\n";
     }
 

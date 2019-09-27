@@ -5,22 +5,19 @@
 
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/IRBuilder.h"
 
 #define DEBUG_TYPE "hello"
 
 using namespace llvm;
 using namespace std;
 
-
 bool isCallSite(const llvm::Instruction *inst) {
   return llvm::isa<llvm::CallInst>(inst) || llvm::isa<llvm::InvokeInst>(inst);
 }
-
-
 
 std::string getValueLabel(const llvm::Value *v) {
   const Function *F = dyn_cast<Function>(v);
@@ -42,7 +39,7 @@ std::string getCallValueLabel(const llvm::Value *v) {
   v->print(rso);
   size_t pos = label.find_first_of('=');
   if (pos != std::string::npos)
-    label = label.substr(pos+2);
+    label = label.substr(pos + 2);
   return label;
 }
 
@@ -53,9 +50,9 @@ std::string getCallValueLabel(const llvm::Value *v) {
 static map<BasicBlock *, set<BasicBlock *> *> pdfCache;
 
 // PDF computation
-vector<BasicBlock * >
-postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
-  vector<BasicBlock * > PDF;
+vector<BasicBlock *> postdominance_frontier(PostDominatorTree &PDT,
+                                            BasicBlock *BB) {
+  vector<BasicBlock *> PDF;
 
   set<BasicBlock *> *cache = pdfCache[BB];
   if (cache) {
@@ -67,23 +64,23 @@ postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   PDF.clear();
   DomTreeNode *DomNode = PDT.getNode(BB);
 
-  for (auto it = pred_begin(BB), et = pred_end(BB); it != et; ++it){
+  for (auto it = pred_begin(BB), et = pred_end(BB); it != et; ++it) {
     // does BB immediately dominate this predecessor?
     DomTreeNode *ID = PDT[*it]; //->getIDom();
-    if(ID && ID->getIDom()!=DomNode && *it!=BB){
+    if (ID && ID->getIDom() != DomNode && *it != BB) {
       PDF.push_back(*it);
     }
   }
   for (DomTreeNode::const_iterator NI = DomNode->begin(), NE = DomNode->end();
        NI != NE; ++NI) {
     DomTreeNode *IDominee = *NI;
-    vector<BasicBlock * > ChildDF =
-      postdominance_frontier(PDT, IDominee->getBlock());
-    vector<BasicBlock * >::const_iterator CDFI
-      = ChildDF.begin(), CDFE = ChildDF.end();
+    vector<BasicBlock *> ChildDF =
+        postdominance_frontier(PDT, IDominee->getBlock());
+    vector<BasicBlock *>::const_iterator CDFI = ChildDF.begin(),
+                                         CDFE = ChildDF.end();
     for (; CDFI != CDFE; ++CDFI) {
-      if (PDT[*CDFI]->getIDom() != DomNode && *CDFI!=BB){
-	PDF.push_back(*CDFI);
+      if (PDT[*CDFI]->getIDom() != DomNode && *CDFI != BB) {
+        PDF.push_back(*CDFI);
       }
     }
   }
@@ -97,9 +94,9 @@ postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
 static map<BasicBlock *, set<BasicBlock *> *> ipdfCache;
 
 // PDF+ computation
-vector<BasicBlock * >
-iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
-  vector<BasicBlock * > iPDF;
+vector<BasicBlock *> iterated_postdominance_frontier(PostDominatorTree &PDT,
+                                                     BasicBlock *BB) {
+  vector<BasicBlock *> iPDF;
 
   set<BasicBlock *> *cache = ipdfCache[BB];
   if (cache) {
@@ -108,8 +105,8 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
     return iPDF;
   }
 
-  iPDF=postdominance_frontier(PDT, BB);
-  if(iPDF.size()==0)
+  iPDF = postdominance_frontier(PDT, BB);
+  if (iPDF.size() == 0)
     return iPDF;
 
   std::set<BasicBlock *> S;
@@ -126,10 +123,10 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
     for (auto I = toCompute.begin(), E = toCompute.end(); I != E; ++I) {
       vector<BasicBlock *> tmp = postdominance_frontier(PDT, *I);
       for (auto J = tmp.begin(), F = tmp.end(); J != F; ++J) {
-	if ((S.insert(*J)).second) {
-	  toComputeTmp.insert(*J);
-	  changed = true;
-	}
+        if ((S.insert(*J)).second) {
+          toComputeTmp.insert(*J);
+          changed = true;
+        }
       }
     }
 
@@ -145,9 +142,8 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB){
   return iPDF;
 }
 
-void
-print_iPDF(vector<BasicBlock * > iPDF, BasicBlock *BB){
-  vector<BasicBlock * >::const_iterator Bitr;
+void print_iPDF(vector<BasicBlock *> iPDF, BasicBlock *BB) {
+  vector<BasicBlock *>::const_iterator Bitr;
   errs() << "iPDF(" << BB->getName().str() << ") = {";
   for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
     errs() << "- " << (*Bitr)->getName().str() << " ";
@@ -155,10 +151,7 @@ print_iPDF(vector<BasicBlock * > iPDF, BasicBlock *BB){
   errs() << "}\n";
 }
 
-
-
-const Argument *
-getFunctionArgument(const Function *F, unsigned idx) {
+const Argument *getFunctionArgument(const Function *F, unsigned idx) {
   unsigned i = 0;
 
   for (const Argument &arg : F->getArgumentList()) {
@@ -173,13 +166,12 @@ getFunctionArgument(const Function *F, unsigned idx) {
     return &*F->arg_end();
 
   errs() << "returning null, querying arg no " << idx << " on function "
-	 << F->getName() << "\n";
+         << F->getName() << "\n";
   return NULL;
 }
 
 std::set<const llvm::Value *>
-computeIPDFPredicates(llvm::PostDominatorTree &PDT,
-		      llvm::BasicBlock *BB) {
+computeIPDFPredicates(llvm::PostDominatorTree &PDT, llvm::BasicBlock *BB) {
   std::set<const llvm::Value *> preds;
 
   // Get IPDF
@@ -195,24 +187,22 @@ computeIPDFPredicates(llvm::PostDominatorTree &PDT,
       assert(bi);
 
       if (bi->isUnconditional())
-	continue;
+        continue;
 
       const Value *cond = bi->getCondition();
       preds.insert(cond);
-    } else if(isa<SwitchInst>(ti)) {
+    } else if (isa<SwitchInst>(ti)) {
       const SwitchInst *si = cast<SwitchInst>(ti);
       assert(si);
       const Value *cond = si->getCondition();
       preds.insert(cond);
-
     }
   }
 
   return preds;
 }
 
-const llvm::Value *
-getBasicBlockCond(const BasicBlock *BB) {
+const llvm::Value *getBasicBlockCond(const BasicBlock *BB) {
   const TerminatorInst *ti = BB->getTerminator();
   assert(ti);
 
@@ -224,7 +214,7 @@ getBasicBlockCond(const BasicBlock *BB) {
       return NULL;
 
     return bi->getCondition();
-  } else if(isa<SwitchInst>(ti)) {
+  } else if (isa<SwitchInst>(ti)) {
     const SwitchInst *si = cast<SwitchInst>(ti);
     assert(si);
     return si->getCondition();
@@ -251,11 +241,10 @@ const llvm::Value *getReturnValue(const llvm::Function *F) {
   return ret;
 }
 
-double gettime()
-{
+double gettime() {
   struct timeval tv;
   gettimeofday(&tv, NULL);
-  return tv.tv_sec + tv.tv_usec*1.0e-6;
+  return tv.tv_sec + tv.tv_usec * 1.0e-6;
 }
 
 bool isIntrinsicDbgFunction(const llvm::Function *F) {
@@ -277,15 +266,15 @@ bool functionDoesNotRet(const llvm::Function *F) {
     toVisit.pop_back();
 
     for (const Instruction &inst : *BB) {
-      if(isa<ReturnInst>(inst))
-	return false;
+      if (isa<ReturnInst>(inst))
+        return false;
     }
 
     for (auto I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
       const BasicBlock *succ = *I;
       if (visited.find(succ) == visited.end()) {
-	toVisit.push_back(succ);
-	visited.insert(succ);
+        toVisit.push_back(succ);
+        visited.insert(succ);
       }
     }
   }
@@ -294,7 +283,7 @@ bool functionDoesNotRet(const llvm::Function *F) {
 }
 
 unsigned getBBSetIntersectionSize(const std::set<const BasicBlock *> S1,
-				  const std::set<const BasicBlock *> S2) {
+                                  const std::set<const BasicBlock *> S2) {
   unsigned ret = 0;
 
   for (const BasicBlock *BB : S1) {
@@ -306,7 +295,7 @@ unsigned getBBSetIntersectionSize(const std::set<const BasicBlock *> S1,
 }
 
 unsigned getInstSetIntersectionSize(const std::set<const Instruction *> S1,
-				    const std::set<const Instruction *> S2) {
+                                    const std::set<const Instruction *> S2) {
   unsigned ret = 0;
 
   for (const Instruction *I : S1) {
@@ -316,4 +305,3 @@ unsigned getInstSetIntersectionSize(const std::set<const Instruction *> S1,
 
   return ret;
 }
-

@@ -1,10 +1,10 @@
 #ifndef MODREFANALYSIS
 #define MODREFANALYSIS
 
-#include "andersen/Andersen.h"
 #include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "PTACallGraph.h"
+#include "andersen/Andersen.h"
 
 #include "llvm/IR/InstVisitor.h"
 

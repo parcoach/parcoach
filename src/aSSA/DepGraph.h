@@ -19,11 +19,11 @@ public:
   virtual void computeTaintedValuesContextInsensitive() = 0;
   virtual void computeTaintedValuesContextSensitive() = 0;
   virtual void getCallInterIPDF(const llvm::CallInst *call,
-				std::set<const llvm::BasicBlock *> &ipdf) = 0;
+                                std::set<const llvm::BasicBlock *> &ipdf) = 0;
   virtual void getCallIntraIPDF(const llvm::CallInst *call,
-				std::set<const llvm::BasicBlock *> &ipdf) = 0;
+                                std::set<const llvm::BasicBlock *> &ipdf) = 0;
   virtual void dotTaintPath(const llvm::Value *v, std::string filename,
-			    const llvm::Instruction *collective) = 0;
+                            const llvm::Instruction *collective) = 0;
 
 protected:
   PTACallGraph *PTACG;

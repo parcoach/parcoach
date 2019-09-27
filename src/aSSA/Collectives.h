@@ -5,7 +5,7 @@
 
 #include <vector>
 
-extern std::vector<const char*> v_coll;
+extern std::vector<const char *> v_coll;
 
 int Com_arg_id(int color);
 void initCollectives();

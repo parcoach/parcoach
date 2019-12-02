@@ -2,6 +2,12 @@
 
 **PARCOACH** automatically checks parallel applications to verify the correct use of collectives. This is **PARCOACH**. This version uses an inter-procedural control- and data-flow analysis to detect potential errors at compile-time.
 
+## News
+
+* <b> Parcoach is now on github! </b>
+
+
+
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local machine.
@@ -25,7 +31,7 @@ make -j8
 make install 
 ```
 
-### Installing
+### Installation
 
 First make sure to have installed a C++11 compiler, CMake and Git. Then install PARCOACH by running:
 
@@ -70,9 +76,13 @@ opt -load /path/to/parchoach/build/src/aSSA/libaSSA.so -parcoach -check-mpi -int
 
 ### Runtime checking
 
-TODO
+Coming soon
 
 ## Publications
+Pierre Huchant, Emmanuelle Saillard, Denis Barthou and Patrick Carribault,
+**[Multi-Valued Expression Analysis for Collective Checking](https://link.springer.com/chapter/10.1007%2F978-3-030-29400-7_3)**
+*Euro-Par 2019: Parallel Processing, pages 29-43, 2019*
+
 Pierre Huchant, Emmanuelle Saillard, Denis Barthou, Hugo Brunie and Patrick Carribault,  
 **[PARCOACH Extension for a Full-Interprocedural Collectives Verification](https://doi.org/10.1109/Correctness.2018.00013)**,  
 *2nd International Workshop on Software Correctness for HPC Applications (Correctness), pages 69-76, 2018*

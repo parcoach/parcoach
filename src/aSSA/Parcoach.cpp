@@ -2,7 +2,6 @@
 #include "Collectives.h"
 #include "DepGraph.h"
 #include "DepGraphDCF.h"
-#include "DepGraphUIDA.h"
 #include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "MemorySSA.h"
@@ -49,11 +48,6 @@ void ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
 
 bool ParcoachInstr::doInitialization(Module &M) {
   PAInter = NULL;
-  PAIntra = NULL;
-  PAInterDCF = NULL;
-  PAInterSVF = NULL;
-  PAInterUIDA = NULL;
-
   getOptions();
   initCollectives();
 
@@ -65,8 +59,6 @@ bool ParcoachInstr::doInitialization(Module &M) {
 bool ParcoachInstr::doFinalization(Module &M) {
   tend = gettime();
 
-  if (!optCompareAll) {
-    if (PAInter) {
       unsigned intersectionSize;
       int WnbAdded = 0, CnbAdded = 0;
       int WnbRemoved = 0, CnbRemoved = 0;
@@ -106,12 +98,12 @@ bool ParcoachInstr::doFinalization(Module &M) {
                << " warning(s) removed with dep analysis.\n";
       }
 
-      errs() << "\n\033[0;36m==========================================\033[0;"
+      errs() << "\n\033[0;36m================================================\033[0;"
                 "0m\n";
-      errs() << "\033[0;36m============== PARCOACH INTER ONLY "
-                "=============\033[0;0m\n";
+      errs() << "\033[0;36m===== PARCOACH INTER WITHOUT DEP ANALYSIS"  
+								" ======\033[0;0m\n";
       errs()
-          << "\033[0;36m==========================================\033[0;0m\n";
+          << "\033[0;36m================================================\033[0;0m\n";
       errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
       errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
       errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
@@ -119,7 +111,7 @@ bool ParcoachInstr::doFinalization(Module &M) {
              << " different cond(s)\n";
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
 
-      if (!optNoDataFlow) {
+     if (!optNoDataFlow) {
 
         errs() << "app," << PAInter->getNbCollectivesFound() << ","
                << PAInter->getNbWarnings() << ","
@@ -129,122 +121,9 @@ bool ParcoachInstr::doFinalization(Module &M) {
                << PAInter->getConditionSetParcoachOnly().size() << "\n";
       }
 
-      if (PAIntra) {
-        unsigned intersectionSize;
-        int nbAdded;
-        int nbRemoved;
-        intersectionSize =
-            getBBSetIntersectionSize(PAInter->getConditionSetParcoachOnly(),
-                                     PAIntra->getConditionSetParcoachOnly());
+       errs() <<
+       "\033[0;36m==========================================\033[0;0m\n";
 
-        nbAdded =
-            PAInter->getConditionSetParcoachOnly().size() - intersectionSize;
-        nbRemoved =
-            PAIntra->getConditionSetParcoachOnly().size() - intersectionSize;
-        errs() << nbAdded << " condition(s) added and " << nbRemoved
-               << " condition(s) removed compared to intra analysis.\n";
-
-        intersectionSize =
-            getInstSetIntersectionSize(PAInter->getWarningSetParcoachOnly(),
-                                       PAIntra->getWarningSetParcoachOnly());
-
-        nbAdded =
-            PAInter->getWarningSetParcoachOnly().size() - intersectionSize;
-        nbRemoved =
-            PAIntra->getWarningSetParcoachOnly().size() - intersectionSize;
-        errs() << nbAdded << " warning(s) added and " << nbRemoved
-               << " warning(s) removed compared to intra analysis.\n";
-      }
-
-      // errs() <<
-      // "\033[0;36m==========================================\033[0;0m\n";
-    }
-
-    if (PAIntra) {
-      errs() << "\n\033[0;36m==========================================\033[0;"
-                "0m\n";
-      errs() << "\033[0;36m============== PARCOACH INTRA ONLY "
-                "=============\033[0;0m\n";
-      errs()
-          << "\033[0;36m==========================================\033[0;0m\n";
-      errs() << PAIntra->getNbWarningsParcoachOnly() << " warning(s) issued\n";
-      errs() << PAIntra->getNbCondsParcoachOnly() << " cond(s) \n";
-      errs() << PAIntra->getNbCC() << " CC functions inserted \n";
-      errs() << PAIntra->getConditionSetParcoachOnly().size()
-             << " different cond(s)\n";
-      errs()
-          << "\033[0;36m==========================================\033[0;0m\n";
-    }
-  } else {
-    int nbcols, intraonlywarnings, intraonlyconds, interonlywarnings,
-        interonlyconds, interwarningsadded, interwarningsremoved,
-        intercondsadded, intercondsremoved, dcfwarnings, dcfconds, svfwarnings,
-        svfconds, uidawarnings, uidaconds, svfwarningsadded, svfwarningsremoved,
-        svfcondsadded, svfcondsremoved, uidawarningsadded, uidawarningsremoved,
-        uidacondsadded, uidacondsremoved;
-    unsigned intersectionSize;
-
-    nbcols = PAIntra->getNbCollectivesFound();
-
-    intraonlywarnings = PAIntra->getWarningSetParcoachOnly().size();
-    intraonlyconds = PAIntra->getConditionSetParcoachOnly().size();
-
-    interonlywarnings = PAInterDCF->getWarningSetParcoachOnly().size();
-    interonlyconds = PAInterDCF->getConditionSetParcoachOnly().size();
-
-    intersectionSize =
-        getInstSetIntersectionSize(PAInterDCF->getWarningSetParcoachOnly(),
-                                   PAIntra->getWarningSetParcoachOnly());
-    interwarningsadded =
-        PAInterDCF->getWarningSetParcoachOnly().size() - intersectionSize;
-    interwarningsremoved =
-        PAIntra->getWarningSetParcoachOnly().size() - intersectionSize;
-
-    intersectionSize =
-        getBBSetIntersectionSize(PAInterDCF->getConditionSetParcoachOnly(),
-                                 PAIntra->getConditionSetParcoachOnly());
-    intercondsadded =
-        PAInterDCF->getConditionSetParcoachOnly().size() - intersectionSize;
-    intercondsremoved =
-        PAIntra->getConditionSetParcoachOnly().size() - intersectionSize;
-
-    dcfwarnings = PAInterDCF->getWarningSet().size();
-    dcfconds = PAInterDCF->getConditionSet().size();
-    svfwarnings = PAInterSVF->getWarningSet().size();
-    svfconds = PAInterSVF->getConditionSet().size();
-    uidawarnings = PAInterUIDA->getWarningSet().size();
-    uidaconds = PAInterUIDA->getConditionSet().size();
-
-    intersectionSize = getInstSetIntersectionSize(PAInterDCF->getWarningSet(),
-                                                  PAInterSVF->getWarningSet());
-    svfwarningsadded = PAInterDCF->getWarningSet().size() - intersectionSize;
-    svfwarningsremoved = PAInterSVF->getWarningSet().size() - intersectionSize;
-    intersectionSize = getBBSetIntersectionSize(PAInterDCF->getConditionSet(),
-                                                PAInterSVF->getConditionSet());
-    svfcondsadded = PAInterDCF->getConditionSet().size() - intersectionSize;
-    svfcondsremoved = PAInterSVF->getConditionSet().size() - intersectionSize;
-
-    intersectionSize = getInstSetIntersectionSize(PAInterDCF->getWarningSet(),
-                                                  PAInterUIDA->getWarningSet());
-    uidawarningsadded = PAInterDCF->getWarningSet().size() - intersectionSize;
-    uidawarningsremoved =
-        PAInterUIDA->getWarningSet().size() - intersectionSize;
-    intersectionSize = getBBSetIntersectionSize(PAInterDCF->getConditionSet(),
-                                                PAInterUIDA->getConditionSet());
-    uidacondsadded = PAInterDCF->getConditionSet().size() - intersectionSize;
-    uidacondsremoved = PAInterUIDA->getConditionSet().size() - intersectionSize;
-
-    errs() << "app," << nbcols << "," << intraonlywarnings << ","
-           << intraonlyconds << "," << interonlywarnings << ","
-           << interonlyconds << "," << interwarningsadded << ","
-           << interwarningsremoved << "," << intercondsadded << ","
-           << intercondsremoved << "," << dcfwarnings << "," << dcfconds << ","
-           << svfwarnings << "," << svfconds << "," << uidawarnings << ","
-           << uidaconds << "," << svfwarningsadded << "," << svfwarningsremoved
-           << "," << svfcondsadded << "," << svfcondsremoved << ","
-           << uidawarningsadded << "," << uidawarningsremoved << ","
-           << uidacondsadded << "," << uidacondsremoved << "\n";
-  }
 
   if (optTimeStats) {
     errs() << "AA time : " << format("%.3f", (tend_aa - tstart_aa) * 1.0e3)
@@ -579,20 +458,6 @@ bool ParcoachInstr::runOnModule(Module &M) {
         getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
     // LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
 
-    // LOOPS
-
-    /* for(Loop *L: LI){
-                   BasicBlock *B = L->getHeader();
-                   pred_iterator PI=pred_begin(B), E=pred_end(B);
-       for(; PI!=E; ++PI){
-                           BasicBlock *PH = *PI;
-                           if(L->contains(PH))
-                                   bbPreheaderMap[PH]=true;
-                                   //errs() << F.getName() << "BB " <<
-     PH->getName() << " is preheader in a loop\n";
-                   }
-     }*/
-
     MSSA.buildSSA(&F, DT, DF, PDT);
     if (optDumpSSA)
       MSSA.dumpMSSA(&F);
@@ -605,25 +470,8 @@ bool ParcoachInstr::runOnModule(Module &M) {
   // Compute dep graph.
   tstart_depgraph = gettime();
   DepGraph *DG = NULL;
-  DepGraph *DGDCF = NULL;
-  DepGraph *DGSVF = NULL;
-  DepGraph *DGUIDA = NULL;
-  if (!optCompareAll) {
-    if (optDGUIDA)
-      DG = new DepGraphUIDA(&PTACG, this);
-    else if (optDGSVF)
-      DG = new DepGraphDCF(&MSSA, &PTACG, this, true, true, true);
-    else
       DG = new DepGraphDCF(&MSSA, &PTACG, this);
     DG->build();
-  } else {
-    DGDCF = new DepGraphDCF(&MSSA, &PTACG, this);
-    DGDCF->build();
-    DGSVF = new DepGraphDCF(&MSSA, &PTACG, this, true, true, true);
-    DGSVF->build();
-    DGUIDA = new DepGraphUIDA(&PTACG, this);
-    DGUIDA->build();
-  }
 
   errs() << "* Dep graph done\n";
 
@@ -632,22 +480,11 @@ bool ParcoachInstr::runOnModule(Module &M) {
   tstart_flooding = gettime();
 
   // Compute tainted values
-  if (!optCompareAll) {
     if (optContextInsensitive)
       DG->computeTaintedValuesContextInsensitive();
     else
       DG->computeTaintedValuesContextSensitive();
-  } else {
-    if (optContextInsensitive) {
-      DGDCF->computeTaintedValuesContextInsensitive();
-      DGSVF->computeTaintedValuesContextInsensitive();
-      DGUIDA->computeTaintedValuesContextInsensitive();
-    } else {
-      DGDCF->computeTaintedValuesContextSensitive();
-      DGSVF->computeTaintedValuesContextSensitive();
-      DGUIDA->computeTaintedValuesContextSensitive();
-    }
-  }
+
   tend_flooding = gettime();
   errs() << "* value contamination  done\n";
 
@@ -661,33 +498,9 @@ bool ParcoachInstr::runOnModule(Module &M) {
   tstart_parcoach = gettime();
   // Parcoach analysis
 
-  if (!optCompareAll) {
-    if (!optIntraOnly) {
       PAInter = new ParcoachAnalysisInter(M, DG, PTACG, this, !optInstrumInter);
       PAInter->run();
-    }
 
-    if (!optInterOnly) {
-      PAIntra = new ParcoachAnalysisIntra(M, DG, this, !optInstrumIntra);
-      PAIntra->run();
-    }
-  } else {
-    errs() << "\033[0;36m= PARCOACH INTRA =\033[0;0m\n";
-    PAIntra = new ParcoachAnalysisIntra(M, NULL, this, !optInstrumIntra);
-    PAIntra->run();
-    errs() << "\033[0;36m= PARCOACH INTER =\033[0;0m\n";
-    PAInterDCF =
-        new ParcoachAnalysisInter(M, DGDCF, PTACG, this, !optInstrumInter);
-    PAInterDCF->run();
-    errs() << "\033[0;36m= PARCOACH + SVF =\033[0;0m\n";
-    PAInterSVF =
-        new ParcoachAnalysisInter(M, DGSVF, PTACG, this, !optInstrumInter);
-    PAInterSVF->run();
-    errs() << "\033[0;36m= PARCOACH + UIDA =\033[0;0m\n";
-    PAInterUIDA =
-        new ParcoachAnalysisInter(M, DGUIDA, PTACG, this, !optInstrumInter);
-    PAInterUIDA->run();
-  }
 
   tend_parcoach = gettime();
 

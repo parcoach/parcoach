@@ -15,11 +15,12 @@
 
 # PARCOACH SPECIFIC
 PARCOACH_DIR=`pwd`/../../
-PARCOACH_PASS_DIR=${PARCOACH_DIR}/build/lib
-PARCOACH_DYNLIB_DIR=${PARCOACH_DIR}/src/lib
-PASSLIB=LLVMaSSA.dylib
+PARCOACH_PASS_DIR=${PARCOACH_DIR}/build/src/aSSA/
+PARCOACH_DYNLIB_DIR=${PARCOACH_DIR}/aSSA/
+#PASSLIB=LLVMaSSA.dylib
+PASSLIB=libaSSA.so
 REQUIREDPASS= -postdomtree
-PASS=-parcoach --check-mpi --inter-only #-no-dataflow 
+PASS=-parcoach --check-mpi #-no-dataflow 
 #  see the documentation for possible PARCOACH analyses
 
 

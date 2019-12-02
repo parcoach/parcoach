@@ -82,30 +82,6 @@ static cl::opt<bool> clOptUpcTaint("check-upc",
                                    cl::desc("enable UPC collectives checking"),
                                    cl::cat(ParcoachCategory));
 
-static cl::opt<bool>
-    clOptInterOnly("inter-only",
-                   cl::desc("enable only parcoach interprocedural"),
-                   cl::cat(ParcoachCategory));
-static cl::opt<bool>
-    clOptIntraOnly("intra-only",
-                   cl::desc("enable only parcoach intraprocedural"),
-                   cl::cat(ParcoachCategory));
-
-static cl::opt<bool> clOptDGUIDA("dg-uida",
-                                 cl::desc("use dep graph from paper "
-                                          "User-input dependence analysis via "
-                                          "graph reachability"),
-                                 cl::cat(ParcoachCategory));
-
-static cl::opt<bool> clOptSVF("SVF",
-                              cl::desc("use dep graph from paper "
-                                       "SVF: Interprocedural Static Value-flow "
-                                       "Analysis in LLVM."),
-                              cl::cat(ParcoachCategory));
-static cl::opt<bool> clOptCompareAll("compare-all",
-                                     cl::desc("compare DCF with SVF and UIDA."),
-                                     cl::cat(ParcoachCategory));
-
 bool optDumpSSA;
 string optDumpSSAFunc;
 bool optDotGraph;
@@ -124,11 +100,6 @@ bool optOmpTaint;
 bool optCudaTaint;
 bool optMpiTaint;
 bool optUpcTaint;
-bool optInterOnly;
-bool optIntraOnly;
-bool optDGUIDA;
-bool optDGSVF;
-bool optCompareAll;
 
 void getOptions() {
   optDumpSSA = clOptDumpSSA;
@@ -149,27 +120,5 @@ void getOptions() {
   optCudaTaint = clOptCudaTaint;
   optMpiTaint = clOptMpiTaint;
   optUpcTaint = clOptUpcTaint;
-  optInterOnly = clOptInterOnly;
-  optIntraOnly = clOptIntraOnly;
-  optDGUIDA = clOptDGUIDA;
-  optDGSVF = clOptSVF;
-  optCompareAll = clOptCompareAll;
 
-  if (optInstrumInter && optInstrumIntra) {
-    errs() << "Error: cannot instrument for both intra- and inter- procedural "
-           << "analyses.\n";
-    exit(0);
-  }
-
-  if (optInstrumIntra && optInterOnly) {
-    errs() << "Error: cannot instrument intra-procedural with option "
-           << "-inter-only\n";
-    exit(0);
-  }
-
-  if (optInstrumInter && optIntraOnly) {
-    errs() << "Error: cannot instrument inter-procedural with option "
-           << "-intra-only\n";
-    exit(0);
-  }
 }

@@ -9,7 +9,6 @@
 
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
-#include "ParcoachAnalysisIntra.h"
 
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -36,10 +35,6 @@ public:
 
 private:
   ParcoachAnalysisInter *PAInter;
-  ParcoachAnalysisIntra *PAIntra;
-  ParcoachAnalysisInter *PAInterDCF;
-  ParcoachAnalysisInter *PAInterSVF;
-  ParcoachAnalysisInter *PAInterUIDA;
 
   typedef bool Preheader;
   typedef std::map<const llvm::BasicBlock *, Preheader> BBPreheaderMap;

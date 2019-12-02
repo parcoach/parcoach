@@ -21,11 +21,6 @@ extern bool optOmpTaint;
 extern bool optCudaTaint;
 extern bool optMpiTaint;
 extern bool optUpcTaint;
-extern bool optInterOnly;
-extern bool optIntraOnly;
-extern bool optDGUIDA;
-extern bool optDGSVF;
-extern bool optCompareAll;
 
 void getOptions();
 

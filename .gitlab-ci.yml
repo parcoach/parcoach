@@ -2,11 +2,12 @@ stages:
   - build
   - test
 
-test:
+build:
   script:
     - cd /home/build
     - cmake ../
     - make
 
 test:
+  script:
     - ctest

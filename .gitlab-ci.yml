@@ -4,7 +4,7 @@ stages:
 
 build:
   script:
-    - cd /home/build
+    - cd /Users/esaillar/Documents/PARCOACH/parcoach_gitlab/parcoach//build
     - cmake ../
     - make
 

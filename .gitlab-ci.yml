@@ -1,4 +1,12 @@
+stages:
+  - build
+  - test
+
 test:
   script:
-    - hostname
-    - whoami
+    - cd /home/build
+    - cmake ../
+    - make
+
+test:
+    - ctest

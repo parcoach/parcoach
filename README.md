@@ -71,7 +71,7 @@ clang -flto file1.o file2.o -o main.o -o main
 
 #### 3) Finally, run the PARCOACH pass on the generated LLVM bytecode:
 ```bash
-opt -load /path/to/parchoach/build/src/aSSA/libaSSA.so -parcoach -check-mpi -inter-only < main
+opt -load /path/to/parchoach/build/src/aSSA/libaSSA.so -parcoach -check-mpi < main
 ```
 
 ### Runtime checking

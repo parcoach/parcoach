@@ -1,3 +1,14 @@
+####################
+
+How to launch MPI tests:
+
+mkdir build && cd build
+cmake ..
+ctest
+
+
+#####################
+
 This directory contains multiple test cases for MPI. 
 
 - barrier_noerror.c

@@ -28,32 +28,36 @@ if(APPLE)
 endif ()
 
 
-enable_testing()
-
-
-
 find_package(MPI)
 find_package(OpenMP)
+
+enable_testing()
 
 add_subdirectory(src/aSSA/)
 #add_subdirectory(src/lib/)
 
+
 ### run PARCOACH on MPI test files
 
-file(MAKE_DIRECTORY tests/MPI/precompiled)
-file(MAKE_DIRECTORY tests/MPI/output)
-
 set(PARCOACH_FLAGS -check-mpi CACHE STRING "Option to compile with opt")
-set(PARCOACH_PASS ${CMAKE_CURRENT_SOURCE_DIR}/build/src/aSSA/libaSSA.so CACHE STRING "Path to PARCOACH pass")
+set(PARCOACH_PASS ${CMAKE_CURRENT_SOURCE_DIR}/build/src/aSSA/libaSSA.so CACHE STRING "PARCOACH pass")
 
-file(GLOB SRC_FILES ${PARCOACH_SOURCE_DIR}/tests/MPI/*.c)
-add_executable(TEST ${PARCOACH_SOURCE_DIR}/tests/checkpass.c)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI/precompiled)
+set(PRECOMPILED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI/precompiled)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI/output)
+set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI/output)
+
+set(TESTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/)
+set(TESTS_MPI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI)
 set(RES blabla)
 
-foreach(X IN ITEMS ${SRC_FILES})
+file(GLOB MPI_SRC_FILES ${TESTS_MPI_DIR}/*.c)
+add_executable(TEST ${TESTS_DIR}/checkpass.c)
+
+foreach(X IN ITEMS ${MPI_SRC_FILES})
   get_filename_component(RES ${X} NAME_WE)
-  execute_process(COMMAND clang -g -c -emit-llvm -I${MPI_C_HEADER_DIR} -o ${PARCOACH_SOURCE_DIR}/tests/MPI/precompiled/${RES}.bc ${X})
-  execute_process(COMMAND opt -postdomtree -load ${PARCOACH_PASS} -parcoach ${PARCOACH_FLAGS} ${PARCOACH_SOURCE_DIR}/tests/MPI/precompiled/${RES}.bc -o /dev/null
-                  ERROR_FILE ${PARCOACH_SOURCE_DIR}/tests/MPI/output/output_${RES}.txt)
-  add_test(test_${RES} TEST ${PARCOACH_SOURCE_DIR}/tests/MPI/output/output_${RES}.txt)
+  execute_process(COMMAND clang -g -c -emit-llvm -I${MPI_C_HEADER_DIR} -o ${PRECOMPILED_DIR}/${RES}.bc ${X})
+  execute_process(COMMAND opt -postdomtree -load ${PARCOACH_PASS} -parcoach ${PARCOACH_FLAGS} ${PRECOMPILED_DIR}/${RES}.bc -o /dev/null
+                  ERROR_FILE ${OUTPUT_DIR}/output_${RES}.txt)
+  add_test(test_${RES} TEST ${OUTPUT_DIR}/output_${RES}.txt)
 endforeach()

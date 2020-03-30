@@ -1,4 +1,5 @@
-file (GLOB_RECURSE source_files *.cpp)
+set(SOURCES *.cpp ../utils/*.cpp)
+file (GLOB_RECURSE source_files ${SOURCES})
 
 add_library(aSSA MODULE ${source_files})
 

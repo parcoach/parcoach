@@ -1,5 +1,5 @@
 #include "Collectives.h"
-#include "Options.h"
+#include "../aSSA/Options.h"
 
 /*
  * MPI COLLECTIVES

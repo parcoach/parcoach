@@ -1,5 +1,5 @@
 #include "Parcoach.h"
-#include "Collectives.h"
+#include "../utils/Collectives.h"
 #include "DepGraph.h"
 #include "DepGraphDCF.h"
 #include "ExtInfo.h"

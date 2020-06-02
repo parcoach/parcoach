@@ -1,0 +1,6 @@
+Problème du au plus tot:
+overhead potentiellement grand, pour ne s'arrêter quasiment qu'au dernier moment.
+Idée: Travail sur les boucles pour calculer le nombre d'itérations avant d'y rentrer.
+(Problème avec liste chainée).
+Postulat: Code plutôt bien écrit + Gros problème sur le nombre  d'itération d'une boucle : s'arrêter dès
+qu'on sait que certains vont faire moins d'itération que d'autre.

@@ -34,6 +34,8 @@ find_package(OpenMP)
 enable_testing()
 
 add_subdirectory(src/aSSA/)
+#add_subdirectory(src/utils/)
+add_subdirectory(src/words/)
 #add_subdirectory(src/lib/)
 
 
@@ -41,6 +43,7 @@ add_subdirectory(src/aSSA/)
 
 set(PARCOACH_FLAGS -check-mpi CACHE STRING "Option to compile with opt")
 set(PARCOACH_PASS ${CMAKE_CURRENT_SOURCE_DIR}/build/src/aSSA/libaSSA.so CACHE STRING "PARCOACH pass")
+set(WORDS_SET_PASS ${CMAKE_CURRENT_SOURCE_DIR}/build/src/words/libwords.so)
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI/precompiled)
 set(PRECOMPILED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI/precompiled)
@@ -49,8 +52,10 @@ set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI/output)
 
 set(TESTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/)
 set(TESTS_MPI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/MPI)
+set(TESTS_WORDS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests/WordsSet)
 set(RES blabla)
 
+file(GLOB WORDS_SET_SRC_FILES ${TESTS_WORDS_DIR}/*.cpp)
 file(GLOB MPI_SRC_FILES ${TESTS_MPI_DIR}/*.c)
 add_executable(TEST ${TESTS_DIR}/checkpass.c)
 
@@ -60,4 +65,15 @@ foreach(X IN ITEMS ${MPI_SRC_FILES})
   execute_process(COMMAND opt -postdomtree -load ${PARCOACH_PASS} -parcoach ${PARCOACH_FLAGS} ${PRECOMPILED_DIR}/${RES}.bc -o /dev/null
                   ERROR_FILE ${OUTPUT_DIR}/output_${RES}.txt)
   add_test(test_${RES} TEST ${OUTPUT_DIR}/output_${RES}.txt)
+endforeach()
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/words/)
+file(MAKE_DIRECTORY test_WordsSet)
+message("Adding test for WordsSet : ${WORDS_SET_SRC_FILES}")
+foreach(X IN ITEMS ${WORDS_SET_SRC_FILES})
+	get_filename_component(RES ${X} NAME_WE)
+	message("Adding test for ${RES}")
+	add_executable(${RES} ${X})
+	target_link_libraries( ${RES} ${WORDS_SET_PASS} ${PARCOACH_PASS} )
+	add_test(test_${RES} ./${RES})
 endforeach()

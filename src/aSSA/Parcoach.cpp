@@ -6,7 +6,7 @@
 #include "MemoryRegion.h"
 #include "MemorySSA.h"
 #include "ModRefAnalysis.h"
-#include "Options.h"
+#include "../utils/Options.h"
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"

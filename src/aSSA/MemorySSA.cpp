@@ -1,7 +1,7 @@
 #include "MemorySSA.h"
 #include "MemoryRegion.h"
 #include "ModRefAnalysis.h"
-#include "Options.h"
+#include "../utils/Options.h"
 #include "Utils.h"
 
 #include "llvm/IR/InstIterator.h"

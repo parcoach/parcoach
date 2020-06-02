@@ -1,6 +1,4 @@
 #include "Concatenator.h"
-#include <set>
-#include <string>
 
 using namespace std;
 

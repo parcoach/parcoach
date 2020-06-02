@@ -32,8 +32,10 @@ bool AllWordsPass::doFinalization(llvm::Module& M) {
 bool AllWordsPass::runOnModule(llvm::Module& M) {
 
     /* Create the call graph */
-    Andersen AA(M);
-    PTACallGraph PTACG(M, &AA);
+		errs() << "La passe fonctionne!!\n";
+
+//    Andersen AA(M);
+//    PTACallGraph PTACG(M, &AA);
 
 
     return true;
@@ -41,4 +43,5 @@ bool AllWordsPass::runOnModule(llvm::Module& M) {
 
 char AllWordsPass::ID = 0;
 
-static RegisterPass<AllWordsPass> pass_registrator("AllWords", "Module Pass");
+static RegisterPass<AllWordsPass> Z("allwords", "Module pass");
+//static RegisterPass<AllWordsPass> pass_registrator("AllWords", "Module Pass");

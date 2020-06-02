@@ -20,7 +20,7 @@ set(RES blabla)
 
 foreach(X IN ITEMS ${SRC_FILES})
     get_filename_component(RES ${X} NAME_WE)
-		execute_process(COMMAND clang++ -std=c++11 -g -c -emit-llvm -o ${PRECOMPILED_DIR}/${RES}.bc ${X})
+		execute_process(COMMAND clang++ -std=c++11 -mmacosx-version-min=10.13 -g -c -emit-llvm -o ${PRECOMPILED_DIR}/${RES}.bc ${X})
 		execute_process(COMMAND opt -load ${WORDS_SET_PASS} -allwords ${PRECOMPILED_DIR}/${RES}.bc -o /dev/null ERROR_FILE ${OUTPUT_DIR}/output_${RES}.txt)
 		add_test(test_${RES} TEST ${OUTPUT_DIR}/output_${RES}.txt)
 

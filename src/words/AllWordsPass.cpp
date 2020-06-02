@@ -1,11 +1,14 @@
 #include "AllWordsPass.h"
+#include "../aSSA/ExtInfo.h"
 #include "../utils/Collectives.h"
 #include "../aSSA/PTACallGraph.h"
+#include "../aSSA/Utils.h"
 #include "../aSSA/andersen/Andersen.h"
 
 #include "llvm/Pass.h"
 
 using namespace llvm;
+
 
 AllWordsPass::AllWordsPass() : ModulePass(ID)
 {
@@ -34,7 +37,8 @@ bool AllWordsPass::runOnModule(llvm::Module& M) {
     /* Create the call graph */
 		errs() << "La passe fonctionne!!\n";
 
-//    Andersen AA(M);
+		ExtInfo extInfo(M);
+	  Andersen AA(M);
 //    PTACallGraph PTACG(M, &AA);
 
 

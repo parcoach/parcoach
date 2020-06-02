@@ -1,4 +1,4 @@
-file (GLOB_RECURSE source_files *.cpp ../aSSA/PTACallGraph.cpp ../aSSA/andersen/*.cpp ../utils/*.cpp)
+file (GLOB_RECURSE source_files *.cpp ../aSSA/PTACallGraph.cpp ../aSSA/andersen/*.cpp ../aSSA/ExtInfo.cpp ../aSSA/Utils.cpp ../utils/*.cpp)
 
 add_library(words MODULE ${source_files})
 

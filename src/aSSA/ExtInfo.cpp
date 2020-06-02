@@ -15,6 +15,12 @@ static const funcModPair funcModPairs[] = {
     // {"func_name", { <nb_params>, <retval_is_pointer>, {
     // <param_1_is_modified_pointer, ..., <param_n-1_is_modified_pointer> } } }
 
+
+		// Vincent
+		//{" ", { , , {} } },
+		{"_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC1ERKS5_", {1 ,false , {false} } },
+
+
     // MILC HACK
     {"myrand", {1, false, {false}}},
     {"cmul", {2, false, {true, false}}},
@@ -193,14 +199,10 @@ static const funcModPair funcModPairs[] = {
     {"MPI_Address", {2, false, {false, true}}},
     {"MPI_Allgather",
      {7, false, {false, false, false, true, false, false, false}}},
-    {"MPI_Allgatherv",
-     {8, false, {false, false, false, true, false, false, false, false}}},
+    {"MPI_Allgatherv",{8, false, {false, false, false, true, false, false, false, false}}},
     {"MPI_Allreduce", {6, false, {false, true, false, false, false, false}}},
-    {"MPI_Alltoall",
-     {7, false, {false, false, false, true, false, false, true}}},
-    {"MPI_Alltoallv",
-     {9,
-      false,
+    {"MPI_Alltoall", {7, false, {false, false, false, true, false, false, true}}},
+    {"MPI_Alltoallv",{9,false,
       {false, false, false, false, true, false, false, false, false}}},
     {"MPI_Attr_get", {4, false, {false, false, true, true}}},
     {"MPI_Barrier", {1, false, {false}}},

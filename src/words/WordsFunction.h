@@ -2,9 +2,11 @@
 #define WORDS_FUNCTION_H
 
 #include <llvm/IR/Function.h>
+#include <llvm/IR/BasicBlock.h>
 #include <set>
 #include <string>
 #include <map>
+#include <stack>
 
 class WordsFunction
 {
@@ -17,6 +19,7 @@ private:
     /* Methods */
     bool isExitNode(llvm::BasicBlock *BB);
     void concatenate();
+    std::set<std::string> concatenate_rec(llvm::BasicBlock*);
 public:
     WordsFunction(llvm::Function *to_study);
     void compute();

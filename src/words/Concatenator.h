@@ -4,7 +4,7 @@
 #include <set>
 #include <string>
 
-std::set<std::string>* concatenante(std::set<std::string> *left, std::set<std::string> *right);
+void concatenante(std::set<std::string>*res, std::set<std::string> *left, std::set<std::string> *right);
 
 /**
  * concatenate two set of string, storing the result in the first argument

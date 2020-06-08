@@ -2,14 +2,12 @@
 
 using namespace std;
 
-set<string>* concatenante(std::set<std::string> *left, std::set<std::string> *right) {
-    set<string> *res = new set<string>();
+void concatenante(set<string>*res, set<string> *left, set<string> *right) {
     for (auto left_word : *left) {
         for(auto right_string : *right) {
             res -> insert(left_word + right_string);
         }
     }
-    return res;
 }
 
 void concatenate_insitu(std::set<std::string> *left, std::set<std::string> *res) {

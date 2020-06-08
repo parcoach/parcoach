@@ -10,6 +10,7 @@
 #include <llvm/IR/CFG.h>
 #include <queue>
 #include <iostream>
+#include <stack>
 
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/raw_os_ostream.h>
@@ -20,7 +21,7 @@ using namespace std;
 
 WordsFunction::WordsFunction(llvm::Function *to_study) : function(to_study), words(), bb2words()
 {
-    words.insert("");
+    //words.insert("");
 }
 
 WordsFunction::~WordsFunction()
@@ -57,18 +58,8 @@ void WordsFunction::compute() {
     WordsBasicBloc WBB(curr);
     WBB.compute();
     bb2words[curr] = WBB.get();
-    //concatenate_insitu(&bb2words[curr], &words);
-    //print_set(words);
 
-    /* Concatenate */
-    FunctionBFS bfs_merger(function);
-    end = bfs_merger.end();
-    curr = *bfs_manager;
-    concatenate_insitu(&bb2words[curr], &words);
-    for(;*bfs_merger!=end;++bfs_merger) {
-        curr = *bfs_merger;
-
-    }
+    this -> concatenate();
 }
 
 bool WordsFunction::isExitNode(BasicBlock *BB) {
@@ -91,4 +82,29 @@ bool WordsFunction::isExitNode(BasicBlock *BB) {
         }
     }*/
     return false;
+}
+
+void WordsFunction::concatenate() {
+    BasicBlock *BB = &function -> getEntryBlock();
+    for (auto elt : concatenate_rec(BB)) {
+        words.insert(elt);
+    }
+}
+
+set<string> WordsFunction::concatenate_rec(BasicBlock *curr) {
+    set<string> res;
+    /* Manage last bloc case */
+    if (isExitNode(curr)) {
+        for(auto elt : bb2words[curr]) {
+            res.insert(elt);
+        }
+        return res;
+    }
+    succ_iterator SI = succ_begin(curr), SE = succ_end(curr);
+    for (;SI != SE;++SI) {
+        auto BB = *SI;
+        auto temp = concatenate_rec(BB);
+        concatenante(&res, &temp, &bb2words[curr]);
+    }
+    return res;
 }

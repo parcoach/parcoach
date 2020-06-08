@@ -1,5 +1,6 @@
 #include "WordsModule.h"
 #include "globals.h"
+#include "WordsFunction.h"
 #include <llvm/ADT/SCCIterator.h>
 #include "llvm/IR/DebugInfo.h"
 #include <vector>
@@ -21,11 +22,23 @@ void WordsModule::run() {
     while (!it.isAtEnd()) {
         const vector<PTACallGraphNode *> &nodeVec = *it;
         for (PTACallGraphNode *node : nodeVec) {
-        Function *F = node->getFunction();
-        if (!F || F->isDeclaration() || !PTACG -> isReachableFromEntry(F))
-            continue;
-        errs() << "Function: " << F->getName() << "\n";
+            Function *F = node->getFunction();
+            if (!F || F->isDeclaration() || !PTACG -> isReachableFromEntry(F))
+                continue;
+            errs() << "Function: " << F->getName() << "\n";
+            WordsFunction WF(F);
+            WF.compute();
+            fun2set[F] = WF.get();
+            dbg(F);
         } // END FOR
         ++it;
     }
+}
+
+void WordsModule::dbg(llvm::Function* f) const {
+    errs() << "{ ";
+    for(string elt: fun2set[f]) {
+        errs() << elt << ", ";
+    }
+    errs() << " }\n";
 }

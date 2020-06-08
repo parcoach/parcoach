@@ -8,6 +8,8 @@
 std::vector<const char *> MPI_v_coll = {"MPI_Barrier",
                                         "MPI_Comm_split",
                                         "MPI_Comm_create",
+                                        "MPI_Comm_rank",
+                                        "MPI_Comm_size",
                                         "MPI_Comm_dup",
                                         "MPI_Comm_dup_with_info",
                                         "MPI_Ibarrier",
@@ -42,7 +44,8 @@ std::vector<const char *> MPI_v_coll = {"MPI_Barrier",
                                         "MPI_Igatherv",
                                         "MPI_Iscatterv",
                                         "MPI_Ialltoallv",
-                                        "MPI_Ialltoallw"};
+                                        "MPI_Ialltoallw",
+                                        "MPI_Finalize"};
 
 int Com_arg_id(int color) {
   if (color <= 5)

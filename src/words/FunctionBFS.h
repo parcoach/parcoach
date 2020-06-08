@@ -6,9 +6,6 @@
 #include <queue>
 #include <map>
 
-typedef llvm::BasicBlock* iterator;
-typedef llvm::BasicBlock const* const_iterator;
-
 enum Color {WHITE, GREY, BLACK};
 
 class FunctionBFS
@@ -25,14 +22,17 @@ private:
     /* data */
 
     bool mustWait(llvm::BasicBlock*);
-    void reset();
+    void setup();
     bool isExitNode(llvm::BasicBlock*);
 public:
 
-    iterator begin();
-    const_iterator begin() const;
-    iterator end();
-    const_iterator end() const;
+    typedef llvm::BasicBlock* iterator;
+    typedef llvm::BasicBlock const* const_iterator;
+
+    iterator begin() {return first;}
+    const_iterator begin() const {return first;}
+    iterator end() {return end_node;}
+    const_iterator end() const {return end_node;}
 
     void operator++();
     llvm::BasicBlock* operator*();

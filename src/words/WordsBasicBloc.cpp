@@ -4,8 +4,10 @@
 #include <llvm/IR/Instruction.h>
 #include <llvm/Pass.h>
 #include "llvm/IR/IRBuilder.h"
+#include <llvm/Support/raw_ostream.h>
 
 #include "../utils/Collectives.h"
+#include "globals.h"
 
 #include "WordsBasicBloc.h"
 #include "WordsFunction.h"
@@ -16,6 +18,7 @@ using namespace std;
 
 WordsBasicBloc::WordsBasicBloc(BasicBlock *BB): to_study(BB), words()
 {
+    words.insert("");
 }
 
 WordsBasicBloc::~WordsBasicBloc()
@@ -37,10 +40,9 @@ void WordsBasicBloc::compute() {
 
         if (isCollective(callee)) {
             concatenate(callee);
-        } else {
-            WordsFunction words_func(callee);
-            words_func.compute();
-            set<string> func_words = words_func.get();
+            errs() << callee -> getName() << "\n";
+        } else if (fun2set.find(callee) != fun2set.end()) {
+            set<string> func_words = fun2set[callee];
             concatenate_insitu( &func_words, &words );
         }
     }
@@ -49,7 +51,8 @@ void WordsBasicBloc::compute() {
 void WordsBasicBloc::concatenate(Function* func) {
     set<string> temp;
     for(auto word : words) {
-        temp . insert(func -> getName().str() + word);
+        temp . insert(func -> getName().str() + " " + word);
+        //errs() << func -> getName().str() + " " + word << "\n";
     }
     words.swap(temp);
 }

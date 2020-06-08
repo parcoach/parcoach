@@ -4,8 +4,10 @@
 #include <map>
 
 #include <llvm/IR/Function.h>
-#include "WordsFunction.h"
+#include <set>
+#include <string>
+//#include "WordsFunction.h"
 
-extern std::map<llvm::Function *, WordsFunction> fun2set;
+extern std::map<llvm::Function *, std::set<std::string>> fun2set;
 
 #endif//GLOBALS_H

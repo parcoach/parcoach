@@ -7,6 +7,8 @@ class WordsModule
 {
 private:
     PTACallGraph *PTACG;
+
+    void dbg(llvm::Function*) const;
 public:
     WordsModule(PTACallGraph *PTACG);
     ~WordsModule();

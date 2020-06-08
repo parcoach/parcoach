@@ -12,10 +12,11 @@ private:
     /* Attributes */
     llvm::Function *function;
     std::set<std::string> words;
-    std::map<llvm::BasicBlock, std::set<std::string>> bb2words;
+    std::map<llvm::BasicBlock*, std::set<std::string>> bb2words;
 
     /* Methods */
     bool isExitNode(llvm::BasicBlock *BB);
+    void concatenate();
 public:
     WordsFunction(llvm::Function *to_study);
     void compute();

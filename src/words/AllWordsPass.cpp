@@ -1,13 +1,15 @@
 #include "AllWordsPass.h"
 #include "WordsModule.h"
+#include "../utils/Options.h"
 #include "../aSSA/ExtInfo.h"
 #include "../utils/Collectives.h"
 #include "../aSSA/PTACallGraph.h"
 #include "../aSSA/Utils.h"
 #include "../aSSA/andersen/Andersen.h"
 
-#include "llvm/ADT/SCCIterator.h"
-#include "llvm/Pass.h"
+#include <llvm/Transforms/Utils/UnifyFunctionExitNodes.h>
+#include <llvm/ADT/SCCIterator.h>
+#include <llvm/Pass.h>
 
 using namespace llvm;
 
@@ -22,10 +24,13 @@ AllWordsPass::~AllWordsPass()
 
 void AllWordsPass::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
+  /* All CFG will have an only one exit node */
+  au.addRequiredID(UnifyFunctionExitNodes::ID);
 }
 
 
 bool AllWordsPass::doInitialization(llvm::Module& M) {
+    getOptions();
     initCollectives();
     return true;
 }
@@ -51,8 +56,6 @@ bool AllWordsPass::runOnModule(llvm::Module& M) {
 		ExtInfo extInfo(M);
 	  Andersen AA(M);
     PTACallGraph PTACG(M, &AA);
-
-    compute_set();
 
     WordsModule WM(&PTACG);
     WM.run();

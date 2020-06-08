@@ -6,8 +6,10 @@
 #include "llvm/IR/IRBuilder.h"
 
 #include "../utils/Collectives.h"
+
 #include "WordsBasicBloc.h"
 #include "WordsFunction.h"
+#include "Concatenator.h"
 
 using namespace llvm;
 using namespace std;
@@ -39,6 +41,15 @@ void WordsBasicBloc::compute() {
             WordsFunction words_func(callee);
             words_func.compute();
             set<string> func_words = words_func.get();
+            concatenate_insitu( &func_words, &words );
         }
     }
+}
+
+void WordsBasicBloc::concatenate(Function* func) {
+    set<string> temp;
+    for(auto word : words) {
+        temp . insert(func -> getName().str() + word);
+    }
+    words.swap(temp);
 }

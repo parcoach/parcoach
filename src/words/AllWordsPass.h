@@ -10,6 +10,7 @@ class AllWordsPass : public llvm::ModulePass
 {
 private:
     /* data */
+    void compute_set();
 public:
     static char ID;
 

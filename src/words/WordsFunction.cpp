@@ -3,8 +3,10 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
+#include <vector>
 
 using namespace llvm;
+using namespace std;
 
 WordsFunction::WordsFunction(llvm::Function *to_study) : function(to_study), words(), bb2words()
 {
@@ -22,6 +24,9 @@ void WordsFunction::compute() {
      * 4 - For each basic bloc BB starting from the end:
      * 4.1 - For each next basic blocs next_BB after BB in the CFG:
      * 4.1.1 - Concatenates words of next_BB with those of BB and store it in the set 'words'. */
+    vector<BasicBlock*> unvisited;
+
+    /**/
 }
 
 bool WordsFunction::isExitNode(BasicBlock *BB) {

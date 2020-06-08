@@ -4,9 +4,11 @@
 #include <set>
 #include <string>
 
+std::set<std::string>* concatenante(std::set<std::string> *left, std::set<std::string> *right);
+
 /**
  * concatenate two set of string, storing the result in the first argument
  */
-void concatenante_insitu(std::set<std::string> *, std::set<std::string> *);
+void concatenate_insitu(std::set<std::string> *res, std::set<std::string> *right);
 
 #endif//CONCATENATOR_H

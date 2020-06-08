@@ -19,7 +19,7 @@ private:
 public:
     WordsFunction(llvm::Function *to_study);
     void compute();
-    std::set<std::string> get();
+    std::set<std::string> const& get() {return words;}
     virtual ~WordsFunction();
 };
 

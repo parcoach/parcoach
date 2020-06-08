@@ -1,10 +1,12 @@
 #include "AllWordsPass.h"
+#include "WordsModule.h"
 #include "../aSSA/ExtInfo.h"
 #include "../utils/Collectives.h"
 #include "../aSSA/PTACallGraph.h"
 #include "../aSSA/Utils.h"
 #include "../aSSA/andersen/Andersen.h"
 
+#include "llvm/ADT/SCCIterator.h"
 #include "llvm/Pass.h"
 
 using namespace llvm;
@@ -34,15 +36,32 @@ bool AllWordsPass::doFinalization(llvm::Module& M) {
 
 bool AllWordsPass::runOnModule(llvm::Module& M) {
 
+    /* Be carefull, the entry may not be main */
+
+    /* Compute for all function a map that associate 
+     * to each function its BFS browsing it from the end. */
+
+    /* 1) Create the PTACallGraph
+     * 2) For each node in this graph  
+     * 2.1) Compute the word set and store the object in a map */
+
     /* Create the call graph */
-		errs() << "La passe fonctionne!!\n";
+		errs() << "Compute Anderson and PTA\n";
 
 		ExtInfo extInfo(M);
 	  Andersen AA(M);
-//    PTACallGraph PTACG(M, &AA);
+    PTACallGraph PTACG(M, &AA);
 
+    compute_set();
+
+    WordsModule WM(&PTACG);
+    WM.run();
 
     return true;
+}
+
+void AllWordsPass::compute_set() {
+
 }
 
 char AllWordsPass::ID = 0;

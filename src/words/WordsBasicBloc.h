@@ -17,6 +17,8 @@ public:
 
     void compute();
 
+    std::set<std::string> const& get() {return words;}
+
     ~WordsBasicBloc();
 };
 

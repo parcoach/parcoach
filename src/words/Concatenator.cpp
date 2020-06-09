@@ -10,10 +10,10 @@ void concatenante(set<string>*res, set<string> *left, set<string> *right) {
     }
 }
 
-void concatenate_insitu(std::set<std::string> *left, std::set<std::string> *res) {
+void concatenate_insitu(std::set<std::string> *res, std::set<std::string> *right) {
     set<string> temp;
-    for (auto left_string : *left) {
-        for(auto right_string : *res) {
+    for (auto left_string : *res) {
+        for(auto right_string : *right) {
             temp . insert(left_string + right_string);
         }
     }

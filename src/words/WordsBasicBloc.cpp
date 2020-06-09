@@ -12,6 +12,7 @@
 #include "WordsBasicBloc.h"
 #include "WordsFunction.h"
 #include "Concatenator.h"
+#include "DebugSet.h"
 
 using namespace llvm;
 using namespace std;
@@ -43,16 +44,17 @@ void WordsBasicBloc::compute() {
             errs() << callee -> getName() << "\n";
         } else if (fun2set.find(callee) != fun2set.end()) {
             set<string> func_words = fun2set[callee];
-            concatenate_insitu( &func_words, &words );
+            concatenate_insitu(  &words, &func_words );
+            print_set(func_words);
         }
     }
+    //print_set(words);
 }
 
 void WordsBasicBloc::concatenate(Function* func) {
     set<string> temp;
     for(auto word : words) {
-        temp . insert(func -> getName().str() + " " + word);
-        //errs() << func -> getName().str() + " " + word << "\n";
+        temp . insert(word + " " + func -> getName().str());
     }
     words.swap(temp);
 }

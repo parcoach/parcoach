@@ -4,3 +4,14 @@ Idée: Travail sur les boucles pour calculer le nombre d'itérations avant d'y r
 (Problème avec liste chainée).
 Postulat: Code plutôt bien écrit + Gros problème sur le nombre  d'itération d'une boucle : s'arrêter dès
 qu'on sait que certains vont faire moins d'itération que d'autre.
+
+
+
+
+Affichage des infomrations quantitatives:
+-> Nombres de mots
+-> Tailles des mots (max + min)
+
+Tests: IS / AMG 2013 (voir papier benchmarks et faire dans l'ordre croissant d'instructions (Table 1))
+
+Stockage des programmes en langages réguliers

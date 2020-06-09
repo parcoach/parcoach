@@ -38,12 +38,12 @@ void WordsFunction::compute() {
      * 4.1 - For each next basic blocs next_BB after BB in the CFG:
      * 4.1.1 - Concatenates words of next_BB with those of BB and store it in the set 'words'. */
     //vector<BasicBlock*> unvisited;
-    FunctionBFS bfs_manager(function);
+    /*FunctionBFS bfs_manager(function);
     BasicBlock *end = bfs_manager.end();
     BasicBlock *curr;
     for(;*bfs_manager != end; ++bfs_manager) {
         curr  = *bfs_manager;
-        //errs() << curr -> getName() << "\n";
+        //errs() << "Basic bloc name" << curr -> getName() << "\n";
         //if (bb2words.find(curr) != bb2words.end()) {
             WordsBasicBloc WBB(curr);
             WBB.compute();
@@ -57,7 +57,7 @@ void WordsFunction::compute() {
     //errs() << curr -> getName() << "\n";
     WordsBasicBloc WBB(curr);
     WBB.compute();
-    bb2words[curr] = WBB.get();
+    bb2words[curr] = WBB.get();*/
 
     this -> concatenate();
 }
@@ -66,21 +66,6 @@ bool WordsFunction::isExitNode(BasicBlock *BB) {
     if(isa<ReturnInst>(BB -> getTerminator())) {
         return true;
     }
-    /*for (auto &I : *BB) {
-        Instruction *i = &I;
-        CallInst *CI = dyn_cast<CallInst>(i);
-        if (!CI)
-        continue;
-        Function *f = CI->getCalledFunction();
-        if (!f)
-        continue;
-        // if(f->getName().equals("exit")||f->getName().equals("MPI_Abort") ||
-        // f->getName().equals("abort")){
-        if (f->getName().equals("MPI_Finalize") ||
-            f->getName().equals("MPI_Abort") || f->getName().equals("abort")) {
-        return true;
-        }
-    }*/
     return false;
 }
 
@@ -95,6 +80,7 @@ set<string> WordsFunction::concatenate_rec(BasicBlock *curr) {
     set<string> res;
     /* Manage last bloc case */
     if (isExitNode(curr)) {
+        compute_basicblock(curr);
         for(auto elt : bb2words[curr]) {
             res.insert(elt);
         }
@@ -104,7 +90,17 @@ set<string> WordsFunction::concatenate_rec(BasicBlock *curr) {
     for (;SI != SE;++SI) {
         auto BB = *SI;
         auto temp = concatenate_rec(BB);
+        /* Compute basic bloc set */
+        compute_basicblock(curr);
+        /* Concatenate the result */
         concatenante(&res, &temp, &bb2words[curr]);
     }
+    errs() << "Set before ret : ";print_set(res);
     return res;
+}
+
+void WordsFunction::compute_basicblock(BasicBlock* BB) {
+    WordsBasicBloc WBB(BB);
+    WBB.compute();
+    bb2words[BB] = WBB.get();
 }

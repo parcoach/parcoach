@@ -20,6 +20,7 @@ private:
     bool isExitNode(llvm::BasicBlock *BB);
     void concatenate();
     std::set<std::string> concatenate_rec(llvm::BasicBlock*);
+    void compute_basicblock(llvm::BasicBlock *BB);
 public:
     WordsFunction(llvm::Function *to_study);
     void compute();

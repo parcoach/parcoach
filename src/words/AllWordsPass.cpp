@@ -16,6 +16,7 @@
 #include <set>
 #include <string>
 #include <limits>
+#include <vector>
 
 using namespace llvm;
 using namespace std;
@@ -85,22 +86,33 @@ void AllWordsPass::print_stats(llvm::Module &M) const {
     /* To improve */
     int max_length = 0;
     int min_length = numeric_limits<int>::max();
-    string longest_word, shortest_word;
+    set<string> longest_word, shortest_word;
     for (string word : allwords) {
       int length = 0;
       for (char c : word) {
         if(c == '-') length ++;
       }
+      
       if (length > max_length) {
         max_length   = length;
-        longest_word = word;
+        longest_word.clear();
+        longest_word.insert(word);
+      } else if (length == max_length) {
+        longest_word.insert(word);
+      }
+      
+      if (length == min_length) {
+        shortest_word.insert(word);
       } else if (length < min_length) {
         min_length    = length;
-        shortest_word = word;
+        shortest_word.clear();
+        shortest_word.insert(word);
       }
     }
-    errs() << "The longest word has " << max_length << " collective(s) and is : " << longest_word.substr(longest_word.find("-") + 2) << "\n";
-    errs() << "The shortest word has " << min_length << " collective(s) and is : " << shortest_word.substr(shortest_word.find("-") + 2) << "\n";
+    errs() << "The longest word has " << max_length << " collective(s) and are :\n";
+    print_set(longest_word);
+    errs() << "The shortest word has " << min_length << " collective(s) and are :\n";
+    print_set(shortest_word);
 }
 
 char AllWordsPass::ID = 0;

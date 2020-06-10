@@ -26,7 +26,6 @@ WordsFunction::~WordsFunction() {
 }
 
 void WordsFunction::compute() {
-    errs() << function -> getName() << "\n";
     /* DFS starting from the entry bloc.
      * 1 - Create a map associating words per basic blocs.
      * 2 - For each basic block 'curr' in the CFG:
@@ -69,7 +68,6 @@ set<string> WordsFunction::concatenate_rec(BasicBlock *curr) {
         /* Concatenate the result */
         concatenante(&res, &bb2words[curr], &temp);
     }
-    errs() << "Set before ret : ";print_set(res);
     return res;
 }
 

@@ -42,14 +42,11 @@ void WordsBasicBloc::compute() {
 
         if (isCollective(callee)) {
             concatenate(callee);
-            errs() << callee -> getName() << "\n";
         } else if (fun2set.find(callee) != fun2set.end()) {
             set<string> func_words = fun2set[callee];
             concatenate_insitu(  &words, &func_words );
-            print_set(func_words);
         }
     }
-    //print_set(words);
 }
 
 void WordsBasicBloc::concatenate(Function* func) {

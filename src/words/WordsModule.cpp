@@ -27,11 +27,9 @@ void WordsModule::run() {
             Function *F = node->getFunction();
             if (!F || F->isDeclaration() || !PTACG -> isReachableFromEntry(F))
                 continue;
-            errs() << "Function: " << F->getName() << "\n";
             WordsFunction WF(F);
             WF.compute();
             fun2set[F] = WF.get();
-            dbg(F);
         } // END FOR
         ++it;
     }

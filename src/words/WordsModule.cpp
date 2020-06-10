@@ -4,6 +4,8 @@
 #include <llvm/ADT/SCCIterator.h>
 #include "llvm/IR/DebugInfo.h"
 #include <vector>
+#include <set>
+#include <string>
 
 using namespace llvm;
 using namespace std;

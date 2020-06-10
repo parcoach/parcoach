@@ -11,6 +11,7 @@ class AllWordsPass : public llvm::ModulePass
 private:
     /* data */
     void compute_set();
+    void print_stats(llvm::Module &M) const;
 public:
     static char ID;
 

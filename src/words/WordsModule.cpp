@@ -37,8 +37,13 @@ void WordsModule::run() {
 
 void WordsModule::dbg(llvm::Function* f) const {
     errs() << "{ ";
+    int cpt = 0;
     for(string elt: fun2set[f]) {
-        errs() << elt << ", ";
+        errs() << "\"" << elt << "\"";
+        cpt ++;
+        if (cpt < fun2set[f].size() - 1) {
+            errs() << ", ";
+        }
     }
     errs() << " }\n";
 }

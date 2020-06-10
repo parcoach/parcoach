@@ -7,4 +7,5 @@
 #include <string>
 #include "WordsFunction.h"
 
-std::map<llvm::Function *, std::set<std::string>>fun2set;
+std::map<llvm::Function *, std::set<std::string>> fun2set;
+CollectiveRepresentation coll_repr;

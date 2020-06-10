@@ -6,6 +6,7 @@
 #include <vector>
 
 extern std::vector<const char *> v_coll;
+extern std::vector<const char *> MPI_v_coll;
 
 int Com_arg_id(int color);
 void initCollectives();

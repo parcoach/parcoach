@@ -6,6 +6,7 @@
 #include "../aSSA/PTACallGraph.h"
 #include "../aSSA/Utils.h"
 #include "../aSSA/andersen/Andersen.h"
+#include "globals.h"
 
 #include <llvm/Transforms/Utils/UnifyFunctionExitNodes.h>
 #include <llvm/ADT/SCCIterator.h>
@@ -32,6 +33,7 @@ void AllWordsPass::getAnalysisUsage(AnalysisUsage &au) const {
 bool AllWordsPass::doInitialization(llvm::Module& M) {
     getOptions();
     initCollectives();
+    coll_repr.init();
     return true;
 }
 

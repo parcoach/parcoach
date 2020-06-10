@@ -13,6 +13,7 @@
 #include "WordsFunction.h"
 #include "Concatenator.h"
 #include "DebugSet.h"
+#include "CollectiveRepresentation.h"
 
 using namespace llvm;
 using namespace std;
@@ -54,7 +55,7 @@ void WordsBasicBloc::compute() {
 void WordsBasicBloc::concatenate(Function* func) {
     set<string> temp;
     for(auto word : words) {
-        temp . insert(word + " " + func -> getName().str());
+        temp . insert(word + " <- " + coll_repr[func -> getName().str()]);
     }
     words.swap(temp);
 }

@@ -55,7 +55,7 @@ void WordsBasicBloc::compute() {
 void WordsBasicBloc::concatenate(Function* func) {
     set<string> temp;
     for(auto word : words) {
-        temp . insert(word + " <- " + coll_repr[func -> getName().str()]);
+        temp . insert(coll_repr[func -> getName().str()] + " -> " + word);
     }
     words.swap(temp);
 }

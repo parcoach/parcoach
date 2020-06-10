@@ -67,7 +67,7 @@ set<string> WordsFunction::concatenate_rec(BasicBlock *curr) {
         /* Compute basic bloc set */
         compute_basicblock(curr);
         /* Concatenate the result */
-        concatenante(&res, &temp, &bb2words[curr]);
+        concatenante(&res, &bb2words[curr], &temp);
     }
     errs() << "Set before ret : ";print_set(res);
     return res;

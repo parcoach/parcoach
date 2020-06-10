@@ -99,8 +99,8 @@ void AllWordsPass::print_stats(llvm::Module &M) const {
         shortest_word = word;
       }
     }
-    errs() << "The longest word has " << max_length << " collective(s) and is : " << longest_word << "\n";
-    errs() << "The shortest word has " << min_length << " collective(s) and is : " << shortest_word << "\n";
+    errs() << "The longest word has " << max_length << " collective(s) and is : " << longest_word.substr(longest_word.find("-") + 2) << "\n";
+    errs() << "The shortest word has " << min_length << " collective(s) and is : " << shortest_word.substr(shortest_word.find("-") + 2) << "\n";
 }
 
 char AllWordsPass::ID = 0;

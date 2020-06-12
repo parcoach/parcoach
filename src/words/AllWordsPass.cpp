@@ -12,6 +12,8 @@
 #include <llvm/Transforms/Utils/UnifyFunctionExitNodes.h>
 #include <llvm/ADT/SCCIterator.h>
 #include <llvm/Pass.h>
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/Transforms/Utils/LoopSimplify.h>
 
 #include <set>
 #include <string>
@@ -34,6 +36,7 @@ void AllWordsPass::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
   /* All CFG will have an only one exit node */
   au.addRequiredID(UnifyFunctionExitNodes::ID);
+  au.addRequiredID(LoopInfoWrapperPass::ID);
 }
 
 
@@ -65,6 +68,8 @@ bool AllWordsPass::runOnModule(llvm::Module& M) {
 		ExtInfo extInfo(M);
 	  Andersen AA(M);
     PTACallGraph PTACG(M, &AA);
+
+    pass = this;
 
     WordsModule WM(&PTACG);
     WM.run();

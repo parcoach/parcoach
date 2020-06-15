@@ -1,4 +1,4 @@
-#include <Word.h>
+#include "Word.h"
 
 #if 0
 Word::Word() : collectives() {

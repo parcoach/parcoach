@@ -45,8 +45,12 @@ void WordsBasicBloc::compute() {
         } else if (fun2set.find(callee) != fun2set.end()) {
             set<string> func_words = fun2set[callee];
             concatenate_insitu(  &words, &func_words );
+        } else if (isExitFunction(callee)) {
+            words.clear();
+            words.insert("exit -> ");
         }
     }
+    print_set(words);
 }
 
 void WordsBasicBloc::concatenate(Function* func) {
@@ -55,4 +59,9 @@ void WordsBasicBloc::concatenate(Function* func) {
         temp . insert(coll_repr[func -> getName().str()] + " -> " + word);
     }
     words.swap(temp);
+}
+
+bool WordsBasicBloc::isExitFunction(Function* f) const {
+    string name = f -> getName();
+    return (name == "exit" || name == "abort");
 }

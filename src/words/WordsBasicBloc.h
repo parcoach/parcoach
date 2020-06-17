@@ -12,6 +12,7 @@ private:
     std::set<std::string> words;
 
     void concatenate(llvm::Function*);
+    bool isExitFunction(llvm::Function*) const;
 public:
     WordsBasicBloc(llvm::BasicBlock *BB);
 

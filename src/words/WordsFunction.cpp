@@ -74,6 +74,12 @@ set<string> WordsFunction::concatenate_rec(BasicBlock *curr) {
     succ_iterator SI = succ_begin(curr), SE = succ_end(curr);
     /* Compute basic bloc set */
     compute_basicblock(curr);
+    /* Make sure the set will not be empty if no successors */
+    if(SI == SE) {
+        for(auto word : bb2words[curr]) {
+            res.insert(word);
+        }
+    }
     for (;SI != SE;++SI) {
         auto BB = *SI;
         set<string> temp;
@@ -104,7 +110,7 @@ void WordsFunction::treatLoops() {
     for(auto loop : *curLoop) {
         all_loop.push_back(loop);
     }
-    errs() << "In " << function->getName() << " there are " << all_loop.size() << " functions.\n";
+    errs() << "In " << function->getName() << " there are " << all_loop.size() << " loops.\n";
 
     /* Treat loop from  the most nested to the least one */
     sort(all_loop.begin(), all_loop.end(), compare_loop);

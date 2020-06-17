@@ -36,12 +36,14 @@ std::set<std::string> WordsLoop::compute_rec(llvm::BasicBlock *BB) {
         WordsBasicBloc WBB(BB);
         WBB.compute();
         bb2set[BB] = WBB.get();
-        res.swap(bb2set[BB]);
+        for(auto word : bb2set[BB]) {
+            res.insert(word);
+        }
         return res;
     }
 
     auto sub_loop_it = bb2loop.find(BB);
-    /* Don't compute loop, they've been already treated */
+    /* Don't compute inner loop, they've been already treated */
     if(sub_loop_it != bb2loop.end()) {
         res = loop2set[sub_loop_it->second];
         make_set_loop(res);
@@ -56,9 +58,17 @@ std::set<std::string> WordsLoop::compute_rec(llvm::BasicBlock *BB) {
 
     succ_iterator SI = succ_begin(BB), SE = succ_end(BB);
     auto BB_set = bb2set[BB];
+    /* Make sure the result is not null, in case of exit for instance */
+    if(SI == SE) {
+        for(auto word : BB_set) {
+            res.insert(word);
+        }
+    }
     for(;SI != SE; ++SI) {
         auto curr = *SI;
         set<string> SI_set;
+
+        if(loop->getHeader() == BB && !loop->contains(curr)) {continue;}
 
         SI_set = compute_rec(curr);
 
@@ -75,7 +85,15 @@ bool WordsLoop::isLatchBlock(BasicBlock* BB) const {
 void make_set_loop(std::set<std::string>& words) {
     set<string> res;
     for(string word : words) {
-        res . insert ("(" + word.substr(0, word.find_last_of("-")-1) + ")* -> ");
+        if(word.find("exit") == string::npos) {
+            res . insert ("(" + word.substr(0, word.find_last_of("-")-1) + ")* -> ");
+        } else {
+            for(auto w : words) {
+                if(w.find("exit") == string::npos) {
+                    res.insert( "(" + w.substr(0,w.find_last_of("-")-1) + ")* -> " + word);
+                }   
+            }
+        }
     }
     words.swap(res);
 }

@@ -50,7 +50,6 @@ void WordsBasicBloc::compute() {
             words.insert("exit -> ");
         }
     }
-    print_set(words);
 }
 
 void WordsBasicBloc::concatenate(Function* func) {

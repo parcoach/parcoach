@@ -3,33 +3,23 @@ cmake_policy(SET CMP0054 NEW)
 
 project(PARCOACH)
 
+message("This is PARCOACH")
+message("You need LLVM 3.9")
 
-if (UNIX)
-	# c++11
-	set (CMAKE_CXX_STANDARD 11)
-	set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif ()
+# c++11
+set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(LLVM "3.9.1" EXACT REQUIRED  CONFIG)
+
+find_package(LLVM "3.9" REQUIRED  CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+message(STATUS "Using LLVM binaries in: ${LLVM_TOOLS_BINARY_DIR}")
+message(STATUS "CXX Compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "C Compiler: ${CMAKE_C_COMPILER}")
 
-if(APPLE)
-	message ("You are running on MAC OS X")
 
-	set (CMAKE_CXX_STANDARD 11)
-	set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_DIR})
-	include(${CMAKE_MODULE_PATH}/LLVM-Config.cmake)
-	add_definitions(${LLVM_DEFINITIONS})
-	include_directories(${LLVM_INCLUDE_DIRS})
-	include(${LLVM_DIR}/LLVM-Config.cmake)
-	include(HandleLLVMOptions)
-	include(AddLLVM)
-	link_directories(${LLVM_LIBRARY_DIRS})
-endif ()
-
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+include(AddLLVM)
 
 find_package(MPI)
 find_package(OpenMP)
@@ -39,8 +29,6 @@ enable_testing()
 # Uncomment for Parcoach
 #add_subdirectory(src/aSSA/)
 add_subdirectory(src/words/)
-#add_subdirectory(src/utils/)
-#add_subdirectory(src/lib/)
 
 
 ### run PARCOACH on MPI test files
@@ -83,11 +71,12 @@ file(GLOB MPI_SRC_FILES ${TESTS_MPI_DIR}/*.c)
 
 #include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/words/)
 #file(MAKE_DIRECTORY test_WordsSet)
+
 message("Adding test for WordsSet :")
 foreach(X IN ITEMS ${WORDS_SET_SRC_FILES})
 	get_filename_component(RES ${X} NAME_WE)
-	execute_process(COMMAND clang++ -std=c++11 -g -c -emit-llvm -I${MPI_C_HEADER_DIR} -I${CMAKE_CURRENT_SOURCE_DIR}/build/src/words -o ${PRECOMPILED_WORDS_DIR}/${RES}.bc ${X})
-	execute_process(COMMAND opt -load ${WORDS_SET_PASS} -allwords -check-mpi ${PRECOMPILED_WORDS_DIR}/${RES}.bc -o /dev/null ERROR_FILE ${OUTPUT_WORDS_DIR}/output_${RES}.txt)
+	execute_process(COMMAND ${CMAKE_CXX_COMPILER} -std=c++11 -g -c -emit-llvm -I${MPI_C_HEADER_DIR} -I${CMAKE_CURRENT_SOURCE_DIR}/build/src/words -o ${PRECOMPILED_WORDS_DIR}/${RES}.bc ${X})
+	execute_process(COMMAND ${LLVM_TOOLS_BINARY_DIR}/opt -load ${WORDS_SET_PASS} -allwords -check-mpi ${PRECOMPILED_WORDS_DIR}/${RES}.bc -o /dev/null ERROR_FILE ${OUTPUT_WORDS_DIR}/output_${RES}.txt)
 	add_executable(test_${RES} ${X})
 	#target_link_libraries(test_${RES} ${WORDS_SET_PASS})
 	add_test(test_${RES} TEST ${OUTPUT_WORDS_DIR}/output_${RES}.txt)

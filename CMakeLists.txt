@@ -2,31 +2,23 @@ cmake_minimum_required(VERSION 3.1)
 cmake_policy(SET CMP0054 NEW)
 
 project(PARCOACH)
+message("This is PARCOACH")
+message("You need LLVM 3.9 to build this project")
 
 
-if (UNIX)
-	# c++11
-	set (CMAKE_CXX_STANDARD 11)
-	set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif ()
+# c++11
+set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(LLVM "3.9.1" EXACT REQUIRED  CONFIG)
+
+find_package(LLVM "3.9" REQUIRED  CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+message(STATUS "Using LLVM binaries in: ${LLVM_TOOLS_BINARY_DIR}")
+message(STATUS "Using CXX Compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "Using C Compiler: ${CMAKE_C_COMPILER}")
 
-if(APPLE)
-	message ("You are running on MAC OS X")
-
-	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_DIR})
-	include(${CMAKE_MODULE_PATH}/LLVM-Config.cmake)
-	add_definitions(${LLVM_DEFINITIONS})
-	include_directories(${LLVM_INCLUDE_DIRS})
-	include(${LLVM_DIR}/LLVM-Config.cmake)
-	include(HandleLLVMOptions)
-	include(AddLLVM)
-	link_directories(${LLVM_LIBRARY_DIRS})
-endif ()
-
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+include(AddLLVM)
 
 find_package(MPI)
 find_package(OpenMP)

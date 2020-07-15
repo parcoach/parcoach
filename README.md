@@ -18,18 +18,22 @@ These instructions will get you a copy of the project up and running on your loc
 
 CMake can be downloaded from [http://www.cmake.org](http://www.cmake.org).
 
-#### LLVM `= 3.9.1`
+#### LLVM `= 3.9`
 
-This version of PARCOACH is an LLVM pass. To get LLVM, follow these steps:
+This version of PARCOACH is a pass for LLVM 3.9. Pre-built binary for either LLVM 3.9.1 or 3.9.0 are available [here] (https://releases.llvm.org/download.html#3.9.0)
+
+
+If you want to build LLVM, follow these steps:
 
 ```bash
 git clone -b llvmorg-3.9.1 --depth=1 --single-branch https://github.com/llvm/llvm-project.git
 cd llvm-project/
 mkdir build && cd build/
-cmake ../llvm/ -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS='clang,libcxx,libcxxabi,compiler-rt' -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
+cmake ../llvm/ -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS="clang;libcxx;libcxxabi,compiler-rt' -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
 make -j8
 make install 
 ```
+
 
 ### Installation
 
@@ -53,7 +57,7 @@ Codes with errors can be found in the [Parcoach Microbenchmark Suite](https://gi
 
 ### Static checking
 
-PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM `3.9.1`. It takes as input LLVM bytecode.
+PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM `3.9`. It takes as input LLVM bytecode.
 
 #### 1) First, compile each file from your program with clang. Use the `-flto` option to generate LLVM bytecode:
 ```bash

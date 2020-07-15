@@ -1,5 +1,5 @@
 #include "Parcoach.h"
-#include "../utils/Collectives.h"
+#include "Collectives.h"
 #include "DepGraph.h"
 #include "DepGraphDCF.h"
 #include "ExtInfo.h"
@@ -532,4 +532,4 @@ double ParcoachInstr::tend_flooding = 0;
 double ParcoachInstr::tstart_parcoach = 0;
 double ParcoachInstr::tend_parcoach = 0;
 
-static RegisterPass<ParcoachInstr> Z("parcoach", "Module pass");
+static RegisterPass<ParcoachInstr> X("parcoach", "Module pass");

@@ -21,6 +21,10 @@ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
 
 add_definitions(${LLVM_DEFINITIONS})
+# LLVM 3.9 compiles code using the old version of the C++ ABI.
+# Make sure we don't end up with CXX11's ABI symbols in the library by
+# telling the compiler to use the old version everytime.
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 include_directories(${LLVM_INCLUDE_DIRS})
 
 

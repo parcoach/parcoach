@@ -191,7 +191,7 @@ void ParcoachInstr::replaceOMPMicroFunctionCalls(
     Instruction *op2AsInst = op2AsCE->getAsInstruction();
     Function *outlinedFunc = dyn_cast<Function>(op2AsInst->getOperand(0));
     assert(outlinedFunc);
-    delete op2AsInst;
+    op2AsInst->deleteValue();
 
     errs() << outlinedFunc->getName() << "\n";
 

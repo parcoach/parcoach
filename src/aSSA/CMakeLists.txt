@@ -10,9 +10,8 @@ file (GLOB_RECURSE source_files *.cpp)
 # Which will tell llvm_add_library to add them to the linker command line.
 # The original components in this files were:
 # bitwriter core ipo irreader instcombine instrumentation target linker analysis scalaropts support
-llvm_add_library(aSSA MODULE OBJLIBS ${source_files})
-
-target_include_directories(aSSA PRIVATE include ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(aSSA PRIVATE ${LLVM_DEFINITIONS})
-target_compile_options(aSSA PRIVATE -Wall)
-
+add_llvm_library(aSSA MODULE
+  ${source_files}
+  PLUGIN_TOOL
+  opt
+  )

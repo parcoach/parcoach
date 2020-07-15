@@ -355,7 +355,7 @@ void Andersen::addConstraintForCall(ImmutableCallSite cs)
 				return;
 			else	// Unresolved library call: ruin everything!
 			{
-				DEBUG(errs() << "Unresolved ext function: " << f->getName() << "\n");
+				//DEBUG(errs() << "Unresolved ext function: " << f->getName() << "\n");
 				if (cs.getType()->isPointerTy())
 				{
 					NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());

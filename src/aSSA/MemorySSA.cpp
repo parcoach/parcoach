@@ -204,11 +204,11 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
       if (ce) {
         Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
         assert(inst);
-        if (isa<IntToPtrInst>(inst)) {
-          delete inst;
+        bool isAIntToPtr = isa<IntToPtrInst>(inst);
+        inst->deleteValue();
+        if (isAIntToPtr) {
           continue;
         }
-        delete inst;
       }
 
       vector<const Value *> ptsSet;
@@ -525,7 +525,7 @@ void MemorySSA::computeLLVMPhiPredicates(const llvm::PHINode *phi) {
 
     for (unsigned n = 0; n < IPDF.size(); ++n) {
       // Push conditions of each BB in the IPDF
-      const TerminatorInst *ti = IPDF[n]->getTerminator();
+      const Instruction *ti = IPDF[n]->getTerminator();
       assert(ti);
 
       if (isa<BranchInst>(ti)) {
@@ -558,7 +558,7 @@ void MemorySSA::computeMSSAPhiPredicates(MSSAPhi *phi) {
 
     for (unsigned n = 0; n < IPDF.size(); ++n) {
       // Push conditions of each BB in the IPDF
-      const TerminatorInst *ti = IPDF[n]->getTerminator();
+      const Instruction *ti = IPDF[n]->getTerminator();
       assert(ti);
 
       if (isa<BranchInst>(ti)) {
@@ -602,7 +602,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
 
   // Function header
   stream << "define " << *F->getReturnType() << " @" << F->getName() << "(";
-  for (const Argument &arg : F->getArgumentList())
+  for (const Argument &arg : F->args())
     stream << arg << ", ";
   stream << ") {\n";
 
@@ -724,7 +724,7 @@ void MemorySSA::createArtificalChiForCalledFunction(
 
   // Create artifical entry and exit chi for each pointer argument.
   unsigned argId = 0;
-  for (const Argument &arg : callee->getArgumentList()) {
+  for (const Argument &arg : callee->args()) {
     if (!arg.getType()->isPointerTy()) {
       argId++;
       continue;

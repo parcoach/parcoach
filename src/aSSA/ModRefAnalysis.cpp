@@ -111,11 +111,11 @@ void ModRefAnalysis::visitCallSite(CallSite CS) {
     if (ce) {
       Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
       assert(inst);
-      if (isa<IntToPtrInst>(inst)) {
-        delete inst;
+      bool isAIntToPtr = isa<IntToPtrInst>(inst);
+      inst->deleteValue();
+      if (isAIntToPtr) {
         continue;
       }
-      delete inst;
     }
 
     vector<const Value *> argPtsSet;

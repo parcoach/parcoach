@@ -151,10 +151,11 @@ void print_iPDF(vector<BasicBlock *> iPDF, BasicBlock *BB) {
   errs() << "}\n";
 }
 
+// FIXME: llvm::Function has a 'getArg' method.
 const Argument *getFunctionArgument(const Function *F, unsigned idx) {
   unsigned i = 0;
 
-  for (const Argument &arg : F->getArgumentList()) {
+  for (const Argument &arg : F->args()) {
     if (i == idx) {
       return &arg;
     }
@@ -179,7 +180,7 @@ computeIPDFPredicates(llvm::PostDominatorTree &PDT, llvm::BasicBlock *BB) {
 
   for (unsigned n = 0; n < IPDF.size(); ++n) {
     // Push conditions of each BB in the IPDF
-    const TerminatorInst *ti = IPDF[n]->getTerminator();
+    const Instruction *ti = IPDF[n]->getTerminator();
     assert(ti);
 
     if (isa<BranchInst>(ti)) {
@@ -203,7 +204,7 @@ computeIPDFPredicates(llvm::PostDominatorTree &PDT, llvm::BasicBlock *BB) {
 }
 
 const llvm::Value *getBasicBlockCond(const BasicBlock *BB) {
-  const TerminatorInst *ti = BB->getTerminator();
+  const Instruction *ti = BB->getTerminator();
   assert(ti);
 
   if (isa<BranchInst>(ti)) {

@@ -987,7 +987,7 @@ void ParcoachAnalysisInter::insertCountColl(llvm::Instruction *I,
       strPtr_FILENAME,
       ConstantInt::get(Type::getInt32Ty(M.getContext()), inst)};
   std::string FunctionName = "count_collectives";
-  Value *CCFunction = M.getOrInsertFunction(FunctionName, FTy);
+  Value *CCFunction = M.getOrInsertFunction(FunctionName, FTy).getCallee();
   // Create new function
   CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);
 }
@@ -1036,7 +1036,7 @@ void ParcoachAnalysisInter::insertCC(llvm::Instruction *I, int OP_color,
     FunctionName = "check_collective_return";
   }
 
-  Value *CCFunction = M.getOrInsertFunction(FunctionName, FTy);
+  Value *CCFunction = M.getOrInsertFunction(FunctionName, FTy).getCallee();
   // Create new function
   CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);
   errs() << "=> Insertion of " << FunctionName << " (" << OP_color << ", "

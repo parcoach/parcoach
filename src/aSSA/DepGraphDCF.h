@@ -29,7 +29,6 @@ public:
 
   void visitBasicBlock(llvm::BasicBlock &BB);
   void visitAllocaInst(llvm::AllocaInst &I);
-  void visitTerminatorInst(llvm::TerminatorInst &I);
   void visitCmpInst(llvm::CmpInst &I);
   void visitLoadInst(llvm::LoadInst &I);
   void visitStoreInst(llvm::StoreInst &I);
@@ -44,6 +43,7 @@ public:
   void visitInsertElementInst(llvm::InsertElementInst &I);
   void visitInsertValueInst(llvm::InsertValueInst &I);
   void visitShuffleVectorInst(llvm::ShuffleVectorInst &I);
+  void visitTerminator(llvm::Instruction &I);
   void visitInstruction(llvm::Instruction &I);
 
   // Phi elimination pass.

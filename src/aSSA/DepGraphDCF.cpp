@@ -142,7 +142,7 @@ void DepGraphDCF::buildFunction(const llvm::Function *F) {
 
     // Add args entry and exit chi nodes for external functions.
     unsigned argNo = 0;
-    for (const Argument &arg : F->getArgumentList()) {
+    for (const Argument &arg : F->args()) {
       if (!arg.getType()->isPointerTy()) {
         argNo++;
         continue;
@@ -262,7 +262,7 @@ void DepGraphDCF::buildFunction(const llvm::Function *F) {
         }
 
         // Connect LLVM arguments to SSA outputs
-        for (const Argument &arg : F->getArgumentList()) {
+        for (const Argument &arg : F->args()) {
           for (MSSAVar *out : ssaOutputs) {
             addEdge(&arg, out);
           }
@@ -311,7 +311,7 @@ void DepGraphDCF::visitAllocaInst(llvm::AllocaInst &I) {
   // Do nothing
 }
 
-void DepGraphDCF::visitTerminatorInst(llvm::TerminatorInst &I) {
+void DepGraphDCF::visitTerminator(llvm::Instruction &I) {
   // Do nothing
 }
 
@@ -655,7 +655,7 @@ void DepGraphDCF::connectCSEffectiveParameters(llvm::CallInst &I) {
     }
 
     unsigned argIdx = 0;
-    for (const Argument &arg : callee->getArgumentList()) {
+    for (const Argument &arg : callee->args()) {
       funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
       funcToLLVMNodesMap[callee].insert(&arg);
 
@@ -674,7 +674,7 @@ void DepGraphDCF::connectCSEffectiveParameters(llvm::CallInst &I) {
       }
 
       unsigned argIdx = 0;
-      for (const Argument &arg : mayCallee->getArgumentList()) {
+      for (const Argument &arg : mayCallee->args()) {
         funcToLLVMNodesMap[curFunc].insert(I.getArgOperand(argIdx));
         funcToLLVMNodesMap[callee].insert(&arg);
 
@@ -1973,7 +1973,7 @@ void DepGraphDCF::reorderAndRemoveDup(vector<DGDebugLoc> &DLs) {
       prev = DL.F;
 
       // sort
-      sort(sameFuncDL.begin(), sameFuncDL.end());
+      std::sort(sameFuncDL.begin(), sameFuncDL.end());
 
       // remove duplicates
       int line_prev = -1;

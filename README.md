@@ -14,14 +14,15 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-#### CMake `>= 3.1`
+#### CMake `>= 3.12`
 
 CMake can be downloaded from [http://www.cmake.org](http://www.cmake.org).
 
-#### LLVM `= 3.9`
+#### LLVM `= 9.0.x`
 
-This version of PARCOACH is a pass for LLVM 3.9. Pre-built binary for either LLVM 3.9.1 or 3.9.0 are available [here] (https://releases.llvm.org/download.html#3.9.0)
+This version of PARCOACH is a pass for LLVM 9. Pre-built binary for either LLVM 9.0.0 or 9.0.1 are available [here] (https://releases.llvm.org/download.html#9.0.0)
 
+TODO: the information below is outdated.
 
 If you want to build LLVM, follow these steps:
 
@@ -49,7 +50,7 @@ make -j8
 
 If CMake does not find LLVM, you can supply the path to your LLVM installation as follows  :
 ```bash
-cmake .. -DCMAKE_PREFIX_PATH=/path/to/llvm-3.9.1/
+cmake .. -DLLVM_DIR=/path/to/llvm-9.0
 ```
 
 ## Usage
@@ -57,7 +58,7 @@ Codes with errors can be found in the [Parcoach Microbenchmark Suite](https://gi
 
 ### Static checking
 
-PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM `3.9`. It takes as input LLVM bytecode.
+PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM `9.0`. It takes as input LLVM bytecode.
 
 #### 1) First, compile each file from your program with clang. Use the `-flto` option to generate LLVM bytecode:
 ```bash
@@ -75,7 +76,7 @@ clang -flto file1.o file2.o -o main.o -o main
 
 #### 3) Finally, run the PARCOACH pass on the generated LLVM bytecode:
 ```bash
-opt -load /path/to/parchoach/build/src/aSSA/libaSSA.so -parcoach -check-mpi < main
+opt -load /path/to/parchoach/build/src/aSSA/aSSA.so -parcoach -check-mpi < main
 ```
 
 ### Runtime checking

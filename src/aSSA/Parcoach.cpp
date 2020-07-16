@@ -26,6 +26,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/WithColor.h"
 #include "llvm/Transforms/Scalar/LowerAtomic.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -62,14 +63,11 @@ bool ParcoachInstr::doFinalization(Module &M) {
       unsigned intersectionSize;
       int WnbAdded = 0, CnbAdded = 0;
       int WnbRemoved = 0, CnbRemoved = 0;
+      auto CyanErr = []() { return WithColor(errs(), raw_ostream::Colors::CYAN); };
       if (!optNoDataFlow) {
-
-        errs() << "\n\033[0;36m==========================================\033["
-                  "0;0m\n";
-        errs() << "\033[0;36m===  PARCOACH INTER WITH DEP ANALYSIS  "
-                  "===\033[0;0m\n";
-        errs() << "\033[0;36m==========================================\033[0;"
-                  "0m\n";
+        CyanErr() << "==========================================\n";
+        CyanErr() << "===  PARCOACH INTER WITH DEP ANALYSIS  ===\n";
+        CyanErr() << "==========================================\n";
         errs() << "Module name: " << M.getModuleIdentifier() << "\n";
         errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
         errs() << PAInter->getNbCollectivesCondCalled()
@@ -98,12 +96,9 @@ bool ParcoachInstr::doFinalization(Module &M) {
                << " warning(s) removed with dep analysis.\n";
       }
 
-      errs() << "\n\033[0;36m================================================\033[0;"
-                "0m\n";
-      errs() << "\033[0;36m===== PARCOACH INTER WITHOUT DEP ANALYSIS"  
-								" ======\033[0;0m\n";
-      errs()
-          << "\033[0;36m================================================\033[0;0m\n";
+      CyanErr() << "================================================\n";
+      CyanErr() << "===== PARCOACH INTER WITHOUT DEP ANALYSIS ======\n";
+      CyanErr() << "================================================\n";
       errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
       errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
       errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
@@ -111,19 +106,15 @@ bool ParcoachInstr::doFinalization(Module &M) {
              << " different cond(s)\n";
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
 
-     if (!optNoDataFlow) {
-
+      if (!optNoDataFlow) {
         errs() << "app," << PAInter->getNbCollectivesFound() << ","
-               << PAInter->getNbWarnings() << ","
-               << PAInter->getConditionSet().size() << "," << WnbAdded << ","
-               << WnbRemoved << "," << CnbAdded << "," << CnbRemoved << ","
-               << PAInter->getNbWarningsParcoachOnly() << ","
-               << PAInter->getConditionSetParcoachOnly().size() << "\n";
+          << PAInter->getNbWarnings() << ","
+          << PAInter->getConditionSet().size() << "," << WnbAdded << ","
+          << WnbRemoved << "," << CnbAdded << "," << CnbRemoved << ","
+          << PAInter->getNbWarningsParcoachOnly() << ","
+          << PAInter->getConditionSetParcoachOnly().size() << "\n";
       }
-
-       errs() <<
-       "\033[0;36m==========================================\033[0;0m\n";
-
+      CyanErr() << "==========================================\n";
 
   if (optTimeStats) {
     errs() << "AA time : " << format("%.3f", (tend_aa - tstart_aa) * 1.0e3)

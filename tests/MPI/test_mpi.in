@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ $# -ne 2 ]; then
+  echo "Usage: ./test_mpi input_file.bc expected_output.txt"
+  exit
+fi
+
+IN_FILE=$1
+OUT_FILE=$1.out
+EXPECTED_OUTPUT=$2
+
+@CMAKE_BINARY_DIR@/parcoach --color=0 -postdomtree -check-mpi ${IN_FILE} -o /dev/null 2>${OUT_FILE}
+@Python3_EXECUTABLE@ @CMAKE_SOURCE_DIR@/tests/file_contains.py ${OUT_FILE} ${EXPECTED_OUTPUT}

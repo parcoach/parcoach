@@ -1,41 +1,63 @@
-cmake_minimum_required(VERSION 3.1)
+set(EXPECTED_SUCCESS_TESTS
+  Aislinn_invalid_order.c
+  CIVL_barrierReduce.c
+  CIVL_barrierScatter.c
+  CIVL_bcast_bad.c
+  CIVL_BcastReduce.c
+  CIVL_BcastReduce2.c
+  CIVL_BcastReduce_bad.c
+  error2.c
+  index-dep.c
+  loop_barrier.c
+  mismatch.c
+  mismatch_barrier.c
+  mismatch_barrier2.c
+  mismatch_barrier3.c
+  mismatch_barrier4.c
+  mismatch_barrier5.c
+  mismatch_barrier6.c
+  mismatch_barrier_com.c
+  mismatch_barrier_nb.c
+  MPIexample.c
+  noerror_barrier.c
+  noerror_barrier1.c
+  not_verifiable.c
+  phi-cond.c
+  pointer-alias.c
+  pointer-instance.c
+  )
 
-find_package(LLVM "3.9" REQUIRED  CONFIG)
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Found LLVM in ${LLVM_TOOLS_BINARY_DIR}")
-find_package(MPI)
-message(STATUS "Found MPI")
+set(EXPECTED_FAILURE_TESTS
+  field-sensitive.c
+  )
 
+set(CLANG_BIN ${LLVM_TOOLS_BINARY_DIR}/clang)
+set(BC_FLAGS -g -c -emit-llvm -I${MPI_C_HEADER_DIR})
+set(ALL_TESTS_TARGETS)
 
-set(PARCOACH_FLAGS -check-mpi CACHE STRING "opt command options")
-#set(PARCOACH_PASS ${CMAKE_CURRENT_SOURCE_DIR}/../../build/src/aSSA/libLLVMaSSA.so CACHE STRING "PARCOACH pass")
+configure_file(test_mpi.in test_mpi @ONLY)
 
-if(UNIX AND NOT APPLE)
-	set(PARCOACH_PASS ${CMAKE_CURRENT_SOURCE_DIR}/../../build/src/aSSA/libaSSA.so CACHE STRING "PARCOACH pass")
-endif()
-
-if(APPLE)
-	set(PARCOACH_PASS ${CMAKE_CURRENT_SOURCE_DIR}/../../build/src/aSSA/aSSA.dylib CACHE STRING "PARCOACH pass")
-endif()
-
-enable_testing()
-
-file(MAKE_DIRECTORY precompiled)
-file(MAKE_DIRECTORY output)
-set(PRECOMPILED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/precompiled/)
-set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/output/)
-
-add_executable(TEST ../checkpass.c)
-
-file(GLOB SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
-set(RES blabla)
-
-foreach(X IN ITEMS ${SRC_FILES})
-  get_filename_component(RES ${X} NAME_WE)
-  execute_process(COMMAND ${LLVM_TOOLS_BINARY_DIR}/clang -g -c -emit-llvm -I${MPI_C_HEADER_DIR} -o ${PRECOMPILED_DIR}/${RES}.bc ${X})
-	message("${LLVM_TOOLS_BINARY_DIR}/clang -g -c -emit-llvm -I${MPI_C_HEADER_DIR} -o ${PRECOMPILED_DIR}/${RES}.bc ${X}")
-  execute_process(COMMAND ${LLVM_TOOLS_BINARY_DIR}/opt -load ${PARCOACH_PASS} -postdomtree -parcoach ${PARCOACH_FLAGS} ${PRECOMPILED_DIR}/${RES}.bc -o /dev/null
-                  ERROR_FILE ${OUTPUT_DIR}/output_${RES}.txt)
-	message("${LLVM_TOOLS_BINARY_DIR}/opt -load ${PARCOACH_PASS} -postdomtree -parcoach ${PARCOACH_FLAGS} ${PRECOMPILED_DIR}/${RES}.bc -o /dev/null")
-  add_test(test_${RES} TEST ${OUTPUT_DIR}/output_${RES}.txt)
+foreach(SRC IN ITEMS ${EXPECTED_SUCCESS_TESTS} ${EXPECTED_FAILURE_TESTS})
+  get_filename_component(TEST_NAME ${SRC} NAME_WE)
+  set(TEST_BC ${TEST_NAME}.bc)
+  set(TEST_TARGET tests_MPI_${TEST_NAME})
+  # Append the target to all tests targets
+  set(ALL_TESTS_TARGETS ${ALL_TESTS_TARGETS} ${TEST_TARGET})
+  message("Adding test ${TEST_NAME}")
+  add_custom_command(
+    OUTPUT ${TEST_BC}
+    COMMAND ${CLANG_BIN} ${BC_FLAGS} -o ${TEST_BC} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC}
+    DEPENDS aSSA ${SRC}
+    )
+  add_custom_target(${TEST_TARGET} DEPENDS ${TEST_BC})
+  add_test(NAME ${TEST_TARGET} COMMAND test_mpi ${CMAKE_CURRENT_BINARY_DIR}/${TEST_BC} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC}.expected)
 endforeach()
+
+# Explicit mark expected failures
+foreach(SRC IN ITEMS ${EXPECTED_FAILURE_TESTS})
+  get_filename_component(TEST_NAME ${SRC} NAME_WE)
+  set_tests_properties(tests_MPI_${TEST_NAME} PROPERTIES WILL_FAIL TRUE)
+endforeach()
+
+# Add a phony depend so that precompiled .bc are always built when running building aSSA
+add_custom_target(tests_MPI ALL DEPENDS ${ALL_TESTS_TARGETS})

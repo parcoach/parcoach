@@ -15,3 +15,6 @@ add_llvm_library(aSSA MODULE
   PLUGIN_TOOL
   opt
   )
+
+set(PARCOACH_LIB ${CMAKE_CURRENT_BINARY_DIR}/aSSA${CMAKE_SHARED_LIBRARY_SUFFIX})
+configure_file(parcoach.in ${CMAKE_BINARY_DIR}/parcoach @ONLY)

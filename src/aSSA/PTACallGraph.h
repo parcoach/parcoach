@@ -245,11 +245,10 @@ struct GraphTraits<const PTACallGraph *>
 
 class PTACallGraphSCC {
   const PTACallGraph &CG; // The call graph for this SCC.
-  void *Context;
   std::vector<PTACallGraphNode *> Nodes;
 
 public:
-  PTACallGraphSCC(PTACallGraph &cg, void *context) : CG(cg), Context(context) {}
+  PTACallGraphSCC(PTACallGraph &cg) : CG(cg) {}
 
   void initialize(PTACallGraphNode *const *I, PTACallGraphNode *const *E) {
     Nodes.assign(I, E);

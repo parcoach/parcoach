@@ -30,7 +30,6 @@ public:
 private:
   llvm::StringMap<const extModInfo *> extModInfoMap;
   llvm::StringMap<const extDepInfo *> extDepInfoMap;
-  llvm::Module &m;
 };
 
 #endif /* EXTINFO_H */

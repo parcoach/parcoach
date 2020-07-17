@@ -416,190 +416,190 @@ static const funcModPair funcModPairs[] = {
      * see: http://llvm.org/docs/NVPTXUsage.html#llvm-nvvm-read-ptx-sreg
      */
     {
-        "llvm.nvvm.read.ptx.sreg.tid.x", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.tid.x", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.tid.y", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.tid.y", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.tid.z", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.tid.z", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.ctaid.x", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.ctaid.x", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.ctaid.y", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.ctaid.y", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.ctaid.z", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.ctaid.z", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.nctaid.x", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.nctaid.x", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.nctaid.y", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.nctaid.y", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.nctaid.z", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.nctaid.z", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.ntid.x", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.ntid.x", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.ntid.y", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.ntid.y", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.ntid.z", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.ntid.z", {0, false, {}},
     },
     {
-        "llvm.nvvm.read.ptx.sreg.warpsize", 0, false, {},
+        "llvm.nvvm.read.ptx.sreg.warpsize", {0, false, {}},
     },
     {
-        "llvm.nvvm.barrier0", 0, false, {},
+        "llvm.nvvm.barrier0", {0, false, {}},
     },
     {
-        "llvm.nvvm.fabs.ftz.f", 1, false, {false},
+        "llvm.nvvm.fabs.ftz.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.fabs.f", 1, false, {false},
+        "llvm.nvvm.fabs.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.fabs.d", 1, false, {false},
+        "llvm.nvvm.fabs.d", {1, false, {false}},
     },
     {
-        "llvm.nvvm.fmax.d", 2, false, {false, false},
+        "llvm.nvvm.fmax.d", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.fmax.ftz.f", 2, false, {false, false},
+        "llvm.nvvm.fmax.ftz.f", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.fmax.f", 2, false, {false, false},
+        "llvm.nvvm.fmax.f", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.min.ui", 2, false, {false, false},
+        "llvm.nvvm.min.ui", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.min.i", 2, false, {false, false},
+        "llvm.nvvm.min.i", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.max.i", 2, false, {false, false},
+        "llvm.nvvm.max.i", {2, false, {false, false}},
     },
     {
-        "llvm.annotation.i1", 4, false, {false, true, true, false},
+        "llvm.annotation.i1", {4, false, {false, true, true, false}},
     },
     {
-        "llvm.nvvm.fmin.ftz.f", 2, false, {false, false},
+        "llvm.nvvm.fmin.ftz.f", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.fmin.f", 2, false, {false, false},
+        "llvm.nvvm.fmin.f", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.lg2.approx.ftz.f", 1, false, {false},
+        "llvm.nvvm.lg2.approx.ftz.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.lg2.approx.f", 1, false, {false},
+        "llvm.nvvm.lg2.approx.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.ex2.approx.ftz.f", 1, false, {false},
+        "llvm.nvvm.ex2.approx.ftz.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.ex2.approx.f", 1, false, {false},
+        "llvm.nvvm.ex2.approx.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.sqrt.f", 1, false, {false},
+        "llvm.nvvm.sqrt.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.sqrt.rn.d", 1, false, {false},
+        "llvm.nvvm.sqrt.rn.d", {1, false, {false}},
     },
     {
-        "llvm.nvvm.rsqrt.approx.ftz.f", 1, false, {false},
+        "llvm.nvvm.rsqrt.approx.ftz.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.rsqrt.approx.f", 1, false, {false},
+        "llvm.nvvm.rsqrt.approx.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.floor.ftz.f", 1, false, {false},
+        "llvm.nvvm.floor.ftz.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.floor.f", 1, false, {false},
+        "llvm.nvvm.floor.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.mul24.i", 2, false, {false, false},
+        "llvm.nvvm.mul24.i", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.mul.rn.ftz.f", 2, false, {false, false},
+        "llvm.nvvm.mul.rn.ftz.f", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.mul.rn.f", 2, false, {false, false},
+        "llvm.nvvm.mul.rn.f", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.d2i.hi", 1, false, {false},
+        "llvm.nvvm.d2i.hi", {1, false, {false}},
     },
     {
-        "llvm.nvvm.d2i.lo", 1, false, {false},
+        "llvm.nvvm.d2i.lo", {1, false, {false}},
     },
     {
-        "llvm.nvvm.d2i.rn", 1, false, {false},
+        "llvm.nvvm.d2i.rn", {1, false, {false}},
     },
     {
-        "llvm.nvvm.mul.rn.d", 2, false, {false, false},
+        "llvm.nvvm.mul.rn.d", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.add.rn.d", 2, false, {false, false},
+        "llvm.nvvm.add.rn.d", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.add.rn.ftz.f", 2, false, {false, false},
+        "llvm.nvvm.add.rn.ftz.f", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.add.rn.f", 2, false, {false, false},
+        "llvm.nvvm.add.rn.f", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.fma.rn.d", 3, false, {false, false, false},
+        "llvm.nvvm.fma.rn.d", {3, false, {false, false, false}},
     },
     {
-        "llvm.nvvm.fma.rn.ftz.f", 3, false, {false, false, false},
+        "llvm.nvvm.fma.rn.ftz.f", {3, false, {false, false, false}},
     },
     {
-        "llvm.nvvm.fma.rn.f", 3, false, {false, false, false},
+        "llvm.nvvm.fma.rn.f", {3, false, {false, false, false}},
     },
     {
-        "llvm.nvvm.abs.i", 1, false, {false},
+        "llvm.nvvm.abs.i", {1, false, {false}},
     },
     {
-        "llvm.nvvm.lohi.i2d", 2, false, {false, false},
+        "llvm.nvvm.lohi.i2d", {2, false, {false, false}},
     },
     {
-        "llvm.nvvm.clz.ll", 1, false, {false},
+        "llvm.nvvm.clz.ll", {1, false, {false}},
     },
     {
-        "llvm.nvvm.ceil.d", 1, false, {false},
+        "llvm.nvvm.ceil.d", {1, false, {false}},
     },
     {
-        "llvm.nvvm.trunc.ftz.f", 1, false, {false},
+        "llvm.nvvm.trunc.ftz.f", {1, false, {false}},
     },
     {
-        "llvm.nvvm.trunc.f", 1, false, {false},
+        "llvm.nvvm.trunc.f", {1, false, {false}},
     },
     {
-        "__nvvm_reflect", 1, false, {true},
+        "__nvvm_reflect", {1, false, {true}},
     },
     {
-        "__assertfail", 5, false, {false, false, false, false, false},
+        "__assertfail", {5, false, {false, false, false, false, false}},
     },
     {
-        "llvm.nvvm.atomic.load.add.f32.p0f32", 2, false, {true, false},
+        "llvm.nvvm.atomic.load.add.f32.p0f32", {2, false, {true, false}},
     },
     {
-        "llvm.nvvm.membar.cta", 0, false, {},
+        "llvm.nvvm.membar.cta", {0, false, {}},
     },
     {
-        "llvm.nvvm.brev32", 1, false, {false},
+        "llvm.nvvm.brev32", {1, false, {false}},
     },
     {
-        "llvm.nvvm.clz.i", 1, false, {false},
+        "llvm.nvvm.clz.i", {1, false, {false}},
     },
     {
-        "llvm.nvvm.popc.i", 1, false, {false},
+        "llvm.nvvm.popc.i", {1, false, {false}},
     },
 
     /* Functions from NAS */
@@ -841,7 +841,7 @@ static const funcDepPair funcDepPairs[] = {
 
     {NULL, {0, {}, {}}}};
 
-ExtInfo::ExtInfo(Module &m) : m(m) {
+ExtInfo::ExtInfo(Module &m) {
   for (const funcModPair *i = funcModPairs; i->name; ++i)
     extModInfoMap[i->name] = &i->modInfo;
 

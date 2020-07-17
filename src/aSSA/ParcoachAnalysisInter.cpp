@@ -582,17 +582,6 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Function *F) {
   }     // END FOR
 }
 
-static std::string getSimpleNodeLabel(const BasicBlock *Node) {
-  if (!Node->getName().empty())
-    return Node->getName().str();
-
-  std::string Str;
-  raw_string_ostream OS(Str);
-
-  Node->printAsOperand(OS, false);
-  return OS.str();
-}
-
 // BFS
 void ParcoachAnalysisInter::BFS(llvm::Function *F) {
   std::vector<BasicBlock *> Unvisited;
@@ -775,9 +764,6 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
 
 // CHECK COLLECTIVES FUNCTION
 void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
-  StringRef FuncSummary;
-  MDNode *mdNode;
-
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
     Instruction *i = &*I;
     // Debug info (line in the source code, file)
@@ -909,7 +895,7 @@ errs() << pair.first << "{" << pair.second << "}\n";
         " possibly not called by all processes because of conditional(s) "
         "line(s) " +
         COND_lines + " (full-inter)";
-    mdNode = MDNode::get(i->getContext(),
+    MDNode *mdNode = MDNode::get(i->getContext(),
                          MDString::get(i->getContext(), WarningMsg));
     i->setMetadata("inter.inst.warning" + to_string(id), mdNode);
     Diag = SMDiagnostic(File, SourceMgr::DK_Warning, WarningMsg);

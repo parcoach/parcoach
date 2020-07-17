@@ -272,11 +272,8 @@ void ParcoachInstr::cudaTransformation(Module &M) {
     Function *fakeFunc =
         Function::Create(FT, Function::ExternalLinkage, funcName, &M);
 
-    Function *funcFromModule = M.getFunction(funcName);
-    assert(funcFromModule);
-
     BasicBlock *entryBB =
-        BasicBlock::Create(M.getContext(), "entry", funcFromModule);
+        BasicBlock::Create(M.getContext(), "entry", fakeFunc);
 
     IRBuilder<> Builder(M.getContext());
     Builder.SetInsertPoint(entryBB);
@@ -306,8 +303,7 @@ void ParcoachInstr::cudaTransformation(Module &M) {
     }
 
     Builder.CreateCall(kernel, callArgs);
-
-    ReturnInst *RI = Builder.CreateRetVoid();
+    Builder.CreateRetVoid();
   }
 }
 

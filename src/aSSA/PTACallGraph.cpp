@@ -2,9 +2,9 @@
 
 #include "llvm/IR/Module.h"
 
-using namespace llvm;
-
 #include <queue>
+
+using namespace llvm;
 
 PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
     : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),

@@ -1,0 +1,38 @@
+FROM ubuntu:focal
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Start by installing some generic dependencies
+RUN apt-get update \
+  && apt-get -y upgrade \
+    python3 \
+    git \
+    g++ \
+    wget \
+    gnupg \
+    vim \
+    cmake
+
+# Setup the LLVM 9 repository for focal
+
+RUN echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-9 main" >>/etc/apt/sources.list && \
+    wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
+    apt-get update && apt-get install -y clang-9 llvm-9 libllvm9 llvm-9-dev
+
+# Get some extra dependencies
+# FIXME: When adding support for OpenMP tests, this is where one should edit
+# this file. This will let docker build the new image on top of the base already
+# created.
+RUN apt-get install -y \
+  libopenmpi-dev
+
+# Cleanup the built image
+RUN apt-get autoremove -yq
+RUN apt-get clean -yq
+
+# Creating the parcoach user
+
+RUN useradd -m parcoach
+
+USER parcoach
+WORKDIR /home/parcoach

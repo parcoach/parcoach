@@ -1,13 +1,9 @@
-stages:
-  - build
-  - test
-
-build:
-  script:
-    - cd /Users/esaillar/Documents/PARCOACH/parcoach_gitlab/parcoach//build
-    - cmake .. -DLLVM_DIR=/Users/esaillar/Documents/TOOLS/LLVM_391/install/lib/cmake/llvm -DCMAKE_C_COMPILER=/Users/esaillar/Documents/TOOLS/LLVM_391/install/bin/clang -DCMAKE_CXX_COMPILER=/Users/esaillar/Documents/TOOLS/LLVM_391/install/bin/clang++
-    - make
-
 test:
+  image: "$CI_REGISTRY_IMAGE:llvm9"
+  tags:
+    - docker
+    - linux
   script:
-    - ctest
+    - mkdir build && cd build
+    - cmake .. -DCMAKE_C_COMPILER=clang-9 -DCMAKE_CXX_COMPILER=clang++-9 && make
+    - ctest --output-on-failure

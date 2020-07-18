@@ -1,4 +1,4 @@
-test:
+test-linux:
   image: "$CI_REGISTRY_IMAGE:llvm9"
   tags:
     - docker
@@ -6,4 +6,12 @@ test:
   script:
     - mkdir build && cd build
     - cmake .. -DCMAKE_C_COMPILER=clang-9 -DCMAKE_CXX_COMPILER=clang++-9 && make
+    - ctest --output-on-failure
+test-osx:
+  tags:
+    - osx
+  script:
+    - export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
+    - mkdir build && cd build
+    - cmake .. -DMPI_HOME=/opt/openmpi -DLLVM_DIR=/opt/llvm-9 -DCMAKE_C_COMPILER=/opt/llvm-9/bin/clang -DCMAKE_CXX_COMPILER=/opt/llvm-9/bin/clang++ && make
     - ctest --output-on-failure

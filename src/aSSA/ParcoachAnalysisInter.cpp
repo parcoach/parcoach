@@ -12,6 +12,9 @@
 //#include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Pass.h"
 
+#include <vector>
+#include <utility>
+
 using namespace llvm;
 using namespace std;
 
@@ -764,6 +767,7 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
 
 // CHECK COLLECTIVES FUNCTION
 void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
+  using Warning = pair<unsigned, string>;
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
     Instruction *i = &*I;
     // Debug info (line in the source code, file)
@@ -775,10 +779,9 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
       File = DLoc->getFilename();
     }
     // Warning info
-    string WarningMsg;
     const char *ProgName = "PARCOACH";
     SMDiagnostic Diag;
-    std::string COND_lines;
+    vector<Warning> Warnings;
 
     CallInst *CI = dyn_cast<CallInst>(i);
     if (!CI)
@@ -788,7 +791,7 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
     if (!f)
       continue;
 
-    string OP_name = f->getName().str();
+    StringRef OP_name = f->getName();
 
     // Is it a collective call?
     if (!isCollective(f)) {
@@ -857,13 +860,7 @@ errs() << pair.first << "{" << pair.second << "}\n";
       DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
       const Instruction *inst = BB->getTerminator();
       DebugLoc loc = inst->getDebugLoc();
-      if (loc) {
-        COND_lines.append(" ").append(to_string(loc.getLine()));
-        COND_lines.append(" (").append(loc->getFilename()).append(")");
-      } else {
-        COND_lines.append(" ").append("?");
-        COND_lines.append(" (").append("?").append(")");
-      }
+      Warnings.push_back(make_pair(loc.getLine(), loc ? loc->getFilename() : "?"));
 
       if (optDotTaintPaths) {
         string dotfilename("taintedpath-");
@@ -890,15 +887,22 @@ errs() << pair.first << "{" << pair.second << "}\n";
 
     nbWarnings++;
     warningSet.insert(CI);
-    WarningMsg =
-        OP_name + " line " + to_string(OP_line) +
-        " possibly not called by all processes because of conditional(s) "
-        "line(s) " +
-        COND_lines + " (full-inter)";
+    std::string Buf;
+    raw_string_ostream WarningMsg(Buf);
+    WarningMsg << OP_name << " line " << OP_line;
+    WarningMsg << " possibly not called by all processes because of conditional(s) line(s) ";
+    // Make sure lines are displayed in order.
+    std::sort(Warnings.begin(), Warnings.end());
+    for (auto &W : Warnings) {
+      WarningMsg << " " << (W.first ? to_string(W.first) : "?");
+      WarningMsg << " (" << W.second << ")";
+    }
+    WarningMsg << " (full-inter)";
+
     MDNode *mdNode = MDNode::get(i->getContext(),
-                         MDString::get(i->getContext(), WarningMsg));
+                         MDString::get(i->getContext(), WarningMsg.str()));
     i->setMetadata("inter.inst.warning" + to_string(id), mdNode);
-    Diag = SMDiagnostic(File, SourceMgr::DK_Warning, WarningMsg);
+    Diag = SMDiagnostic(File, SourceMgr::DK_Warning, WarningMsg.str());
     Diag.print(ProgName, errs(), 1, 1);
   }
 }

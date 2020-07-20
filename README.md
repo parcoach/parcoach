@@ -47,6 +47,7 @@ mkdir parcoach/build
 cd parcoach/build
 cmake ..
 make 
+ctest
 ```
 
 If CMake does not find LLVM, you can supply the path to your LLVM installation as follows  :
@@ -61,21 +62,31 @@ Codes with errors can be found in the [Parcoach Microbenchmark Suite](https://gi
 
 PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM `9.0`. It takes as input LLVM bytecode.
 
-#### 1) First, compile each file from your program with clang. Use the `-flto` option to generate LLVM bytecode:
+#### To use Parcoach on a single file
+
 ```bash
-clang -c -g -flto file1.c -o file1.o
-clang -c -g -flto file2.c -o file2.o
-clang -c -g -flto main.c -o main.o
+clang -c -g -emit-llvm file1.c -o file1.bc
+opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi < file1.bc > /dev/null
+```
+
+
+#### If you have multiple files
+
+##### 1) First, compile each file from your program with clang. Use the `-flto` option to generate LLVM bytecode:
+```bash
+clang -c -g -flto file1.c -o file1.bc
+clang -c -g -flto file2.c -o file2.bc
+clang -c -g -flto main.c -o main.bc
 ```
  
  Do not forget to supply the `-g` option, so PARCOACH can provide more precise debugging information.
  
-#### 2) Then, link all object files
+##### 2) Then, link all object files
 ```bash
-clang -flto file1.o file2.o -o main.o -o main
+clang -flto file1.bc file2.bc main.bc -o main
 ```
 
-#### 3) Finally, run the PARCOACH pass on the generated LLVM bytecode. To detect collective errors in MPI:
+##### 3) Finally, run the PARCOACH pass on the generated LLVM bytecode. To detect collective errors in MPI:
 ```bash
 opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi < main
 ```

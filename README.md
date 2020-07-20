@@ -4,6 +4,8 @@
 
 ## News
 
+
+* <b> Parcoach now supports LLVM 9! </b>
 * <b> Parcoach is now on github! </b>
 
 
@@ -22,16 +24,15 @@ CMake can be downloaded from [http://www.cmake.org](http://www.cmake.org).
 
 This version of PARCOACH is a pass for LLVM 9. Pre-built binary for either LLVM 9.0.0 or 9.0.1 are available [here] (https://releases.llvm.org/download.html#9.0.0)
 
-TODO: the information below is outdated.
 
-If you want to build LLVM, follow these steps:
+To build LLVM, follow these steps:
 
 ```bash
-git clone -b llvmorg-3.9.1 --depth=1 --single-branch https://github.com/llvm/llvm-project.git
+git clone -b llvmorg-9.0 --depth=1 --single-branch https://github.com/llvm/llvm-project.git
 cd llvm-project/
 mkdir build && cd build/
-cmake ../llvm/ -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS="clang;libcxx;libcxxabi,compiler-rt' -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
-make -j8
+cmake ../llvm/ -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS="clang;libcxx;libcxxabi;compiler-rt" -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=where/you/want/to/install/parcoach
+make
 make install 
 ```
 
@@ -45,7 +46,7 @@ git clone https://github.com/parcoach/parcoach.git
 mkdir parcoach/build
 cd parcoach/build
 cmake ..
-make -j8
+make 
 ```
 
 If CMake does not find LLVM, you can supply the path to your LLVM installation as follows  :
@@ -74,9 +75,9 @@ clang -c -g -flto main.c -o main.o
 clang -flto file1.o file2.o -o main.o -o main
 ```
 
-#### 3) Finally, run the PARCOACH pass on the generated LLVM bytecode:
+#### 3) Finally, run the PARCOACH pass on the generated LLVM bytecode. To detect collective errors in MPI:
 ```bash
-opt -load /path/to/parchoach/build/src/aSSA/aSSA.so -parcoach -check-mpi < main
+opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi < main
 ```
 
 ### Runtime checking

@@ -20,7 +20,7 @@ if n_missed > 0:
   for m in missed:
     print(m)
 if n_extra > 0:
-  print("Some diagnostics ({}) were detected an unexpected:".format(n_extra))
+  print("Some diagnostics ({}) were detected and unexpected:".format(n_extra))
   for m in extra:
     print(m)
 

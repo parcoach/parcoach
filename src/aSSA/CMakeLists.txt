@@ -1,8 +1,20 @@
 # FIXME: Globbing is bad, we should list all the files.
-file (GLOB_RECURSE source_files *.cpp)
+#file (GLOB_RECURSE source_files *.cpp)
 
 add_llvm_library(aSSA MODULE
-  ${source_files}
+ # ${source_files}
+	Collectives.cpp
+  DepGraph.cpp
+	DepGraphDCF.cpp
+	ExtInfo.cpp
+	MemoryRegion.cpp
+	MemorySSA.cpp
+	ModRefAnalysis.cpp
+	Options.cpp
+	PTACallGraph.cpp
+	Parcoach.cpp
+	ParcoachAnalysisInter.cpp
+	Utils.cpp
   PLUGIN_TOOL
   opt
   )

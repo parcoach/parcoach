@@ -3,7 +3,7 @@ cmake_policy(SET CMP0054 NEW)
 
 project(PARCOACH)
 message("This is PARCOACH")
-message("You need LLVM 3.9 to build this project")
+message("You need LLVM 9 to build this project")
 
 
 # c++11

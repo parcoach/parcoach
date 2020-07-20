@@ -15,6 +15,13 @@ add_llvm_library(aSSA MODULE
 	Parcoach.cpp
 	ParcoachAnalysisInter.cpp
 	Utils.cpp
+	andersen/Andersen.cpp
+	andersen/ConstraintCollect.cpp
+	andersen/ConstraintOptimize.cpp
+	andersen/ConstraintSolving.cpp
+	andersen/ExternalLibrary.cpp
+	andersen/NodeFactory.cpp
+
   PLUGIN_TOOL
   opt
   )

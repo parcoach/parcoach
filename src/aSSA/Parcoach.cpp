@@ -23,6 +23,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/SourceMgr.h"
@@ -30,6 +31,7 @@
 #include "llvm/Transforms/Scalar/LowerAtomic.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include <llvm/Analysis/LoopInfo.h>
 
 using namespace llvm;
@@ -519,4 +521,13 @@ double ParcoachInstr::tend_flooding = 0;
 double ParcoachInstr::tstart_parcoach = 0;
 double ParcoachInstr::tend_parcoach = 0;
 
-static RegisterPass<ParcoachInstr> X("parcoach", "Module pass");
+static RegisterPass<ParcoachInstr> X("parcoach", "Parcoach pass",
+																			true,
+																			false);
+
+static RegisterStandardPasses Y(
+    PassManagerBuilder::EP_EarlyAsPossible,
+    [](const PassManagerBuilder &Builder,
+       legacy::PassManagerBase &PM) { PM.add(new ParcoachInstr()); });
+
+

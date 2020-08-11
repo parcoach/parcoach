@@ -23,7 +23,7 @@ CMake can be downloaded from [http://www.cmake.org](http://www.cmake.org).
 #### LLVM `= 9.0.x`
 
 This version of PARCOACH is a pass for LLVM 9. Pre-built binary for either LLVM 9.0.0 or 9.0.1 are available [here] (https://releases.llvm.org/download.html#9.0.0)
-
+Note to use LLVM 10, use C++14 and uncomment the line starting by LLVM10 in PTACallGraph.cpp 
 
 To build LLVM, follow these steps:
 
@@ -62,7 +62,6 @@ Codes with errors can be found in the [Parcoach Microbenchmark Suite](https://gi
 
 PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM `9.0`. It takes as input LLVM bytecode.
 
-<<<<<<< HEAD
 #### To use Parcoach on a single file
 
 ```bash

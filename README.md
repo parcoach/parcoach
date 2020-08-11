@@ -16,7 +16,7 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-#### CMake `>= 3.12`
+#### CMake `>= 3.16`
 
 CMake can be downloaded from [http://www.cmake.org](http://www.cmake.org).
 
@@ -28,7 +28,7 @@ This version of PARCOACH is a pass for LLVM 9. Pre-built binary for either LLVM 
 To build LLVM, follow these steps:
 
 ```bash
-git clone -b llvmorg-9.0 --depth=1 --single-branch https://github.com/llvm/llvm-project.git
+git clone -b llvmorg-9.0.0 --depth=1 --single-branch https://github.com/llvm/llvm-project.git
 cd llvm-project/
 mkdir build && cd build/
 cmake ../llvm/ -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_ENABLE_PROJECTS="clang;libcxx;libcxxabi;compiler-rt" -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=where/you/want/to/install/parcoach
@@ -52,7 +52,7 @@ ctest
 
 If CMake does not find LLVM, you can supply the path to your LLVM installation as follows  :
 ```bash
-cmake .. -DLLVM_DIR=/path/to/llvm-9.0
+cmake .. -DLLVM_DIR=/path/to/llvm-9
 ```
 
 ## Usage
@@ -62,6 +62,7 @@ Codes with errors can be found in the [Parcoach Microbenchmark Suite](https://gi
 
 PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM `9.0`. It takes as input LLVM bytecode.
 
+<<<<<<< HEAD
 #### To use Parcoach on a single file
 
 ```bash
@@ -74,21 +75,23 @@ opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi < file1.
 
 ##### 1) First, compile each file from your program with clang. Use the `-flto` option to generate LLVM bytecode:
 ```bash
-clang -c -g -flto file1.c -o file1.bc
-clang -c -g -flto file2.c -o file2.bc
-clang -c -g -flto main.c -o main.bc
+clang -g -c -emit-llvm file1.c -o file1.bc
+clang -g -c -emit-llvm file2.c -o file2.bc
+clang -g -c -emit-llvm file3.c -o file3.bc
 ```
  
  Do not forget to supply the `-g` option, so PARCOACH can provide more precise debugging information.
  
 ##### 2) Then, link all object files
 ```bash
-clang -flto file1.bc file2.bc main.bc -o main
+llvm-link file1.bc file2.bc file3.bc -o merge.bc
 ```
 
 ##### 3) Finally, run the PARCOACH pass on the generated LLVM bytecode. To detect collective errors in MPI:
 ```bash
-opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi < main
+opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi merge.bc
+=
+./parcoach -check-mpi merge.bc
 ```
 
 ### Runtime checking
@@ -131,3 +134,4 @@ The project is licensed under the LGPL 2.1 license.
 
 - [Official website](https://parcoach.github.io)
 - [Parcoach Microbenchmark Suite](https://github.com/parcoach/microbenchmarks)
+

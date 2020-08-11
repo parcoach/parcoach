@@ -9,6 +9,7 @@ using namespace llvm;
 PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
     : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),
       ExternalCallingNode(getOrInsertFunction(nullptr)),
+      //LLVM10: CallsExternalNode(std::make_unique<PTACallGraphNode>(nullptr)) {
       CallsExternalNode(llvm::make_unique<PTACallGraphNode>(nullptr)) {
 
   for (Function &F : M)
@@ -141,5 +142,6 @@ PTACallGraphNode *PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
 
   assert((!F || F->getParent() == &M) && "Function not in current module!");
   CGN = llvm::make_unique<PTACallGraphNode>(const_cast<Function *>(F));
+  //LLVM10: CGN = std::make_unique<PTACallGraphNode>(const_cast<Function *>(F));
   return CGN.get();
 }

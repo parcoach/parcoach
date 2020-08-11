@@ -108,14 +108,14 @@ bool ParcoachInstr::doFinalization(Module &M) {
              << " different cond(s)\n";
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
 
-      if (!optNoDataFlow) {
+     /* if (!optNoDataFlow) {
         errs() << "app," << PAInter->getNbCollectivesFound() << ","
           << PAInter->getNbWarnings() << ","
           << PAInter->getConditionSet().size() << "," << WnbAdded << ","
           << WnbRemoved << "," << CnbAdded << "," << CnbRemoved << ","
           << PAInter->getNbWarningsParcoachOnly() << ","
           << PAInter->getConditionSetParcoachOnly().size() << "\n";
-      }
+      }*/
       CyanErr() << "==========================================\n";
 
   if (optTimeStats) {
@@ -526,6 +526,7 @@ static RegisterPass<ParcoachInstr> X("parcoach", "Parcoach pass",
 																			false);
 
 static RegisterStandardPasses Y(
+//    PassManagerBuilder::EP_ModuleOptimizerEarly,
     PassManagerBuilder::EP_EarlyAsPossible,
     [](const PassManagerBuilder &Builder,
        legacy::PassManagerBase &PM) { PM.add(new ParcoachInstr()); });

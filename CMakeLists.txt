@@ -8,6 +8,8 @@ message("You need LLVM 9 to build this project")
 
 # c++11
 set (CMAKE_CXX_STANDARD 11)
+#c++14 for LLVM 10
+#set (CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 

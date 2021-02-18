@@ -331,6 +331,14 @@ static const funcModPair funcModPairs[] = {
     {"MPI_Request_free", {1, false, {false}}},
     {"MPI_Group_excl", {4, false, {false,false,false, true}}},
     {"MPI_Comm_create_group", {4, false, {false,false,false,true}}},
+    {"MPI_Intercomm_create", {6, false, {false,false,false,false,false,true}}},
+    {"MPI_Cart_shift", {5, false, {false,false,false,false,false}}},
+    {"MPI_Comm_compare", {3, false, {false,false,true}}},
+    {"MPI_Reduce_scatter_block", {6, false, {false,true,false,false,false,false}}},
+    {"MPI_Reduce_scatter", {6, false, {false,true,false,false,false,false}}},
+    {"MPI_Group_range_excl", {4, false, {false,false,false,true}}},
+    {"MPI_Bsend", {6, false, {false,false,false,false,false,false}}},
+    {"MPI_Win_fence", {2, false, {false,false}}},
 
     /* OpenMP */
     {"omp_get_num_threads", {0, false, {}}},

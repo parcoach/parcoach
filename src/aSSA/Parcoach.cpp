@@ -1,3 +1,8 @@
+/* 
+This is PARCOACH
+The project is licensed under the LGPL 2.1 license
+*/
+
 #include "Parcoach.h"
 #include "Collectives.h"
 #include "DepGraph.h"

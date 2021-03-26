@@ -333,6 +333,8 @@ static const funcModPair funcModPairs[] = {
     {"MPI_Comm_create_group", {4, false, {false,false,false,true}}},
     {"MPI_Intercomm_create", {6, false, {false,false,false,false,false,true}}},
     {"MPI_Cart_shift", {5, false, {false,false,false,false,false}}},
+    {"MPI_Cart_coords", {4, false, {false,false,false,true}}},
+    {"MPI_Cart_sub", {3, false, {false,false,true}}},
     {"MPI_Comm_compare", {3, false, {false,false,true}}},
     {"MPI_Reduce_scatter_block", {6, false, {false,true,false,false,false,false}}},
     {"MPI_Reduce_scatter", {6, false, {false,true,false,false,false,false}}},

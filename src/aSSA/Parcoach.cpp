@@ -101,7 +101,7 @@ bool ParcoachInstr::doFinalization(Module &M) {
             PAInter->getWarningSetParcoachOnly().size() - intersectionSize;
         errs() << WnbAdded << " warning(s) added and " << WnbRemoved
                << " warning(s) removed with dep analysis.\n";
-      }
+      }else{
 
       CyanErr() << "================================================\n";
       CyanErr() << "===== PARCOACH INTER WITHOUT DEP ANALYSIS ======\n";
@@ -112,6 +112,7 @@ bool ParcoachInstr::doFinalization(Module &M) {
       errs() << PAInter->getConditionSetParcoachOnly().size()
              << " different cond(s)\n";
       errs() << PAInter->getNbCC() << " CC functions inserted \n";
+			}
 
      /* if (!optNoDataFlow) {
         errs() << "app," << PAInter->getNbCollectivesFound() << ","

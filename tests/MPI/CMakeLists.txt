@@ -8,7 +8,11 @@ set(EXPECTED_SUCCESS_TESTS
   CIVL_BcastReduce_bad.c
   error2.c
   index-dep.c
+  loop_exit.c
+  loop_exit2.c
+  loop_finalize.c
   loop_barrier.c
+  loop_barrier2.c
   mismatch.c
   mismatch_barrier.c
   mismatch_barrier2.c

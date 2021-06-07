@@ -7,9 +7,9 @@
 
 class ParcoachAnalysisInter : public ParcoachAnalysis {
 
-  typedef bool Preheader;
-  typedef std::map<const llvm::BasicBlock *, Preheader> BBPreheaderMap;
-  BBPreheaderMap bbPreheaderMap;
+  typedef bool Latches;
+  typedef std::map<const llvm::BasicBlock *, Latches> BBLatchesMap;
+  BBLatchesMap bbLatchesMap;
 
   // typedef std::set<const llvm::Function *F> CollSet;
   typedef std::string CollSet;
@@ -43,9 +43,10 @@ private:
 
   void setCollSet(llvm::BasicBlock *BB);
   void setMPICollSet(llvm::BasicBlock *BB);
+  void MPI_BFS_Loop_rec(llvm::Loop *L);
   void MPI_BFS_Loop(llvm::Function *F);
   void BFS_Loop(llvm::Function *F);
-  void Tag_LoopPreheader(llvm::Loop *L);
+  void Tag_LoopLatches(llvm::Loop *L);
   bool isExitNode(llvm::BasicBlock *BB);
   bool mustWait(llvm::BasicBlock *bb);
   void BFS(llvm::Function *F);

@@ -180,11 +180,25 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
           if (isCollective(callee)) {
             string OP_name = callee->getName().str();
             int OP_color = getCollectiveColor(callee);
-            Value *OP_com = CI->getArgOperand(Com_arg_id(OP_color));
-            if (!mpiCollMap[BB][OP_com].empty())
-              mpiCollMap[BB][OP_com] = OP_name + " " + mpiCollMap[BB][OP_com];
-            else
-              mpiCollMap[BB][OP_com] = OP_name;
+            int OP_arg_id = Com_arg_id(OP_color);
+            Value *OP_com = nullptr;
+
+            if (OP_arg_id >= 0) {
+              OP_com = CI->getArgOperand(OP_arg_id);
+
+              if (!mpiCollMap[BB][OP_com].empty())
+                mpiCollMap[BB][OP_com] = OP_name + " " + mpiCollMap[BB][OP_com];
+              else
+                mpiCollMap[BB][OP_com] = OP_name;
+            } else {
+              // Case of collective are effect on all com (ex: MPI_Finalize)
+              for (auto &coll : mpiCollMap[BB]) {
+                if (!coll.second.empty())
+                  coll.second = OP_name + " " + coll.second;
+                else
+                  coll.second = OP_name;
+              }
+            }
           }
         }
         //// Direct calls
@@ -211,11 +225,24 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
         if (isCollective(callee)) {
           string OP_name = callee->getName().str();
           int OP_color = getCollectiveColor(callee);
-          Value *OP_com = CI->getArgOperand(Com_arg_id(OP_color));
-          if (!mpiCollMap[BB][OP_com].empty()) {
-            mpiCollMap[BB][OP_com] = OP_name + " " + mpiCollMap[BB][OP_com];
+          int OP_arg_id = Com_arg_id(OP_color);
+          Value *OP_com = nullptr;
+
+          if (OP_arg_id >= 0) {
+            OP_com = CI->getArgOperand(OP_arg_id);
+
+            if (!mpiCollMap[BB][OP_com].empty())
+              mpiCollMap[BB][OP_com] = OP_name + " " + mpiCollMap[BB][OP_com];
+            else
+              mpiCollMap[BB][OP_com] = OP_name;
           } else {
-            mpiCollMap[BB][OP_com] = OP_name;
+            // Case of collective are effect on all com (ex: MPI_Finalize)
+            for (auto coll : mpiCollMap[BB]) {
+              if (!coll.second.empty())
+                coll.second = OP_name + " " + coll.second;
+              else
+                coll.second = OP_name;
+            }
           }
         }
       }
@@ -827,10 +854,16 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
     if (!isCollective(f)) {
       continue;
     }
+
     int OP_color = getCollectiveColor(f);
     Value *OP_com = nullptr;
-    if (optMpiTaint)
-      OP_com = CI->getArgOperand(Com_arg_id(OP_color)); // 0 for Barrier only
+    int OP_arg_id = -1;
+
+    if (optMpiTaint) {
+      OP_arg_id = Com_arg_id(OP_color);
+      if (OP_arg_id >= 0)
+        OP_com = CI->getArgOperand(OP_arg_id); // 0 for Barrier only
+    }
 
     // CI->getArgOperand(0)->dump();
     // errs() << "Found " << OP_name << " on " << OP_com << " line " << OP_line
@@ -851,11 +884,10 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
       nbCollectivesCondCalled++;
 
     for (const BasicBlock *BB : callIPDF) {
-
       // Is this node detected as potentially dangerous by parcoach?
       if (!optMpiTaint && collMap[BB] != "NAVS")
         continue;
-      if (optMpiTaint && mpiCollMap[BB][OP_com] != "NAVS")
+      if (optMpiTaint && OP_arg_id >= 0 && mpiCollMap[BB][OP_com] != "NAVS")
         continue;
       /*const Value *cond = getBasicBlockCond(BB);
       errs() << "Cond : " << cond->getName() << "\n";

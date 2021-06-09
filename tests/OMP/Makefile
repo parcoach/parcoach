@@ -6,7 +6,7 @@
 #      -dot-cfg-only: Print CFG of function to dot file (with no function bodies)
 #      -dot-cfg: Print CFG of function to dot file
 #      -dot-callgraph: Print Call Graph to dot file
-#      -view-dom/postdom: View dominance/postdominance tree of function 
+#      -view-dom/postdom: View dominance/postdominance tree of function
 #      -postdomtree: Post-Dominator Tree Construction
 #
 ############################################################################################
@@ -19,27 +19,28 @@ OMP_INC=$(OMP_DIR)/projects/openmp/runtime/src
 OMP_LIB=$(OMP_DIR)/lib/
 #/opt/local/lib/libomp/
 
-CFLAGS= -fopenmp=libomp -I$(OMP_INC) 
-LDFLAGS= -fopenmp=libomp -I$(OMP_INC) -L $(OMP_LIB) -Wl,-rpath,$(OMP_LIB)/libomp.dylib 
+CFLAGS= -fopenmp=libomp -I$(OMP_INC)
+LDFLAGS= -fopenmp=libomp -I$(OMP_INC) -L $(OMP_LIB) -Wl,-rpath,$(OMP_LIB)/libomp.dylib
 
 
 # PARCOACH SPECIFIC
 PARCOACH_DIR=../../
+PARCOACH_BUILD_DIR=$(PARCOACH_DIR)/build
 PARCOACH_PASS_DIR=${PARCOACH_DIR}/build/lib
 PARCOACH_DYNLIB_DIR=${PARCOACH_DIR}/src/lib
-PASSLIB=LLVMaSSA.dylib 
+PASSLIB=LLVMaSSA.dylib
 REQUIREDPASS= -postdomtree -loweratomic
 PASS=-parcoach --check-omp
 
 CC=clang
 CXX=clang++
-OPT=opt
+OPT=$(PARCOACH_BUILD_DIR)/parcoach
 LLVMDIS=llvm-dis
 LLVMLINK=llvm-link
 
 
 # Program to test
-SRC=motivating_example.c
+SRC=motivating_example.c loop_barrier.c loop_barrier2.c
 EXEC=motivating_example
 
 LLFILES = $(SRC:.c=.ll)
@@ -70,13 +71,13 @@ $(LLREGFILES): %-reg.bc : %.ll
 
 $(EXECREGFILES): %-reg.o : %-reg.bc
 	$(CC) -c $^
-	$(CC) $@ OMP_DynamicCheck.o $(LDFLAGS) 
+	$(CC) $@ OMP_DynamicCheck.o $(LDFLAGS)
 
 
 $(LLREGDIS): %-reg.ll : %-reg.bc
 	$(OPT) -load $(PARCOACH_PASS_DIR)/$(PASSLIB) $(REQUIREDPASS) $(PASS) $^
 	$(LLVMDIS) $^
-  
+
 
 $(DOTFILES) : %.dot : %.ll
 	./runaSSA.sh $^
@@ -90,7 +91,7 @@ $(DOTREGFILES) : %.dot : %.ll
 
 
 
-##################  TEST 
+##################  TEST
 
 ## COMPILATION WITH PARCOACH
 

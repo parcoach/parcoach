@@ -43,9 +43,8 @@ private:
 
   void setCollSet(llvm::BasicBlock *BB);
   void setMPICollSet(llvm::BasicBlock *BB);
-  void MPI_BFS_Loop_rec(llvm::Loop *L);
-  void MPI_BFS_Loop(llvm::Function *F);
-  void BFS_Loop(llvm::Function *F);
+  void MPI_BFS_Loop(llvm::Loop *L);
+  void BFS_Loop(llvm::Loop *L);
   void Tag_LoopLatches(llvm::Loop *L);
   bool isExitNode(llvm::BasicBlock *BB);
   bool mustWait(llvm::BasicBlock *bb);

@@ -780,7 +780,7 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
     string File = "";
     if (locC) {
       OP_line = locC.getLine();
-      File = locC->getFilename();
+      File = locC->getFilename().str();
     }
     // Is it a collective call?
     if (!isCollective(f)) {
@@ -944,11 +944,11 @@ errs() << pair.first << "{" << pair.second << "}\n";
       DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
       const Instruction *inst = BB->getTerminator();
       DebugLoc loc = inst->getDebugLoc();
-      Warnings.push_back(make_pair(loc.getLine(), loc ? loc->getFilename() : "?"));
+      Warnings.push_back(make_pair(loc.getLine(), loc ? loc->getFilename().str() : "?"));
 
       if (optDotTaintPaths) {
         string dotfilename("taintedpath-");
-        string cfilename = loc->getFilename();
+        string cfilename = loc->getFilename().str();
         size_t lastpos_slash = cfilename.find_last_of('/');
         if (lastpos_slash != cfilename.npos)
           cfilename = cfilename.substr(lastpos_slash + 1, cfilename.size());
@@ -1006,7 +1006,7 @@ void ParcoachAnalysisInter::instrumentFunction(llvm::Function *F) {
       int OP_line = -1;
       if (DLoc) {
         OP_line = DLoc.getLine();
-        File = DLoc->getFilename();
+        File = DLoc->getFilename().str();
       }
       // call instruction
       if (CallInst *CI = dyn_cast<CallInst>(i)) {
@@ -1061,7 +1061,11 @@ void ParcoachAnalysisInter::insertCountColl(llvm::Instruction *I,
       strPtr_FILENAME,
       ConstantInt::get(Type::getInt32Ty(M.getContext()), inst)};
   std::string FunctionName = "count_collectives";
+#if LLVM_VERSION_MAJOR >= 11
+  FunctionCallee CCFunction = M.getOrInsertFunction(FunctionName, FTy);
+#else
   Value *CCFunction = M.getOrInsertFunction(FunctionName, FTy).getCallee();
+#endif
   // Create new function
   CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);
 }
@@ -1110,7 +1114,12 @@ void ParcoachAnalysisInter::insertCC(llvm::Instruction *I, int OP_color,
     FunctionName = "check_collective_return";
   }
 
+#if LLVM_VERSION_MAJOR >= 11
+  FunctionCallee CCFunction = M.getOrInsertFunction(FunctionName, FTy);
+#else
   Value *CCFunction = M.getOrInsertFunction(FunctionName, FTy).getCallee();
+#endif
+
   // Create new function
   CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);
   errs() << "=> Insertion of " << FunctionName << " (" << OP_color << ", "
@@ -1123,7 +1132,7 @@ std::string ParcoachAnalysisInter::getWarning(llvm::Instruction &inst) {
   if (MDNode *node = inst.getMetadata("inter.inst.warning" + to_string(id))) {
     if (Metadata *value = node->getOperand(0)) {
       MDString *mdstring = cast<MDString>(value);
-      warning = mdstring->getString();
+      warning = mdstring->getString().str();
     }
   } else {
     // errs() << "Did not find metadata\n";

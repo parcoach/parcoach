@@ -594,14 +594,14 @@ unsigned MemorySSA::whichPred(const BasicBlock *pred,
 }
 
 void MemorySSA::dumpMSSA(const llvm::Function *F) {
-  string filename = F->getName();
+  string filename = F->getName().str();
   filename.append("-assa.ll");
   errs() << "Writing '" << filename << "' ...\n";
   error_code EC;
   raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
 
   // Function header
-  stream << "define " << *F->getReturnType() << " @" << F->getName() << "(";
+  stream << "define " << *F->getReturnType() << " @" << F->getName().str() << "(";
   for (const Argument &arg : F->args())
     stream << arg << ", ";
   stream << ") {\n";
@@ -615,7 +615,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
     const BasicBlock *bb = &*BI;
 
     // BB name
-    stream << bb->getName() << ":\n";
+    stream << bb->getName().str() << ":\n";
 
     // Phi functions
     for (MSSAPhi *phi : bbToPhiMap[bb]) {

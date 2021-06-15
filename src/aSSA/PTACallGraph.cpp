@@ -6,11 +6,16 @@
 
 using namespace llvm;
 
+#if LLVM_VERSION_MAJOR >= 10
+#  define make_unique std::make_unique
+#else
+#  define make_unique llvm::make_unique
+#endif
+
 PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
     : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),
       ExternalCallingNode(getOrInsertFunction(nullptr)),
-      //LLVM10: CallsExternalNode(std::make_unique<PTACallGraphNode>(nullptr)) {
-      CallsExternalNode(llvm::make_unique<PTACallGraphNode>(nullptr)) {
+      CallsExternalNode(make_unique<PTACallGraphNode>(nullptr)) {
 
   for (Function &F : M)
     addToCallGraph(&F);
@@ -82,7 +87,8 @@ void PTACallGraph::addToCallGraph(Function *F) {
   // Look for calls by this function.
   for (BasicBlock &BB : *F)
     for (Instruction &I : BB) {
-      if (auto CS = CallSite(&I)) {
+      auto CS = CallSite(&I);
+      if (CS.isCall()) {
         const Function *Callee = CS.getCalledFunction();
 
         if (!Callee || !Intrinsic::isLeaf(Callee->getIntrinsicID()))
@@ -96,7 +102,7 @@ void PTACallGraph::addToCallGraph(Function *F) {
         // Indirect calls
         if (!Callee && isa<CallInst>(I)) {
           CallInst &CI = cast<CallInst>(I);
-          const Value *calledValue = CI.getCalledValue();
+          const Value *calledValue = CI.getCalledOperand(); //CI.getCalledValue();
           assert(calledValue);
 
           std::vector<const Value *> ptsSet;
@@ -141,7 +147,7 @@ PTACallGraphNode *PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
     return CGN.get();
 
   assert((!F || F->getParent() == &M) && "Function not in current module!");
-  CGN = llvm::make_unique<PTACallGraphNode>(const_cast<Function *>(F));
+  CGN = make_unique<PTACallGraphNode>(const_cast<Function *>(F));
   //LLVM10: CGN = std::make_unique<PTACallGraphNode>(const_cast<Function *>(F));
   return CGN.get();
 }

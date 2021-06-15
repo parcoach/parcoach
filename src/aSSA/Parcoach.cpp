@@ -1,4 +1,4 @@
-/* 
+/*
 This is PARCOACH
 The project is licensed under the LGPL 2.1 license
 */
@@ -41,6 +41,12 @@ The project is licensed under the LGPL 2.1 license
 
 using namespace llvm;
 using namespace std;
+
+#if LLVM_VERSION_MAJOR >= 12
+  typedef llvm::UnifyFunctionExitNodesLegacyPass UnifyFunctionExitNodes;
+#else
+  typedef llvm::UnifyFunctionExitNodes UnifyFunctionExitNodes;
+#endif
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
@@ -536,5 +542,3 @@ static RegisterStandardPasses Y(
     PassManagerBuilder::EP_EarlyAsPossible,
     [](const PassManagerBuilder &Builder,
        legacy::PassManagerBase &PM) { PM.add(new ParcoachInstr()); });
-
-

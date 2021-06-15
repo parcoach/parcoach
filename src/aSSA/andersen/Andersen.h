@@ -50,8 +50,9 @@
 #include "PtsSet.h"
 
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/ADT/DenseMap.h"
+
+#include "../CallSite.h"
 
 #include <vector>
 

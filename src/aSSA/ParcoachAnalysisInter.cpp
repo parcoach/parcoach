@@ -13,6 +13,7 @@
 #include "llvm/Pass.h"
 
 #include <vector>
+#include <deque>
 #include <utility>
 
 using namespace llvm;
@@ -303,7 +304,7 @@ bool ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB) {
 }
 
 void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
-  std::vector<BasicBlock *> Unvisited;
+  std::deque<BasicBlock *> Unvisited;
   BasicBlock *Lheader = L->getHeader();
 
   // COMPUTE SUB-LOOPS (add the header to unvisited nodes)
@@ -348,7 +349,7 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
   while (Unvisited.size() > 0) {
     BasicBlock *header = *Unvisited.begin();
     // DEBUG//errs() << "Header " << header->getName() << "\n";
-    Unvisited.erase(Unvisited.begin());
+    Unvisited.pop_front();
 
     if (bbVisitedMap[header] == black)
       continue;
@@ -408,7 +409,7 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
 
 // FOR MPI APPLIS: BFS
 void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
-  std::vector<BasicBlock *> Unvisited;
+  std::deque<BasicBlock *> Unvisited;
 
   // DEBUG//errs() << "** Analyzing function " << F->getName() << "\n";
 
@@ -437,7 +438,7 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
   // DEBUG//errs() << "-- BFS --\n";
   while (Unvisited.size() > 0) {
     BasicBlock *header = *Unvisited.begin();
-    Unvisited.erase(Unvisited.begin());
+    Unvisited.pop_front();
 
     if (bbVisitedMap[header] == black)
       continue;
@@ -580,7 +581,7 @@ bool ParcoachAnalysisInter::mustWait(llvm::BasicBlock *bb) {
 
 // BFS ON EACH LOOP
 void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
-  std::vector<BasicBlock *> Unvisited;
+  std::deque<BasicBlock *> Unvisited;
   BasicBlock *Lheader = L->getHeader();
 
   // COMPUTE SUB-LOOPS (add the header to unvisited nodes)
@@ -626,7 +627,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
   while (Unvisited.size() > 0) {
     BasicBlock *header = *Unvisited.begin();
     // DEBUG//errs() << "Header " << header->getName() << "\n";
-    Unvisited.erase(Unvisited.begin());
+    Unvisited.pop_front();
 
     if (bbVisitedMap[header] == black)
       continue;
@@ -682,7 +683,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
 
 // BFS
 void ParcoachAnalysisInter::BFS(llvm::Function *F) {
-  std::vector<BasicBlock *> Unvisited;
+  std::deque<BasicBlock *> Unvisited;
 
   // DEBUG//errs() << "-- BFS --\n";
   // GET ALL EXIT NODES
@@ -709,7 +710,7 @@ void ParcoachAnalysisInter::BFS(llvm::Function *F) {
 
   while (Unvisited.size() > 0) {
     BasicBlock *header = *Unvisited.begin();
-    Unvisited.erase(Unvisited.begin());
+    Unvisited.pop_front();
 
     // Avoid duplication
     if (bbVisitedMap[header] == black)

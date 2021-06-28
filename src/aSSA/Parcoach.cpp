@@ -52,7 +52,8 @@ ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
 void ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
-  au.addRequiredID(UnifyFunctionExitNodes::ID);
+  // FIXME: May raise assert in llvm with llvm-12
+  //au.addRequiredID(UnifyFunctionExitNodes::ID);
   au.addRequired<DominanceFrontierWrapperPass>();
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();
@@ -452,6 +453,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
     if (F.isDeclaration())
       continue;
 
+    // errs() << " + Fun: " << counter << " - " << F.getName() << "\n";
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     DominanceFrontier &DF =
         getAnalysis<DominanceFrontierWrapperPass>(F).getDominanceFrontier();

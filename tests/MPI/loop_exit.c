@@ -16,20 +16,19 @@ int main(int argc, char** argv){
     return 1;
   }
 
-  if(rank%2){
+  if(rank%2){                   // !
     while(i<10){
       i++;
     }
   }else{
-    while(j<20){
-      if (rank<10)
+    while(j<20){                // !
+      if (rank<10)              // !
         exit(-1);
       j++;
     }
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-
+  MPI_Barrier(MPI_COMM_WORLD);  // *
 
   MPI_Finalize();
   return 0;

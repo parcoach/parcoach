@@ -1,6 +1,8 @@
 #ifndef PARCOACHANALYSISINTER_H
 #define PARCOACHANALYSISINTER_H
 
+#include "CollList.h"
+
 #include "PTACallGraph.h"
 #include "ParcoachAnalysis.h"
 #include <llvm/Analysis/LoopInfo.h>
@@ -19,6 +21,11 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
 
   typedef std::map<const llvm::BasicBlock *, Visited> BBVisitedMap;
 
+  typedef std::map<const llvm::Value *, CollList *> VCollListMap;
+  typedef std::map<const llvm::BasicBlock *, VCollListMap> CollListMap;
+
+  typedef std::map<const llvm::Function *, VCollListMap> CollListperFuncMap;
+
   typedef std::map<const llvm::BasicBlock *, ComCollMap> MPICollMap;
   typedef std::map<const llvm::BasicBlock *, CollSet> CollMap;
 
@@ -32,7 +39,9 @@ public:
     id++;
   }
 
-  virtual ~ParcoachAnalysisInter() {}
+  virtual ~ParcoachAnalysisInter() {
+    CollList::freeAll();
+  }
 
   virtual void run();
 
@@ -43,16 +52,17 @@ private:
 
   void setCollSet(llvm::BasicBlock *BB);
   void setMPICollSet(llvm::BasicBlock *BB);
+  void cmpAndUpdateMPICollSet(llvm::BasicBlock * header, llvm::BasicBlock * pred);
   void MPI_BFS_Loop(llvm::Loop *L);
   void BFS_Loop(llvm::Loop *L);
   void Tag_LoopLatches(llvm::Loop *L);
   bool isExitNode(llvm::BasicBlock *BB);
   bool mustWait(llvm::BasicBlock *bb);
+  bool mustWaitLoop(llvm::BasicBlock *bb, llvm::Loop *l);
   void BFS(llvm::Function *F);
   void MPI_BFS(llvm::Function *F);
   void checkCollectives(llvm::Function *F);
   void countCollectivesToInst(llvm::Function *F);
-
   void instrumentFunction(llvm::Function *F);
   void insertCC(llvm::Instruction *I, int OP_color, std::string OP_name,
                 int OP_line, llvm::StringRef WarningMsg, llvm::StringRef File);
@@ -64,9 +74,10 @@ private:
 
 protected:
   BBVisitedMap bbVisitedMap;
-  MPICollMap mpiCollMap;
+  CollListMap mpiCollListMap;
   CollMap collMap;
-  MPICollperFuncMap mpiCollperFuncMap;
+  //MPICollperFuncMap mpiCollperFuncMap;
+  CollListperFuncMap mpiCollListperFuncMap;
   CollperFuncMap collperFuncMap;
 };
 

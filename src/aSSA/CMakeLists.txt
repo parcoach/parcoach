@@ -1,6 +1,7 @@
 add_llvm_library(aSSA MODULE
-	Collectives.cpp
-  DepGraph.cpp
+  	Collectives.cpp
+  	CollList.cpp
+        DepGraph.cpp
 	DepGraphDCF.cpp
 	ExtInfo.cpp
 	MemoryRegion.cpp

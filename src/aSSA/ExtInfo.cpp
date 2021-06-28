@@ -26,6 +26,7 @@ static const funcModPair funcModPairs[] = {
     /* LLVM intrinsics */
     {"llvm.bswap.v4i32", {1, false, {false}}},
     {"llvm.bswap.i32", {1, false, {false}}},
+    {"llvm.fabs.f64", {1, false, {false}}},
     {"llvm.fabs.v2f64", {1, false, {false}}},
     {"llvm.lifetime.end", {2, false, {false, false}}},
     {"llvm.lifetime.start", {2, false, {false, false}}},
@@ -743,6 +744,7 @@ struct funcDepPair {
 // TO DO
 static const funcDepPair funcDepPairs[] = {
     /* LLVM intrinsics */
+    {"llvm.fabs.f64", {1, {}, {0}}},
     {"llvm.fabs.v2f64", {1, {}, {0}}},
     {"llvm.lifetime.end", {2, {}, {}}},
     {"llvm.lifetime.start", {2, {}, {}}},

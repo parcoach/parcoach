@@ -23,6 +23,7 @@ int ParcoachAnalysisInter::id = 0;
 
 int nbColNI = 0;
 
+
 void ParcoachAnalysisInter::run() {
   // Parcoach analysis
 
@@ -62,9 +63,9 @@ void ParcoachAnalysisInter::run() {
       checkCollectives(F);
       // Get the number of MPI communicators
       if (optMpiTaint) {
-        // errs() << " ... Found " << mpiCollperFuncMap[F].size() << " MPI
+        // errs() << " ... Found " << mpiCollListperFuncMap[F].size() << " MPI
         // communicators in " << F->getName() << "\n";
-        /*for(auto& pair : mpiCollperFuncMap[F]){
+        /*for(auto& pair : mpiCollListperFuncMap[F]){
                 errs() << pair.first << "{" << pair.second << "}\n";
                 }*/
       }
@@ -158,28 +159,28 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
 
 // Get the sequence of collectives in a BB, per MPI communicator
 void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
-
   for (auto i = BB->rbegin(), e = BB->rend(); i != e; ++i) {
     const Instruction *inst = &*i;
     if (const CallInst *CI = dyn_cast<CallInst>(inst)) {
       Function *callee = CI->getCalledFunction();
 
-      //// Indirect calls
+      //// Indirect call
       if (callee == NULL) {
         for (const Function *mayCallee : PTACG.indirectCallMap[inst]) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
           callee = const_cast<Function *>(mayCallee);
           // Is it a function containing collectives?
-          if (!mpiCollperFuncMap[callee]
-                   .empty()) { // && mpiCollMap[BB]!="NAVS"){
-            auto &BBcollMap = mpiCollMap[BB];
-            for (auto &pair : mpiCollperFuncMap[callee]) {
-              if (!BBcollMap[pair.first].empty())
-                BBcollMap[pair.first] =
-                    pair.second + " " + BBcollMap[pair.first];
-              else
-                BBcollMap[pair.first] = pair.second;
+          if (!mpiCollListperFuncMap[callee].empty()) { // && mpiCollMap[BB]!="NAVS"){
+            // auto &BBcollMap = mpiCollMap[BB];
+
+            for (auto &pair : mpiCollListperFuncMap[callee]) {
+              CollList * cl = mpiCollListMap[BB][pair.first];
+
+              if (cl && cl->isSource(BB))
+                cl->pushColl(pair.second);
+              else if (!cl || !cl->isNAVS())
+                mpiCollListMap[BB][pair.first] = new CollList(pair.second, cl, BB);
             }
           }
           // Is it a collective operation?
@@ -191,18 +192,21 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
 
             if (OP_arg_id >= 0) {
               OP_com = CI->getArgOperand(OP_arg_id);
+              CollList * cl = mpiCollListMap[BB][OP_com];
 
-              if (!mpiCollMap[BB][OP_com].empty())
-                mpiCollMap[BB][OP_com] = OP_name + " " + mpiCollMap[BB][OP_com];
-              else
-                mpiCollMap[BB][OP_com] = OP_name;
+              if (cl && cl->isSource(BB))
+                cl->pushColl(OP_name);
+              else if (!cl || !cl->isNAVS())
+                mpiCollListMap[BB][OP_com] = new CollList(OP_name, cl, BB);
             } else {
               // Case of collective are effect on all com (ex: MPI_Finalize)
-              for (auto &coll : mpiCollMap[BB]) {
-                if (!coll.second.empty())
-                  coll.second = OP_name + " " + coll.second;
-                else
-                  coll.second = OP_name;
+              for (auto &pair : mpiCollListMap[BB]) {
+                CollList * cl = mpiCollListMap[BB][pair.first];
+
+                if (cl && cl->isSource(BB))
+                  cl->pushColl(OP_name);
+                else if (!cl || !cl->isNAVS())
+                  mpiCollListMap[BB][pair.first] = new CollList(OP_name, cl, BB);
               }
             }
           }
@@ -210,21 +214,14 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
         //// Direct calls
       } else {
         // Is it a function containing collectives?
-        if (!mpiCollperFuncMap[callee].empty()) { // && collMap[BB]!="NAVS"){
-          auto &BBcollMap = mpiCollMap[BB];
+        if (!mpiCollListperFuncMap[callee].empty()) {
           // errs() << "call to function " << callee->getName() << "\n";
-          for (auto &pair : mpiCollperFuncMap[callee]) {
-            // errs() << pair.first << "{" << pair.second << "}\n";
-            // EMMAAAA
-            /*if(pair.second == "NAVS" || BBcollMap[pair.first] == "NAVS"){
-                    BBcollMap[pair.first] = "NAVS";
-            }else{*/
-            if (!BBcollMap[pair.first].empty()) {
-              BBcollMap[pair.first] = pair.second + " " + BBcollMap[pair.first];
-            } else {
-              BBcollMap[pair.first] = pair.second;
-            }
-            //}
+          for (auto &pair : mpiCollListperFuncMap[callee]) {
+            CollList * cl = mpiCollListMap[BB][pair.first];
+            if (cl && cl->isSource(BB))
+              cl->pushColl(pair.second);
+            else if (!cl || !cl->isNAVS())
+              mpiCollListMap[BB][pair.first] = new CollList(pair.second, cl, BB);
           }
         }
         // Is it a collective operation?
@@ -236,18 +233,20 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
 
           if (OP_arg_id >= 0) {
             OP_com = CI->getArgOperand(OP_arg_id);
+            CollList * cl = mpiCollListMap[BB][OP_com];
 
-            if (!mpiCollMap[BB][OP_com].empty())
-              mpiCollMap[BB][OP_com] = OP_name + " " + mpiCollMap[BB][OP_com];
+            if (cl && cl->isSource(BB))
+              cl->pushColl(OP_name);
             else
-              mpiCollMap[BB][OP_com] = OP_name;
+              mpiCollListMap[BB][OP_com] = new CollList(OP_name, cl, BB);
           } else {
             // Case of collective are effect on all com (ex: MPI_Finalize)
-            for (auto coll : mpiCollMap[BB]) {
-              if (!coll.second.empty())
-                coll.second = OP_name + " " + coll.second;
-              else
-                coll.second = OP_name;
+            for (auto &pair : mpiCollListMap[BB]) {
+              CollList * cl = mpiCollListMap[BB][pair.first];
+              if (cl && cl->isSource(BB))
+                cl->pushColl(OP_name);
+              else if (!cl || !cl->isNAVS())
+                mpiCollListMap[BB][pair.first] = new CollList(OP_name, cl, BB);
             }
           }
         }
@@ -303,6 +302,59 @@ bool ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB) {
   return false;
 }
 
+void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock * header,
+                                                   llvm::BasicBlock * pred) {
+  std::set<const Value *> comm;
+
+  for (auto &com : mpiCollListMap[pred])
+    comm.insert(com.first);
+
+  for (auto &com : mpiCollListMap[header])
+    comm.insert(com.first);
+
+  for (auto &com : comm) {
+    bool pred_owner = false;
+    CollList * pred_cl = mpiCollListMap[pred][com];
+    CollList * old_header_cl = pred_cl;
+    CollList * header_cl = mpiCollListMap[header][com];
+
+    // Header and old_header are nullptr
+    if (!old_header_cl && !header_cl) {
+      return;
+    }
+
+    // Update old_header if pred is the source of the list
+    if (pred_cl && pred_cl->isSource(pred)) {
+      old_header_cl = old_header_cl->getNext();
+      pred_owner = true;
+    }
+
+    errs() << " ** (oh == h) = " << ((old_header_cl && header_cl &&
+                                      (*old_header_cl == *header_cl))?
+                                     "true":"false") << "\n"
+           << "     p = " << (pred_cl?pred_cl->toCollMap():"") << "\n"
+           << "    oh = " << (old_header_cl?old_header_cl->toCollMap():"") << "\n"
+           << "     h = " << (header_cl?header_cl->toCollMap():"") << "\n"
+           << "   fun = " << (header ? header->getParent()->getName().str():
+                              (pred ? pred->getParent()->getName().str():
+                               "xxx"))
+           << "\n";
+
+    // Equals
+    if (old_header_cl && header_cl &&
+        (*old_header_cl == *header_cl))
+      return;
+
+    // Not equals
+    if (pred_cl && !pred_cl->isNAVS()) {
+      if (pred_owner)
+        pred_cl->pushColl("NAVS");
+      else
+        mpiCollListMap[pred][com] = new CollList("NAVS", pred_cl, pred);
+    }
+  }
+}
+
 void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
   std::deque<BasicBlock *> Unvisited;
   BasicBlock *Lheader = L->getHeader();
@@ -354,7 +406,7 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
     if (bbVisitedMap[header] == black)
       continue;
 
-    if (mustWait(header) && header != Lheader) { // all successors have not been seen
+    if (mustWaitLoop(header, L) && header != Lheader) { // all successors have not been seen
       Unvisited.push_back(header);
       continue;
     }
@@ -367,8 +419,8 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
 
       // BB NOT SEEN BEFORE
       if (bbVisitedMap[Pred] == white) {
-        for (auto &pair : mpiCollMap[header])
-          mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
+        for (auto &com : mpiCollListMap[header])
+          mpiCollListMap[Pred][com.first] = mpiCollListMap[header][com.first];
 
         setMPICollSet(Pred);
         bbVisitedMap[Pred] = grey;
@@ -378,33 +430,24 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
       }
       // BB ALREADY SEEN
       else {
-        ComCollMap temp(mpiCollMap[Pred]);
-        mpiCollMap[Pred].clear(); // reset
-
-        for (auto &pair : mpiCollMap[header])
-          mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
-
-        setMPICollSet(Pred);
-
-        // Compare and update
-        for (auto &pair : mpiCollMap[Pred]) {
-          if (mpiCollMap[Pred][pair.first] != temp[pair.first]) {
-            mpiCollMap[Pred][pair.first] = "NAVS";
-          }
-          temp.erase(pair.first);
-        }
-        for (auto &pair : temp) { // for remaining communicators
-          mpiCollMap[Pred][pair.first] = "NAVS";
-        }
+        cmpAndUpdateMPICollSet(header, Pred);
       } // END ELSE
-
-      bbVisitedMap[header] = black;
-
     } // END FOR
+    bbVisitedMap[header] = black;
   }   // END WHILE
 
   // Reset Lheader color
   bbVisitedMap[Lheader] = grey;
+
+  // Loop with collective are alaways NAVS
+  for (auto &com : mpiCollListMap[Lheader]) {
+    if (mpiCollListMap[Lheader][com.first] &&
+        mpiCollListMap[Lheader][com.first]->isSource(Lheader))
+      mpiCollListMap[Lheader][com.first]->pushColl("NAVS");
+    else
+      mpiCollListMap[Lheader][com.first] =
+        new CollList("NAVS", mpiCollListMap[Lheader][com.first], Lheader);
+  }
 }
 
 // FOR MPI APPLIS: BFS
@@ -422,7 +465,7 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
       Unvisited.push_back(&I);
       // errs() << "Exit node: " << I.getName() << "\n";
       setMPICollSet(&I);
-      bbVisitedMap[&I] = grey;
+      //bbVisitedMap[&I] = grey;
     }
   }
 
@@ -457,112 +500,31 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
       if (bbVisitedMap[Pred] == white) {
         // DEBUG//errs() << F->getName() << " Pred: " << Pred->getName() <<
         // "\n";
+        for (auto &com : mpiCollListMap[header])
+          mpiCollListMap[Pred][com.first] = mpiCollListMap[header][com.first];
 
-        // Loop header may have a mpiCollMap -> normalement ca n'arrive pas
-        // comme on a mis les header a black
-        if (mpiCollMap[Pred].empty()) {
-          for (auto &pair : mpiCollMap[header])
-            mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
-        } else {
-          for (auto &pair : mpiCollMap[header]) {
-            if (mpiCollMap[Pred][pair.first].empty()) // copy only when empty
-                                                      // sequences (a collective
-                                                      // in a loop = NAVS)
-              mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
-          }
-        }
-        /* DEBUG//
-                 for(auto& pair : mpiCollMap[Pred]){
-                 errs() << pair.first << "{" << pair.second << "}\n";
-                 }*/
         setMPICollSet(Pred);
-        /* DEBUG//
-                 errs() << Pred->getName() << ":\n";
-                 for(auto& pair : mpiCollMap[Pred]){
-                 errs() << pair.first << "{" << pair.second << "}\n";
-                 }*/
 
         bbVisitedMap[Pred] = grey;
-        // if(header != Pred) // to handle loops of size 1
         Unvisited.push_back(Pred);
         // BB ALREADY SEEN
       } else {
-        // DEBUG//errs() << F->getName() << " Pred: " << Pred->getName() << "
-        // already seen\n";
-        // Loop header may have a mpiCollMap  --> Emma test
-        /*			if(bbVisitedMap[Pred] == black){
-
-                                        //errs() << F->getName() << " Pred: " <<
-Pred->getName() << " is a loop header\n";
-                                        errs() << " = \n";
-for(auto& pair : mpiCollMap[Pred]){
-errs() << pair.first << "{" << pair.second << "}\n";
-}
-errs() << "****\n";
-                                        //
-
-if(mpiCollMap[Pred].empty()){
-for(auto& pair : mpiCollMap[header])
-mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
-}else{
-for(auto& pair : mpiCollMap[header]){
-if(mpiCollMap[Pred][pair.first].empty()) // copy only when empty sequences (a
-collective in a loop = NAVS)
-mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
-}
-                                        }
-                                        //Unvisited.push_back(Pred); // we want
-to get its predecessor
-}
-                                else{ */
-        ComCollMap temp(mpiCollMap[Pred]);
-        /* DEBUG
-                 errs() << "* Temp = \n";
-                 for(auto& pair : temp){
-                 errs() << pair.first << "{" << pair.second << "}\n";
-                 }
-                 errs() << "****\n"; */
-        mpiCollMap[Pred].clear(); // reset
-        for (auto &pair : mpiCollMap[header])
-          mpiCollMap[Pred][pair.first] = mpiCollMap[header][pair.first];
-        setMPICollSet(Pred);
-        /* DEBUG
-                 errs() << "* New = \n";
-                 for(auto& pair : mpiCollMap[Pred]){
-                 errs() << pair.first << "{" << pair.second << "}\n";
-                 }
-                 errs() << "****\n"; */
-
-        // Compare and update
-        for (auto &pair : mpiCollMap[Pred]) {
-          if (mpiCollMap[Pred][pair.first] != temp[pair.first]) {
-            mpiCollMap[Pred][pair.first] = "NAVS";
-          }
-          temp.erase(pair.first);
-        }
-        for (auto &pair : temp) { // for remaining communicators
-          mpiCollMap[Pred][pair.first] = "NAVS";
-        }
-        /* DEBUG
-                 errs() << "* Then = \n";
-                 for(auto& pair : mpiCollMap[Pred]){
-                 errs() << pair.first << "{" << pair.second << "}\n";
-                 }
-                 errs() << "****\n"; */
-        ////}
-
+        cmpAndUpdateMPICollSet(header, Pred);
       } // END ELSE
-      bbVisitedMap[header] = black;
     } // END FOR
+
+    bbVisitedMap[header] = black;
   }   // END WHILE
 
   BasicBlock &entry = F->getEntryBlock();
-  for (auto &pair : mpiCollMap[&entry]) {
-    mpiCollperFuncMap[F][pair.first] = mpiCollMap[&entry][pair.first];
+  for (auto &pair : mpiCollListMap[&entry]) {
+    // errs() << " CollList: " << F->getName().str() << " : "
+    //        << mpiCollListMap[&entry][pair.first]->toString() << "\n";
+    mpiCollListperFuncMap[F][pair.first] = mpiCollListMap[&entry][pair.first];
   }
   /*if(F->getName() == "main"){
           errs() << F->getName() << " summary = \n";
-          for(auto& pair : mpiCollperFuncMap[F]){
+          for(auto& pair : mpiCollListperFuncMap[F]){
                   errs() << pair.first << "{" << pair.second << "}\n";
           }
   }*/
@@ -574,6 +536,16 @@ bool ParcoachAnalysisInter::mustWait(llvm::BasicBlock *bb) {
   for (; SI != E; ++SI) {
     BasicBlock *Succ = *SI;
     if (bbVisitedMap[Succ] != black)
+      return true;
+  }
+  return false;
+}
+
+bool ParcoachAnalysisInter::mustWaitLoop(llvm::BasicBlock *bb, Loop *l) {
+  succ_iterator SI = succ_begin(bb), E = succ_end(bb);
+  for (; SI != E; ++SI) {
+    BasicBlock *Succ = *SI;
+    if (bbVisitedMap[Succ] != black && l->contains(Succ))
       return true;
   }
   return false;
@@ -632,7 +604,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
     if (bbVisitedMap[header] == black)
       continue;
 
-    if (mustWait(header) && header != Lheader) { // all successors have not been seen
+    if (mustWaitLoop(header, L) && header != Lheader) { // all successors have not been seen
       Unvisited.push_back(header);
       continue;
     }
@@ -806,7 +778,7 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
       // Is this node detected as potentially dangerous by parcoach?
       if (!optMpiTaint && collMap[BB] != "NAVS")
         continue;
-      if (optMpiTaint && mpiCollMap[BB][OP_com] != "NAVS")
+      if (optMpiTaint && mpiCollListMap[BB][OP_com] && !mpiCollListMap[BB][OP_com]->isNAVS())
         continue;
 
       // Is this condition tainted?
@@ -833,7 +805,9 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
         // if BB not in the same function, set it as NAVS
         const llvm::Function *fBB = BB->getParent();
         if (F != fBB)
-          mpiCollMap[BB][OP_com] = "NAVS";
+          mpiCollListMap[BB][OP_com] =
+            new CollList("NAVS", mpiCollListMap[BB][OP_com], BB);
+          //mpiCollMap[BB][OP_com] = "NAVS";
       }
     } else {
       // insert count_collectives(const char* OP_name, int OP_line, char
@@ -910,7 +884,9 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
       // Is this node detected as potentially dangerous by parcoach?
       if (!optMpiTaint && collMap[BB] != "NAVS")
         continue;
-      if (optMpiTaint && OP_arg_id >= 0 && mpiCollMap[BB][OP_com] != "NAVS")
+      if (optMpiTaint && OP_arg_id >= 0 &&
+          mpiCollListMap[BB][OP_com] &&
+          !mpiCollListMap[BB][OP_com]->isNAVS())
         continue;
       /*const Value *cond = getBasicBlockCond(BB);
       errs() << "Cond : " << cond->getName() << "\n";

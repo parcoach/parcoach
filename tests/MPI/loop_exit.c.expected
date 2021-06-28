@@ -1,2 +1,2 @@
-PARCOACH: tests/MPI/loop_exit.c: warning: MPI_Barrier line 31 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/loop_exit.c) 24 (tests/MPI/loop_exit.c) (full-inter)
-PARCOACH: tests/MPI/loop_exit.c: warning: MPI_Finalize line 34 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/loop_exit.c) 24 (tests/MPI/loop_exit.c) 25 (tests/MPI/loop_exit.c) (full-inter)
+PARCOACH: tests/MPI/loop_exit.c: warning: MPI_Barrier line 31 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/loop_exit.c) 24 (tests/MPI/loop_exit.c) 25 (tests/MPI/loop_exit.c) (full-inter)
+PARCOACH: tests/MPI/loop_exit.c: warning: MPI_Finalize line 33 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/loop_exit.c) 24 (tests/MPI/loop_exit.c) 25 (tests/MPI/loop_exit.c) (full-inter)

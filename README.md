@@ -100,8 +100,8 @@ Coming soon
 ## Publications
 
 Van Man Nguyen, Emmanuelle Saillard, Julien Jaeger, Denis Barthou and Patrick Carribault,
- **[PARCOACH Extension for Static MPI Nonblocking and Persistent Communication Validation]()**
- *Fourth International Workshop on Software Correctness for HPC Applications, 2020. TO APPEAR*
+ **[PARCOACH Extension for Static MPI Nonblocking and Persistent Communication Validation](https://ieeexplore.ieee.org/document/9296940)**
+ *Fourth International Workshop on Software Correctness for HPC Applications, 2020.*
  
  Pierre Huchant, Emmanuelle Saillard, Denis Barthou and Patrick Carribault,
  **[Multi-Valued Expression Analysis for Collective Checking](https://link.springer.com/chapter/10.1007%2F978-3-030-29400-7_3)**
@@ -113,18 +113,18 @@ Van Man Nguyen, Emmanuelle Saillard, Julien Jaeger, Denis Barthou and Patrick Ca
  
  Emmanuelle Saillard, Hugo Brunie, Patrick Carribault, and Denis Barthou,
  **[PARCOACH extension for Hybrid Applications with Interprocedural Analysis](https://doi.org/10.1007/978-3-319-39589-0_11)**,
- *In Tools for High Performance Computing 2015: Proceedings of the 9th International Workshop on Parallel Tools for High Performan    ce Computing, pages 135-146, 2016*
+ *In Tools for High Performance Computing 2015: Proceedings of the 9th International Workshop on Parallel Tools for High Performance Computing, pages 135-146, 2016*
  
  Emmanuelle Saillard, Patrick Carribault, and Denis Barthou,
  **[MPI Thread-Level Checking for MPI+OpenMP Applications](https://doi.org/10.1007/978-3-662-48096-0_3)**,
  *European Conference on Parallel Processing (EuroPar), pages 31-42, 2015*
  
  Julien Jaeger, Emmanuelle Saillard, Patrick Carribault, Denis Barthou,
- **[Correctness Analysis of MPI-3 Non-Blocking Communications in PARCOACH]()**,
+ **[Correctness Analysis of MPI-3 Non-Blocking Communications in PARCOACH](https://dl.acm.org/doi/10.1145/2802658.2802674)**,
  *European MPI Users’Group Meeting, Sep 2015, Bordeaux, France. EuroMPI’15*
  
  Emmanuelle Saillard, Patrick Carribault, and Denis Barthou,
- **[PARCOACH: Combining static and dynamic validation of MPI collective communications](https://doi.org/10.1177%2F1094342014552204    )**,
+ **[PARCOACH: Combining static and dynamic validation of MPI collective communications](https://doi.org/10.1177%2F1094342014552204)**,
  *Intl. Journal on High Performance Computing Applications (IJHPCA), 28(4):425-434, 2014*
  
  Emmanuelle Saillard, Patrick Carribault, and Denis Barthou,

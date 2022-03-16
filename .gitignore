@@ -65,6 +65,12 @@ acs-*.bib
 *.a
 *.trace
 
+# Emacs tmp files
+*~
+
+# Etags
+TAGS
+
 #if llvm folder is inside PARCOACH as written in README
 llvm
 build

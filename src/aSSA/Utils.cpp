@@ -22,7 +22,7 @@ bool isCallSite(const llvm::Instruction *inst) {
 std::string getValueLabel(const llvm::Value *v) {
   const Function *F = dyn_cast<Function>(v);
   if (F)
-    return F->getName();
+    return F->getName().str();
 
   std::string label;
   llvm::raw_string_ostream rso(label);

@@ -35,7 +35,7 @@ MemReg::MemReg(const llvm::Value *value) : value(value), isCudaShared(false) {
   name = getValueLabel(value);
   const llvm::Instruction *inst = llvm::dyn_cast<llvm::Instruction>(value);
   if (inst)
-    name.append(inst->getParent()->getParent()->getName());
+    name.append(inst->getParent()->getParent()->getName().str());
 }
 
 void MemReg::createRegion(const llvm::Value *v) {

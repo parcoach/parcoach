@@ -5,10 +5,11 @@
 
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/ValueHandle.h"
+
+#include "CallSite.h"
 
 #include <map>
 #include <set>

@@ -3,7 +3,8 @@
 
 #include "PTACallGraph.h"
 #include "llvm/Analysis/PostDominators.h"
-#include "llvm/IR/CallSite.h"
+
+#include "CallSite.h"
 
 #include <vector>
 

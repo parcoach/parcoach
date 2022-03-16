@@ -1,4 +1,4 @@
-/* 
+/*
 This is PARCOACH
 The project is licensed under the LGPL 2.1 license
 */
@@ -42,11 +42,18 @@ The project is licensed under the LGPL 2.1 license
 using namespace llvm;
 using namespace std;
 
+#if LLVM_VERSION_MAJOR >= 12
+  typedef llvm::UnifyFunctionExitNodesLegacyPass UnifyFunctionExitNodes;
+#else
+  typedef llvm::UnifyFunctionExitNodes UnifyFunctionExitNodes;
+#endif
+
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
 void ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
-  au.addRequiredID(UnifyFunctionExitNodes::ID);
+  // FIXME: May raise assert in llvm with llvm-12
+  //au.addRequiredID(UnifyFunctionExitNodes::ID);
   au.addRequired<DominanceFrontierWrapperPass>();
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();
@@ -446,6 +453,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
     if (F.isDeclaration())
       continue;
 
+    // errs() << " + Fun: " << counter << " - " << F.getName() << "\n";
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     DominanceFrontier &DF =
         getAnalysis<DominanceFrontierWrapperPass>(F).getDominanceFrontier();
@@ -536,5 +544,3 @@ static RegisterStandardPasses Y(
     PassManagerBuilder::EP_EarlyAsPossible,
     [](const PassManagerBuilder &Builder,
        legacy::PassManagerBase &PM) { PM.add(new ParcoachInstr()); });
-
-

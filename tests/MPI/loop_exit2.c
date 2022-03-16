@@ -4,7 +4,7 @@
 
 
 int main(int argc, char** argv){
-  int rank, size, i=1, j=10, var=0, n=0;
+  int rank, size, j=10;
 
   MPI_Init(&argc,&argv);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
@@ -16,21 +16,17 @@ int main(int argc, char** argv){
     return 1;
   }
 
-  if(rank%2){
-    while(i<10){
-      MPI_Barrier(MPI_COMM_WORLD);
-      i++;
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  while(j<20){
+    if (rank == j) {
+      MPI_Finalize();
+      exit(-1);
     }
-  }else{
-    while(j<20){
-      while (n < 3){
-        MPI_Barrier(MPI_COMM_WORLD);
-        n++;
-      }
-      j++;
-    }
+    j++;
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
 
   MPI_Finalize();
   return 0;

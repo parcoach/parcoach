@@ -1793,14 +1793,14 @@ string DepGraphDCF::getStringMsg(const Value *v) {
   const Instruction *inst = dyn_cast<Instruction>(v);
   if (inst) {
     loc = inst->getDebugLoc();
-    funcName = inst->getParent()->getParent()->getName();
+    funcName = inst->getParent()->getParent()->getName().str();
   }
 
   msg.append("function: ");
   msg.append(funcName);
   if (loc) {
     msg.append(" file ");
-    msg.append(loc->getFilename());
+    msg.append(loc->getFilename().str());
     msg.append(" line ");
     msg.append(to_string(loc.getLine()));
   } else {
@@ -1818,7 +1818,7 @@ string DepGraphDCF::getStringMsg(MSSAVar *v) {
   msg.append(":\n# ");
   string funcName = "unknown";
   if (v->bb)
-    funcName = v->bb->getParent()->getName();
+    funcName = v->bb->getParent()->getName().str();
 
   MSSADef *def = v->def;
   assert(def);
@@ -1830,25 +1830,25 @@ string DepGraphDCF::getStringMsg(MSSAVar *v) {
 
   if (isa<MSSACallChi>(def)) {
     MSSACallChi *callChi = cast<MSSACallChi>(def);
-    funcName = callChi->inst->getParent()->getParent()->getName();
+    funcName = callChi->inst->getParent()->getParent()->getName().str();
     loc = callChi->inst->getDebugLoc();
   } else if (isa<MSSAStoreChi>(def)) {
     MSSAStoreChi *storeChi = cast<MSSAStoreChi>(def);
-    funcName = storeChi->inst->getParent()->getParent()->getName();
+    funcName = storeChi->inst->getParent()->getParent()->getName().str();
     loc = storeChi->inst->getDebugLoc();
   } else if (isa<MSSAExtCallChi>(def)) {
     MSSAExtCallChi *extCallChi = cast<MSSAExtCallChi>(def);
-    funcName = extCallChi->inst->getParent()->getParent()->getName();
+    funcName = extCallChi->inst->getParent()->getParent()->getName().str();
     loc = extCallChi->inst->getDebugLoc();
   } else if (isa<MSSAExtVarArgChi>(def)) {
     MSSAExtVarArgChi *varArgChi = cast<MSSAExtVarArgChi>(def);
-    funcName = varArgChi->func->getName();
+    funcName = varArgChi->func->getName().str();
   } else if (isa<MSSAExtArgChi>(def)) {
     MSSAExtArgChi *extArgChi = cast<MSSAExtArgChi>(def);
-    funcName = extArgChi->func->getName();
+    funcName = extArgChi->func->getName().str();
   } else if (isa<MSSAExtRetChi>(def)) {
     MSSAExtRetChi *extRetChi = cast<MSSAExtRetChi>(def);
-    funcName = extRetChi->func->getName();
+    funcName = extRetChi->func->getName().str();
   }
 
   msg.append("function: ");
@@ -1856,7 +1856,7 @@ string DepGraphDCF::getStringMsg(MSSAVar *v) {
 
   if (loc) {
     msg.append(" file ");
-    msg.append(loc->getFilename());
+    msg.append(loc->getFilename().str());
     msg.append(" line ");
     msg.append(to_string(loc.getLine()));
   } else {
@@ -1881,7 +1881,7 @@ bool DepGraphDCF::getDGDebugLoc(const Value *v, DGDebugLoc &DL) {
   }
 
   if (loc) {
-    DL.filename = loc->getFilename();
+    DL.filename = loc->getFilename().str();
     DL.line = loc->getLine();
   } else {
     return false;
@@ -1930,7 +1930,7 @@ bool DepGraphDCF::getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL) {
   }
 
   if (loc) {
-    DL.filename = loc->getFilename();
+    DL.filename = loc->getFilename().str();
     DL.line = loc->getLine();
   } else {
     return false;
@@ -2024,8 +2024,8 @@ bool DepGraphDCF::getDebugTrace(vector<DGDebugLoc> &DLs, string &trace,
       if (!DI)
         return false;
 
-      string filename = DI->getFilename();
-      string dir = DI->getDirectory();
+      string filename = DI->getFilename().str();
+      string dir = DI->getDirectory().str();
       string path = dir + "/" + filename;
       int line = DI->getLine();
 

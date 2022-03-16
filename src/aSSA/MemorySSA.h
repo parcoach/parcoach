@@ -8,7 +8,8 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/DominanceFrontier.h"
-#include "llvm/IR/CallSite.h"
+
+#include "CallSite.h"
 
 #include <map>
 

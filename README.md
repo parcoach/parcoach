@@ -5,7 +5,7 @@
 ## News
 
 
-* <b> Parcoach now supports LLVM 9! </b>
+* <b> Parcoach now supports LLVM 9 to 12! </b>
 * <b> Parcoach is now on github! </b>
 
 
@@ -20,12 +20,11 @@ These instructions will get you a copy of the project up and running on your loc
 
 CMake can be downloaded from [http://www.cmake.org](http://www.cmake.org).
 
-#### LLVM `= 9.0.x`
+#### LLVM `= 9 to 12` 
 
-This version of PARCOACH is a pass for LLVM 9. Pre-built binary for either LLVM 9.0.0 or 9.0.1 are available [here] (https://releases.llvm.org/download.html#9.0.0)
-Note to use LLVM 10, use C++14 and uncomment the line starting by LLVM10 in PTACallGraph.cpp 
+This version of PARCOACH is a pass for LLVM 9->12. Pre-built binary are available [here] (https://releases.llvm.org/download.html)
 
-To build LLVM, follow these steps:
+If you want to build LLVM, follow these steps (example for LLVM 9):
 
 ```bash
 git clone -b llvmorg-9.0.0 --depth=1 --single-branch https://github.com/llvm/llvm-project.git
@@ -52,7 +51,7 @@ ctest
 
 If CMake does not find LLVM, you can supply the path to your LLVM installation as follows  :
 ```bash
-cmake .. -DLLVM_DIR=/path/to/llvm-9
+cmake .. -DLLVM_DIR=/path/to/llvm
 ```
 
 ## Usage
@@ -60,7 +59,7 @@ Codes with errors can be found in the [Parcoach Microbenchmark Suite](https://gi
 
 ### Static checking
 
-PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM `9.0`. It takes as input LLVM bytecode.
+PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM. It takes as input LLVM bytecode.
 
 #### To use Parcoach on a single file
 

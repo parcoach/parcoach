@@ -826,7 +826,7 @@ void DepGraphDCF::toDot(string filename) {
   double t1 = gettime();
 
   error_code EC;
-  raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
+  raw_fd_ostream stream(filename, EC, sys::fs::OF_Text);
 
   stream << "digraph F {\n";
   stream << "compound=true;\n";
@@ -1601,7 +1601,7 @@ void DepGraphDCF::dotTaintPath(const Value *v, string filename,
   assert(stop);
 
   error_code EC;
-  raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
+  raw_fd_ostream stream(filename, EC, sys::fs::OF_Text);
 
   stream << "digraph F {\n";
   stream << "compound=true;\n";
@@ -1777,7 +1777,7 @@ void DepGraphDCF::dotTaintPath(const Value *v, string filename,
   if (getDebugTrace(debugLocs, trace, collective)) {
     string tracefilename = filename + ".trace";
     errs() << "Writing '" << tracefilename << "' ...\n";
-    raw_fd_ostream tracestream(tracefilename, EC, sys::fs::F_Text);
+    raw_fd_ostream tracestream(tracefilename, EC, sys::fs::OF_Text);
     tracestream << trace;
   }
 }

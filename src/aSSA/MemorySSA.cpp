@@ -598,7 +598,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
   filename.append("-assa.ll");
   errs() << "Writing '" << filename << "' ...\n";
   error_code EC;
-  raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
+  raw_fd_ostream stream(filename, EC, sys::fs::OF_Text);
 
   // Function header
   stream << "define " << *F->getReturnType() << " @" << F->getName().str() << "(";

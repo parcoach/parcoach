@@ -3,7 +3,7 @@ cmake_policy(SET CMP0054 NEW)
 
 project(PARCOACH)
 message("This is PARCOACH")
-message("You need a version of LLVM from LLVM 9 to LLVM 12 to build this project")
+message("You need a version of LLVM from LLVM 9 to LLVM 13 to build this project")
 
 
 # c++11 for LLVM <= 9
@@ -15,7 +15,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(LLVM REQUIRED CONFIG)
 if ((LLVM_PACKAGE_VERSION VERSION_LESS 9) OR
     (LLVM_PACKAGE_VERSION VERSION_GREATER 12))
-  message(FATAL_ERROR "** Uncompatible LLVM version found: ${LLVM_PACKAGE_VERSION} **")
+  if (LLVM_PACKAGE_VERSION VERSION_GREATER 13)
+    message("NOTE: Using old Pass Manager for LLVM 13")
+    set(USE_OLD_PM -enable-new-pm=0)
+  else()
+    message(FATAL_ERROR "** Uncompatible LLVM version found: ${LLVM_PACKAGE_VERSION} **")
+  endif()
 endif()
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION} in ${LLVM_INSTALL_PREFIX}")

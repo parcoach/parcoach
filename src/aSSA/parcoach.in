@@ -1,2 +1,2 @@
 #!/bin/sh
-@LLVM_TOOLS_BINARY_DIR@/opt -load @PARCOACH_LIB@ -parcoach  "$@"
+@LLVM_TOOLS_BINARY_DIR@/opt @USE_OLD_PM@ -load @PARCOACH_LIB@ -parcoach "$@"

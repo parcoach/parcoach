@@ -1,24 +1,52 @@
+set(ASSA_SOURCES
+  Collectives.cpp
+  CollList.cpp
+  DepGraph.cpp
+  DepGraphDCF.cpp
+  ExtInfo.cpp
+  MemoryRegion.cpp
+  MemorySSA.cpp
+  ModRefAnalysis.cpp
+  Options.cpp
+  PTACallGraph.cpp
+  Parcoach.cpp
+  ParcoachAnalysisInter.cpp
+  Utils.cpp
+  andersen/Andersen.cpp
+  andersen/ConstraintCollect.cpp
+  andersen/ConstraintOptimize.cpp
+  andersen/ConstraintSolving.cpp
+  andersen/ExternalLibrary.cpp
+  andersen/NodeFactory.cpp
+  )
+set(ASSA_HEADERS
+  CallSite.h
+  Collectives.h
+  CollList.h
+  DepGraph.h
+  DepGraphDCF.h
+  ExtInfo.h
+  MemoryRegion.h
+  MemorySSA.h
+  ModRefAnalysis.h
+  MSSAMuChi.h
+  Options.h
+  Parcoach.h
+  ParcoachAnalysisInter.h
+  PTACallGraph.h
+  Utils.h
+  andersen/Andersen.h
+  andersen/Constraint.h
+  andersen/CycleDetector.h
+  andersen/GraphTraits.h
+  andersen/NodeFactory.h
+  andersen/PtsSet.h
+  andersen/SparseBitVectorGraph.h
+  )
+add_sources_to_format(SOURCES ${ASSA_SOURCES})
+add_sources_to_format(SOURCES ${ASSA_HEADERS})
 add_llvm_library(aSSA MODULE
-  	Collectives.cpp
-  	CollList.cpp
-        DepGraph.cpp
-	DepGraphDCF.cpp
-	ExtInfo.cpp
-	MemoryRegion.cpp
-	MemorySSA.cpp
-	ModRefAnalysis.cpp
-	Options.cpp
-	PTACallGraph.cpp
-	Parcoach.cpp
-	ParcoachAnalysisInter.cpp
-	Utils.cpp
-	andersen/Andersen.cpp
-	andersen/ConstraintCollect.cpp
-	andersen/ConstraintOptimize.cpp
-	andersen/ConstraintSolving.cpp
-	andersen/ExternalLibrary.cpp
-	andersen/NodeFactory.cpp
-
+  ${ASSA_SOURCES}
   PLUGIN_TOOL
   opt
   )

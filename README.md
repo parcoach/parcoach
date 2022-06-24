@@ -101,6 +101,21 @@ opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi merge.bc
 
 Coming soon
 
+## Developer notes
+
+### Contributing to PARCOACH
+
+PARCOACH has adopted pretty much the same coding style as LLVM.
+Two tools are used for this:
+  - `clang-tidy`, which checks wether the naming convention are respected, or
+  if there are parts of the code which are not easily readable, and many other
+  criteria. It's not mandatory for the output of `clang-tidy` to be empty,
+  but it's generally a good idea to look at it.
+  You can enable it by passing `PARCOACH_ENABLE_TIDY=ON` to CMake.
+  - `clang-format`, which deals with pure formatting checks. It's mandatory
+  for any code landing on the main branch to be correctly formatted.
+  You can automatically format the code by running `ninja run-clang-format`.
+
 ## Publications
 
 Van Man Nguyen, Emmanuelle Saillard, Julien Jaeger, Denis Barthou and Patrick Carribault,

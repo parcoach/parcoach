@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+OUTPUT=$("$@" 2>&1)
+
+if [ -z "${OUTPUT}" ];
+then
+  exit 0
+else
+  # clang-format always exits 0, but we want to fail the test if the output
+  # is not empty!
+  echo "$OUTPUT"
+  exit 1
+fi

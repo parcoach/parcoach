@@ -12,11 +12,7 @@ message("You need a version of LLVM from LLVM 9 to LLVM 12 to build this project
 set (CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(LLVM REQUIRED CONFIG)
-if ((LLVM_PACKAGE_VERSION VERSION_LESS 9) OR
-    (LLVM_PACKAGE_VERSION VERSION_GREATER 12))
-  message(FATAL_ERROR "** Uncompatible LLVM version found: ${LLVM_PACKAGE_VERSION} **")
-endif()
+find_package(LLVM 12 REQUIRED CONFIG)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION} in ${LLVM_INSTALL_PREFIX}")
 message(STATUS "Using LLVM binaries in: ${LLVM_TOOLS_BINARY_DIR}")

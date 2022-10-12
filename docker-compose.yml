@@ -1,0 +1,8 @@
+version: "3.9"
+services:
+  shell:
+    # NOTE: I don't think this is possible, but ideally we would share this
+    # variable with the .gitlab-ci.yml
+    image: "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20220617-llvm-12"
+    volumes:
+      - .:/home/parcoach/sources

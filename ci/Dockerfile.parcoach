@@ -1,38 +1,32 @@
-FROM ubuntu:focal
+ARG UBUNTU_VERSION
+FROM ubuntu:${UBUNTU_VERSION}
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Start by installing some generic dependencies
-RUN apt-get update \
-  && apt-get -y upgrade \
-    python3 \
-    git \
-    g++ \
-    wget \
-    gnupg \
-    vim \
-    cmake
+SHELL ["/bin/bash", "-c"]
 
-# Setup the LLVM 9 repository for focal
+COPY scripts/ /scripts/
 
-RUN echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-9 main" >>/etc/apt/sources.list && \
-    wget -q -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
-    apt-get update && apt-get install -y clang-9 llvm-9 libllvm9 llvm-9-dev
+RUN /scripts/install-build-essentials.sh
 
-# Get some extra dependencies
-# FIXME: When adding support for OpenMP tests, this is where one should edit
-# this file. This will let docker build the new image on top of the base already
-# created.
-RUN apt-get install -y \
-  libopenmpi-dev
+# Install cmake if needed
+ARG CMAKE_VERSION
+ARG CMAKE_SHA256
+RUN if [ -n "$CMAKE_VERSION" ]; then /scripts/install-cmake.sh ${CMAKE_VERSION} ${CMAKE_SHA256} && cmake --version; fi
 
-# Cleanup the built image
-RUN apt-get autoremove -yq
-RUN apt-get clean -yq
+# Install llvm if needed
+# This ARG is needed because ARG-s defined before FROM are outside of build stage.
+ARG UBUNTU_VERSION
+ARG LLVM_VERSION
+RUN if [ -n "$LLVM_VERSION" ]; then /scripts/install-llvm.sh ${UBUNTU_VERSION} ${LLVM_VERSION}; fi
 
-# Creating the parcoach user
+# Install MPI
+RUN /scripts/install-mpi.sh
 
+# Create the parcoach user
 RUN useradd -m parcoach
+# Don't do this at home
+RUN echo 'parcoach ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 USER parcoach
 WORKDIR /home/parcoach

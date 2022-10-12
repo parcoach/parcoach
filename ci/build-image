@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+print_build_arg() {
+  printf -- '--build-arg %s=%s ' "$@"
+}
+
+print_build_versions() {
+  version=$1
+
+  case "$version" in
+    20220617)
+      # NOTE: other build tools for which we want to control the version
+      # would go there.
+      print_build_arg "CMAKE_VERSION" "3.23.2"
+      print_build_arg "CMAKE_SHA256" "aaced6f745b86ce853661a595bdac6c5314a60f8181b6912a0a4920acfa32708"
+      ;;
+    *) echo "[${FUNCNAME[0]}] Unknown version $version"; exit 1;
+  esac
+}
+
+parse_arguments() {
+  while read -r tool; do
+    read -r tool_version
+
+    case "$tool" in
+      build) print_build_versions "$tool_version" ;;
+      *) print_build_arg "${tool^^}_VERSION" "${tool_version}" ;;
+    esac
+  done
+}
+
+
+generate_docker_build_command() {
+  build_image_name=$1
+
+  printf -- "docker build "
+  # Fill in the command line based on the image tag, and remove its name.
+  echo "$build_image_name" | sed 's/.*:\(.*\)/\1/' | tr '-' '\n' | parse_arguments
+
+  # Skip the first argument (the image name), then forward all extra option to
+  # the command line.
+  shift
+  for option in "$@"; do
+    printf -- "%s " "$option"
+  done
+
+  # Automatically append the full image as a tag.
+  printf -- "-t $build_image_name "
+
+  printf -- ".\\n"
+}
+
+eval "$(generate_docker_build_command "$@")"

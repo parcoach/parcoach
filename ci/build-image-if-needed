@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+pushd ${SCRIPT_DIR}
+
+REGISTRY_IMAGE_NAME=$1
+IMAGE_TAG=$2
+
+set +e
+docker manifest inspect ${REGISTRY_IMAGE_NAME}:${IMAGE_TAG}
+MANIFEST_FOUND=$?
+set -e
+if [ ${MANIFEST_FOUND} == 0 ];
+then
+  echo "The image already exists"
+else
+  echo "Building image"
+  "${SCRIPT_DIR}/build-image" "${REGISTRY_IMAGE_NAME}:${IMAGE_TAG}" -f Dockerfile.parcoach
+  docker push "${REGISTRY_IMAGE_NAME}:${IMAGE_TAG}"
+fi
+
+popd

@@ -50,6 +50,6 @@ private:
 
   void cudaTransformation(llvm::Module &M);
 };
-}
+} // namespace
 
 #endif /* PARCOACH_H */

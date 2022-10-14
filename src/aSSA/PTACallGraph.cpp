@@ -7,9 +7,9 @@
 using namespace llvm;
 
 #if LLVM_VERSION_MAJOR >= 10
-#  define make_unique std::make_unique
+#define make_unique std::make_unique
 #else
-#  define make_unique llvm::make_unique
+#define make_unique llvm::make_unique
 #endif
 
 PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
@@ -102,7 +102,8 @@ void PTACallGraph::addToCallGraph(Function *F) {
         // Indirect calls
         if (!Callee && isa<CallInst>(I)) {
           CallInst &CI = cast<CallInst>(I);
-          const Value *calledValue = CI.getCalledOperand(); //CI.getCalledValue();
+          const Value *calledValue =
+              CI.getCalledOperand(); // CI.getCalledValue();
           assert(calledValue);
 
           std::vector<const Value *> ptsSet;
@@ -148,6 +149,7 @@ PTACallGraphNode *PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
 
   assert((!F || F->getParent() == &M) && "Function not in current module!");
   CGN = make_unique<PTACallGraphNode>(const_cast<Function *>(F));
-  //LLVM10: CGN = std::make_unique<PTACallGraphNode>(const_cast<Function *>(F));
+  // LLVM10: CGN = std::make_unique<PTACallGraphNode>(const_cast<Function
+  // *>(F));
   return CGN.get();
 }

@@ -242,7 +242,7 @@ struct GraphTraits<const PTACallGraph *>
     return *P.second;
   }
 };
-}
+} // namespace llvm
 
 class PTACallGraphSCC {
   const PTACallGraph &CG; // The call graph for this SCC.

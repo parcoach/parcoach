@@ -601,7 +601,8 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
   raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
 
   // Function header
-  stream << "define " << *F->getReturnType() << " @" << F->getName().str() << "(";
+  stream << "define " << *F->getReturnType() << " @" << F->getName().str()
+         << "(";
   for (const Argument &arg : F->args())
     stream << arg << ", ";
   stream << ") {\n";

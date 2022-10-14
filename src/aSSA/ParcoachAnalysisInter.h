@@ -39,9 +39,7 @@ public:
     id++;
   }
 
-  virtual ~ParcoachAnalysisInter() {
-    CollList::freeAll();
-  }
+  virtual ~ParcoachAnalysisInter() { CollList::freeAll(); }
 
   virtual void run();
 
@@ -52,7 +50,7 @@ private:
 
   void setCollSet(llvm::BasicBlock *BB);
   void setMPICollSet(llvm::BasicBlock *BB);
-  void cmpAndUpdateMPICollSet(llvm::BasicBlock * header, llvm::BasicBlock * pred);
+  void cmpAndUpdateMPICollSet(llvm::BasicBlock *header, llvm::BasicBlock *pred);
   void MPI_BFS_Loop(llvm::Loop *L);
   void BFS_Loop(llvm::Loop *L);
   void Tag_LoopLatches(llvm::Loop *L);
@@ -76,7 +74,7 @@ protected:
   BBVisitedMap bbVisitedMap;
   CollListMap mpiCollListMap;
   CollMap collMap;
-  //MPICollperFuncMap mpiCollperFuncMap;
+  // MPICollperFuncMap mpiCollperFuncMap;
   CollListperFuncMap mpiCollListperFuncMap;
   CollperFuncMap collperFuncMap;
 };

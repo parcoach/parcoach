@@ -5,13 +5,15 @@ std::set<CollList *> CollList::listsHeads;
 
 bool CollList::isNAVS() const { return this->navs; }
 bool CollList::isEmpty() const { return this->next == nullptr; }
-bool CollList::isSource(const llvm::BasicBlock *src) const { return this->source == src; }
+bool CollList::isSource(const llvm::BasicBlock *src) const {
+  return this->source == src;
+}
 
 unsigned CollList::getDepth() const { return this->depth; }
 const std::vector<std::string> CollList::getNames() const {
   return (const std::vector<std::string>)this->names;
 }
-CollList * CollList::getNext() const {
+CollList *CollList::getNext() const {
   if (this->next->isEmpty())
     return nullptr;
 
@@ -23,7 +25,7 @@ void CollList::pushColl(std::string coll) {
   names.push_back(coll);
 }
 
-void CollList::pushColl(CollList * l) {
+void CollList::pushColl(CollList *l) {
   if (!l || l->isEmpty())
     return;
 
@@ -52,10 +54,7 @@ std::string CollList::toString() {
 
     std::string snode = node;
 
-    stack = (navs?"[":"(")
-      + snode
-      + (navs?"]":")")
-      + " -> ";
+    stack = (navs ? "[" : "(") + snode + (navs ? "]" : ")") + " -> ";
   }
 
   std::string out = "";

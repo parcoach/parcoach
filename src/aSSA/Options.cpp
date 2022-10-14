@@ -120,5 +120,4 @@ void getOptions() {
   optCudaTaint = clOptCudaTaint;
   optMpiTaint = clOptMpiTaint;
   optUpcTaint = clOptUpcTaint;
-
 }

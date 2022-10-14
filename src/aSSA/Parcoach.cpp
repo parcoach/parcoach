@@ -33,19 +33,19 @@ The project is licensed under the LGPL 2.1 license
 #include "llvm/Support/Format.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/WithColor.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar/LowerAtomic.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include <llvm/Analysis/LoopInfo.h>
 
 using namespace llvm;
 using namespace std;
 
 #if LLVM_VERSION_MAJOR >= 12
-  typedef llvm::UnifyFunctionExitNodesLegacyPass UnifyFunctionExitNodes;
+typedef llvm::UnifyFunctionExitNodesLegacyPass UnifyFunctionExitNodes;
 #else
-  typedef llvm::UnifyFunctionExitNodes UnifyFunctionExitNodes;
+typedef llvm::UnifyFunctionExitNodes UnifyFunctionExitNodes;
 #endif
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
@@ -53,7 +53,7 @@ ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 void ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
   // FIXME: May raise assert in llvm with llvm-12
-  //au.addRequiredID(UnifyFunctionExitNodes::ID);
+  // au.addRequiredID(UnifyFunctionExitNodes::ID);
   au.addRequired<DominanceFrontierWrapperPass>();
   au.addRequired<DominatorTreeWrapperPass>();
   au.addRequired<PostDominatorTreeWrapperPass>();
@@ -74,62 +74,61 @@ bool ParcoachInstr::doInitialization(Module &M) {
 bool ParcoachInstr::doFinalization(Module &M) {
   tend = gettime();
 
-      unsigned intersectionSize;
-      int WnbAdded = 0, CnbAdded = 0;
-      int WnbRemoved = 0, CnbRemoved = 0;
-      auto CyanErr = []() { return WithColor(errs(), raw_ostream::Colors::CYAN); };
-      if (!optNoDataFlow) {
-        CyanErr() << "==========================================\n";
-        CyanErr() << "===  PARCOACH INTER WITH DEP ANALYSIS  ===\n";
-        CyanErr() << "==========================================\n";
-        errs() << "Module name: " << M.getModuleIdentifier() << "\n";
-        errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
-        errs() << PAInter->getNbCollectivesCondCalled()
-               << " collective(s) conditionally called\n";
-        errs() << PAInter->getNbWarnings() << " warning(s) issued\n";
-        errs() << PAInter->getNbConds() << " cond(s) \n";
-        errs() << PAInter->getConditionSet().size() << " different cond(s)\n";
-        errs() << PAInter->getNbCC() << " CC functions inserted \n";
+  unsigned intersectionSize;
+  int WnbAdded = 0, CnbAdded = 0;
+  int WnbRemoved = 0, CnbRemoved = 0;
+  auto CyanErr = []() { return WithColor(errs(), raw_ostream::Colors::CYAN); };
+  if (!optNoDataFlow) {
+    CyanErr() << "==========================================\n";
+    CyanErr() << "===  PARCOACH INTER WITH DEP ANALYSIS  ===\n";
+    CyanErr() << "==========================================\n";
+    errs() << "Module name: " << M.getModuleIdentifier() << "\n";
+    errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
+    errs() << PAInter->getNbCollectivesCondCalled()
+           << " collective(s) conditionally called\n";
+    errs() << PAInter->getNbWarnings() << " warning(s) issued\n";
+    errs() << PAInter->getNbConds() << " cond(s) \n";
+    errs() << PAInter->getConditionSet().size() << " different cond(s)\n";
+    errs() << PAInter->getNbCC() << " CC functions inserted \n";
 
-        intersectionSize = getBBSetIntersectionSize(
-            PAInter->getConditionSet(), PAInter->getConditionSetParcoachOnly());
+    intersectionSize = getBBSetIntersectionSize(
+        PAInter->getConditionSet(), PAInter->getConditionSetParcoachOnly());
 
-        CnbAdded = PAInter->getConditionSet().size() - intersectionSize;
-        CnbRemoved =
-            PAInter->getConditionSetParcoachOnly().size() - intersectionSize;
-        errs() << CnbAdded << " condition(s) added and " << CnbRemoved
-               << " condition(s) removed with dep analysis.\n";
+    CnbAdded = PAInter->getConditionSet().size() - intersectionSize;
+    CnbRemoved =
+        PAInter->getConditionSetParcoachOnly().size() - intersectionSize;
+    errs() << CnbAdded << " condition(s) added and " << CnbRemoved
+           << " condition(s) removed with dep analysis.\n";
 
-        intersectionSize = getInstSetIntersectionSize(
-            PAInter->getWarningSet(), PAInter->getWarningSetParcoachOnly());
+    intersectionSize = getInstSetIntersectionSize(
+        PAInter->getWarningSet(), PAInter->getWarningSetParcoachOnly());
 
-        WnbAdded = PAInter->getWarningSet().size() - intersectionSize;
-        WnbRemoved =
-            PAInter->getWarningSetParcoachOnly().size() - intersectionSize;
-        errs() << WnbAdded << " warning(s) added and " << WnbRemoved
-               << " warning(s) removed with dep analysis.\n";
-      }else{
+    WnbAdded = PAInter->getWarningSet().size() - intersectionSize;
+    WnbRemoved = PAInter->getWarningSetParcoachOnly().size() - intersectionSize;
+    errs() << WnbAdded << " warning(s) added and " << WnbRemoved
+           << " warning(s) removed with dep analysis.\n";
+  } else {
 
-      CyanErr() << "================================================\n";
-      CyanErr() << "===== PARCOACH INTER WITHOUT DEP ANALYSIS ======\n";
-      CyanErr() << "================================================\n";
-      errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
-      errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
-      errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
-      errs() << PAInter->getConditionSetParcoachOnly().size()
-             << " different cond(s)\n";
-      errs() << PAInter->getNbCC() << " CC functions inserted \n";
-			}
+    CyanErr() << "================================================\n";
+    CyanErr() << "===== PARCOACH INTER WITHOUT DEP ANALYSIS ======\n";
+    CyanErr() << "================================================\n";
+    errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
+    errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
+    errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
+    errs() << PAInter->getConditionSetParcoachOnly().size()
+           << " different cond(s)\n";
+    errs() << PAInter->getNbCC() << " CC functions inserted \n";
+  }
 
-     /* if (!optNoDataFlow) {
-        errs() << "app," << PAInter->getNbCollectivesFound() << ","
-          << PAInter->getNbWarnings() << ","
-          << PAInter->getConditionSet().size() << "," << WnbAdded << ","
-          << WnbRemoved << "," << CnbAdded << "," << CnbRemoved << ","
-          << PAInter->getNbWarningsParcoachOnly() << ","
-          << PAInter->getConditionSetParcoachOnly().size() << "\n";
-      }*/
-      CyanErr() << "==========================================\n";
+  /* if (!optNoDataFlow) {
+     errs() << "app," << PAInter->getNbCollectivesFound() << ","
+       << PAInter->getNbWarnings() << ","
+       << PAInter->getConditionSet().size() << "," << WnbAdded << ","
+       << WnbRemoved << "," << CnbAdded << "," << CnbRemoved << ","
+       << PAInter->getNbWarningsParcoachOnly() << ","
+       << PAInter->getConditionSetParcoachOnly().size() << "\n";
+   }*/
+  CyanErr() << "==========================================\n";
 
   if (optTimeStats) {
     errs() << "AA time : " << format("%.3f", (tend_aa - tstart_aa) * 1.0e3)
@@ -287,8 +286,7 @@ void ParcoachInstr::cudaTransformation(Module &M) {
     Function *fakeFunc =
         Function::Create(FT, Function::ExternalLinkage, funcName, &M);
 
-    BasicBlock *entryBB =
-        BasicBlock::Create(M.getContext(), "entry", fakeFunc);
+    BasicBlock *entryBB = BasicBlock::Create(M.getContext(), "entry", fakeFunc);
 
     IRBuilder<> Builder(M.getContext());
     Builder.SetInsertPoint(entryBB);
@@ -473,8 +471,8 @@ bool ParcoachInstr::runOnModule(Module &M) {
   // Compute dep graph.
   tstart_depgraph = gettime();
   DepGraph *DG = NULL;
-      DG = new DepGraphDCF(&MSSA, &PTACG, this);
-    DG->build();
+  DG = new DepGraphDCF(&MSSA, &PTACG, this);
+  DG->build();
 
   errs() << "* Dep graph done\n";
 
@@ -483,10 +481,10 @@ bool ParcoachInstr::runOnModule(Module &M) {
   tstart_flooding = gettime();
 
   // Compute tainted values
-    if (optContextInsensitive)
-      DG->computeTaintedValuesContextInsensitive();
-    else
-      DG->computeTaintedValuesContextSensitive();
+  if (optContextInsensitive)
+    DG->computeTaintedValuesContextInsensitive();
+  else
+    DG->computeTaintedValuesContextSensitive();
 
   tend_flooding = gettime();
   errs() << "* value contamination  done\n";
@@ -501,9 +499,8 @@ bool ParcoachInstr::runOnModule(Module &M) {
   tstart_parcoach = gettime();
   // Parcoach analysis
 
-      PAInter = new ParcoachAnalysisInter(M, DG, PTACG, this, !optInstrumInter);
-      PAInter->run();
-
+  PAInter = new ParcoachAnalysisInter(M, DG, PTACG, this, !optInstrumInter);
+  PAInter->run();
 
   tend_parcoach = gettime();
 
@@ -535,12 +532,11 @@ double ParcoachInstr::tend_flooding = 0;
 double ParcoachInstr::tstart_parcoach = 0;
 double ParcoachInstr::tend_parcoach = 0;
 
-static RegisterPass<ParcoachInstr> X("parcoach", "Parcoach pass",
-																			true,
-																			false);
+static RegisterPass<ParcoachInstr> X("parcoach", "Parcoach pass", true, false);
 
 static RegisterStandardPasses Y(
-//    PassManagerBuilder::EP_ModuleOptimizerEarly,
+    //    PassManagerBuilder::EP_ModuleOptimizerEarly,
     PassManagerBuilder::EP_EarlyAsPossible,
-    [](const PassManagerBuilder &Builder,
-       legacy::PassManagerBase &PM) { PM.add(new ParcoachInstr()); });
+    [](const PassManagerBuilder &Builder, legacy::PassManagerBase &PM) {
+      PM.add(new ParcoachInstr());
+    });

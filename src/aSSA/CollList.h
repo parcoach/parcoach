@@ -12,7 +12,7 @@ private:
   static std::set<CollList *> listsHeads;
   static int nb_alloc;
 
-  unsigned rc = 0;              // Ref Counter
+  unsigned rc = 0; // Ref Counter
 
   inline void incRef() { this->rc++; }
   inline void decRef() { this->rc--; }
@@ -21,22 +21,22 @@ protected:
   bool navs = false;
   unsigned depth = 0;
 
-  const llvm::BasicBlock * source;
+  const llvm::BasicBlock *source;
   std::vector<std::string> names;
-  CollList * next = nullptr;
+  CollList *next = nullptr;
 
 public:
   CollList() {
-    //nb_alloc += 1;
+    // nb_alloc += 1;
     rc = 0;
     depth = 0;
     next = nullptr;
   }
 
   // Construct new list node
-  CollList(std::string coll, CollList *from, const llvm::BasicBlock *src):
-    source(src), next(from) {
-    //nb_alloc += 1;
+  CollList(std::string coll, CollList *from, const llvm::BasicBlock *src)
+      : source(src), next(from) {
+    // nb_alloc += 1;
     rc = 0;
     navs = (coll == "NAVS");
     names.push_back(coll);
@@ -53,9 +53,9 @@ public:
     }
   }
 
-  CollList(CollList * coll, CollList *from, const llvm::BasicBlock *src):
-    source(src), next(from) {
-    //nb_alloc += 1;
+  CollList(CollList *coll, CollList *from, const llvm::BasicBlock *src)
+      : source(src), next(from) {
+    // nb_alloc += 1;
     rc = 0;
     if (from) {
       from->incRef();
@@ -73,7 +73,7 @@ public:
   }
 
   ~CollList() {
-    //nb_alloc--;
+    // nb_alloc--;
     if (next) {
       next->decRef();
       if (next->rc == 0) {
@@ -82,7 +82,7 @@ public:
     }
   }
 
-  static void freeAll () {
+  static void freeAll() {
     for (auto &lh : listsHeads)
       delete lh;
   }
@@ -92,11 +92,11 @@ public:
   bool isSource(const llvm::BasicBlock *src) const;
 
   unsigned getDepth() const;
-  CollList * getNext() const;
+  CollList *getNext() const;
   const std::vector<std::string> getNames() const;
 
   void pushColl(std::string coll);
-  void pushColl(CollList * l);
+  void pushColl(CollList *l);
 
   std::string toString();
   std::string toCollMap() const;
@@ -115,9 +115,7 @@ public:
     return (t == o);
   }
 
-  bool operator!=(const CollList &cl2) {
-    return !(*this == cl2);
-  }
+  bool operator!=(const CollList &cl2) { return !(*this == cl2); }
 };
 
 #endif /* COLLLIST_H */

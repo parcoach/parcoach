@@ -12,9 +12,9 @@
 //#include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Pass.h"
 
-#include <vector>
 #include <deque>
 #include <utility>
+#include <vector>
 
 using namespace llvm;
 using namespace std;
@@ -22,7 +22,6 @@ using namespace std;
 int ParcoachAnalysisInter::id = 0;
 
 int nbColNI = 0;
-
 
 void ParcoachAnalysisInter::run() {
   // Parcoach analysis
@@ -171,16 +170,18 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
             continue;
           callee = const_cast<Function *>(mayCallee);
           // Is it a function containing collectives?
-          if (!mpiCollListperFuncMap[callee].empty()) { // && mpiCollMap[BB]!="NAVS"){
+          if (!mpiCollListperFuncMap[callee]
+                   .empty()) { // && mpiCollMap[BB]!="NAVS"){
             // auto &BBcollMap = mpiCollMap[BB];
 
             for (auto &pair : mpiCollListperFuncMap[callee]) {
-              CollList * cl = mpiCollListMap[BB][pair.first];
+              CollList *cl = mpiCollListMap[BB][pair.first];
 
               if (cl && cl->isSource(BB))
                 cl->pushColl(pair.second);
               else if (!cl || !cl->isNAVS())
-                mpiCollListMap[BB][pair.first] = new CollList(pair.second, cl, BB);
+                mpiCollListMap[BB][pair.first] =
+                    new CollList(pair.second, cl, BB);
             }
           }
           // Is it a collective operation?
@@ -192,7 +193,7 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
 
             if (OP_arg_id >= 0) {
               OP_com = CI->getArgOperand(OP_arg_id);
-              CollList * cl = mpiCollListMap[BB][OP_com];
+              CollList *cl = mpiCollListMap[BB][OP_com];
 
               if (cl && cl->isSource(BB))
                 cl->pushColl(OP_name);
@@ -201,12 +202,13 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
             } else {
               // Case of collective are effect on all com (ex: MPI_Finalize)
               for (auto &pair : mpiCollListMap[BB]) {
-                CollList * cl = mpiCollListMap[BB][pair.first];
+                CollList *cl = mpiCollListMap[BB][pair.first];
 
                 if (cl && cl->isSource(BB))
                   cl->pushColl(OP_name);
                 else if (!cl || !cl->isNAVS())
-                  mpiCollListMap[BB][pair.first] = new CollList(OP_name, cl, BB);
+                  mpiCollListMap[BB][pair.first] =
+                      new CollList(OP_name, cl, BB);
               }
             }
           }
@@ -217,11 +219,12 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
         if (!mpiCollListperFuncMap[callee].empty()) {
           // errs() << "call to function " << callee->getName() << "\n";
           for (auto &pair : mpiCollListperFuncMap[callee]) {
-            CollList * cl = mpiCollListMap[BB][pair.first];
+            CollList *cl = mpiCollListMap[BB][pair.first];
             if (cl && cl->isSource(BB))
               cl->pushColl(pair.second);
             else if (!cl || !cl->isNAVS())
-              mpiCollListMap[BB][pair.first] = new CollList(pair.second, cl, BB);
+              mpiCollListMap[BB][pair.first] =
+                  new CollList(pair.second, cl, BB);
           }
         }
         // Is it a collective operation?
@@ -233,7 +236,7 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
 
           if (OP_arg_id >= 0) {
             OP_com = CI->getArgOperand(OP_arg_id);
-            CollList * cl = mpiCollListMap[BB][OP_com];
+            CollList *cl = mpiCollListMap[BB][OP_com];
 
             if (cl && cl->isSource(BB))
               cl->pushColl(OP_name);
@@ -242,7 +245,7 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
           } else {
             // Case of collective are effect on all com (ex: MPI_Finalize)
             for (auto &pair : mpiCollListMap[BB]) {
-              CollList * cl = mpiCollListMap[BB][pair.first];
+              CollList *cl = mpiCollListMap[BB][pair.first];
               if (cl && cl->isSource(BB))
                 cl->pushColl(OP_name);
               else if (!cl || !cl->isNAVS())
@@ -291,19 +294,17 @@ bool ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB) {
     if (!f)
       continue;
 
-    if (//f->getName().equals("MPI_Finalize") ||
-        f->getName().equals("MPI_Abort") ||
-        f->getName().equals("abort") ||
-        f->getName().equals("exit") ||
-        f->getName().equals("__assert_fail")) {
+    if ( // f->getName().equals("MPI_Finalize") ||
+        f->getName().equals("MPI_Abort") || f->getName().equals("abort") ||
+        f->getName().equals("exit") || f->getName().equals("__assert_fail")) {
       return true;
     }
   }
   return false;
 }
 
-void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock * header,
-                                                   llvm::BasicBlock * pred) {
+void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
+                                                   llvm::BasicBlock *pred) {
   std::set<const Value *> comm;
 
   for (auto &com : mpiCollListMap[pred])
@@ -314,9 +315,9 @@ void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock * header,
 
   for (auto &com : comm) {
     bool pred_owner = false;
-    CollList * pred_cl = mpiCollListMap[pred][com];
-    CollList * old_header_cl = pred_cl;
-    CollList * header_cl = mpiCollListMap[header][com];
+    CollList *pred_cl = mpiCollListMap[pred][com];
+    CollList *old_header_cl = pred_cl;
+    CollList *header_cl = mpiCollListMap[header][com];
 
     // Header and old_header are nullptr
     if (!old_header_cl && !header_cl) {
@@ -329,20 +330,22 @@ void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock * header,
       pred_owner = true;
     }
 
-    errs() << " ** (oh == h) = " << ((old_header_cl && header_cl &&
-                                      (*old_header_cl == *header_cl))?
-                                     "true":"false") << "\n"
-           << "     p = " << (pred_cl?pred_cl->toCollMap():"") << "\n"
-           << "    oh = " << (old_header_cl?old_header_cl->toCollMap():"") << "\n"
-           << "     h = " << (header_cl?header_cl->toCollMap():"") << "\n"
-           << "   fun = " << (header ? header->getParent()->getName().str():
-                              (pred ? pred->getParent()->getName().str():
-                               "xxx"))
+    errs() << " ** (oh == h) = "
+           << ((old_header_cl && header_cl && (*old_header_cl == *header_cl))
+                   ? "true"
+                   : "false")
+           << "\n"
+           << "     p = " << (pred_cl ? pred_cl->toCollMap() : "") << "\n"
+           << "    oh = " << (old_header_cl ? old_header_cl->toCollMap() : "")
+           << "\n"
+           << "     h = " << (header_cl ? header_cl->toCollMap() : "") << "\n"
+           << "   fun = "
+           << (header ? header->getParent()->getName().str()
+                      : (pred ? pred->getParent()->getName().str() : "xxx"))
            << "\n";
 
     // Equals
-    if (old_header_cl && header_cl &&
-        (*old_header_cl == *header_cl))
+    if (old_header_cl && header_cl && (*old_header_cl == *header_cl))
       return;
 
     // Not equals
@@ -388,7 +391,8 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
       BasicBlock *Succ = *PI;
 
       // Exit nodes not yet visited
-      if (isExitNode(Succ) && !L->contains(Succ) && bbVisitedMap[Succ] != black) {
+      if (isExitNode(Succ) && !L->contains(Succ) &&
+          bbVisitedMap[Succ] != black) {
         Unvisited.push_back(Succ);
         setMPICollSet(Succ);
         bbVisitedMap[Succ] = grey;
@@ -406,7 +410,8 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
     if (bbVisitedMap[header] == black)
       continue;
 
-    if (mustWaitLoop(header, L) && header != Lheader) { // all successors have not been seen
+    if (mustWaitLoop(header, L) &&
+        header != Lheader) { // all successors have not been seen
       Unvisited.push_back(header);
       continue;
     }
@@ -432,9 +437,9 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
       else {
         cmpAndUpdateMPICollSet(header, Pred);
       } // END ELSE
-    } // END FOR
+    }   // END FOR
     bbVisitedMap[header] = black;
-  }   // END WHILE
+  } // END WHILE
 
   // Reset Lheader color
   bbVisitedMap[Lheader] = grey;
@@ -446,7 +451,7 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
       mpiCollListMap[Lheader][com.first]->pushColl("NAVS");
     else
       mpiCollListMap[Lheader][com.first] =
-        new CollList("NAVS", mpiCollListMap[Lheader][com.first], Lheader);
+          new CollList("NAVS", mpiCollListMap[Lheader][com.first], Lheader);
   }
 }
 
@@ -465,14 +470,14 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
       Unvisited.push_back(&I);
       // errs() << "Exit node: " << I.getName() << "\n";
       setMPICollSet(&I);
-      //bbVisitedMap[&I] = grey;
+      // bbVisitedMap[&I] = grey;
     }
   }
 
   // BFS ON EACH LOOP IN F
   // DEBUG//errs() << "-- BFS IN EACH LOOP --\n";
   curLoop = &pass->getAnalysis<LoopInfoWrapperPass>(*const_cast<Function *>(F))
-    .getLoopInfo();
+                 .getLoopInfo();
   for (Loop *L : *curLoop) {
     Unvisited.push_back(L->getHeader());
     MPI_BFS_Loop(L);
@@ -511,10 +516,10 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
       } else {
         cmpAndUpdateMPICollSet(header, Pred);
       } // END ELSE
-    } // END FOR
+    }   // END FOR
 
     bbVisitedMap[header] = black;
-  }   // END WHILE
+  } // END WHILE
 
   BasicBlock &entry = F->getEntryBlock();
   for (auto &pair : mpiCollListMap[&entry]) {
@@ -585,7 +590,8 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
       BasicBlock *Succ = *PI;
 
       // Exit nodes not yet visited
-      if (isExitNode(Succ) && !L->contains(Succ) && bbVisitedMap[Succ] != black) {
+      if (isExitNode(Succ) && !L->contains(Succ) &&
+          bbVisitedMap[Succ] != black) {
         Unvisited.push_back(Succ);
         setMPICollSet(Succ);
         bbVisitedMap[Succ] = grey;
@@ -604,7 +610,8 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
     if (bbVisitedMap[header] == black)
       continue;
 
-    if (mustWaitLoop(header, L) && header != Lheader) { // all successors have not been seen
+    if (mustWaitLoop(header, L) &&
+        header != Lheader) { // all successors have not been seen
       Unvisited.push_back(header);
       continue;
     }
@@ -651,7 +658,6 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
   // Reset Lheader color
   bbVisitedMap[Lheader] = grey;
 }
-
 
 // BFS
 void ParcoachAnalysisInter::BFS(llvm::Function *F) {
@@ -778,7 +784,8 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
       // Is this node detected as potentially dangerous by parcoach?
       if (!optMpiTaint && collMap[BB] != "NAVS")
         continue;
-      if (optMpiTaint && mpiCollListMap[BB][OP_com] && !mpiCollListMap[BB][OP_com]->isNAVS())
+      if (optMpiTaint && mpiCollListMap[BB][OP_com] &&
+          !mpiCollListMap[BB][OP_com]->isNAVS())
         continue;
 
       // Is this condition tainted?
@@ -806,8 +813,8 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
         const llvm::Function *fBB = BB->getParent();
         if (F != fBB)
           mpiCollListMap[BB][OP_com] =
-            new CollList("NAVS", mpiCollListMap[BB][OP_com], BB);
-          //mpiCollMap[BB][OP_com] = "NAVS";
+              new CollList("NAVS", mpiCollListMap[BB][OP_com], BB);
+        // mpiCollMap[BB][OP_com] = "NAVS";
       }
     } else {
       // insert count_collectives(const char* OP_name, int OP_line, char
@@ -884,8 +891,7 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
       // Is this node detected as potentially dangerous by parcoach?
       if (!optMpiTaint && collMap[BB] != "NAVS")
         continue;
-      if (optMpiTaint && OP_arg_id >= 0 &&
-          mpiCollListMap[BB][OP_com] &&
+      if (optMpiTaint && OP_arg_id >= 0 && mpiCollListMap[BB][OP_com] &&
           !mpiCollListMap[BB][OP_com]->isNAVS())
         continue;
       /*const Value *cond = getBasicBlockCond(BB);
@@ -921,7 +927,8 @@ errs() << pair.first << "{" << pair.second << "}\n";
       DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
       const Instruction *inst = BB->getTerminator();
       DebugLoc loc = inst->getDebugLoc();
-      Warnings.push_back(make_pair(loc.getLine(), loc ? loc->getFilename().str() : "?"));
+      Warnings.push_back(
+          make_pair(loc.getLine(), loc ? loc->getFilename().str() : "?"));
 
       if (optDotTaintPaths) {
         string dotfilename("taintedpath-");
@@ -951,7 +958,8 @@ errs() << pair.first << "{" << pair.second << "}\n";
     std::string Buf;
     raw_string_ostream WarningMsg(Buf);
     WarningMsg << OP_name << " line " << OP_line;
-    WarningMsg << " possibly not called by all processes because of conditional(s) line(s) ";
+    WarningMsg << " possibly not called by all processes because of "
+                  "conditional(s) line(s) ";
     // Make sure lines are displayed in order.
     std::sort(Warnings.begin(), Warnings.end());
     for (auto &W : Warnings) {
@@ -960,8 +968,8 @@ errs() << pair.first << "{" << pair.second << "}\n";
     }
     WarningMsg << " (full-inter)";
 
-    MDNode *mdNode = MDNode::get(i->getContext(),
-                         MDString::get(i->getContext(), WarningMsg.str()));
+    MDNode *mdNode = MDNode::get(
+        i->getContext(), MDString::get(i->getContext(), WarningMsg.str()));
     i->setMetadata("inter.inst.warning" + to_string(id), mdNode);
     Diag = SMDiagnostic(File, SourceMgr::DK_Warning, WarningMsg.str());
     Diag.print(ProgName, errs(), 1, 1);

@@ -18,7 +18,7 @@ namespace llvm {
 
 class CallSite {
 private:
-  CallBase *CB = nullptr;;
+  CallBase *CB = nullptr;
   int type = 0;
 
 public:
@@ -46,10 +46,10 @@ public:
 
   CallBase *getInstruction() const { return CB; }
   using arg_iterator = User::const_op_iterator;
-  Value *getArgument(unsigned ArgNo) const { return CB->getArgOperand(ArgNo);}
+  Value *getArgument(unsigned ArgNo) const { return CB->getArgOperand(ArgNo); }
   Type *getType() const { return CB->getType(); }
-  User::const_op_iterator arg_begin() const { return CB->arg_begin();}
-  User::const_op_iterator arg_end() const { return CB->arg_end();}
+  User::const_op_iterator arg_begin() const { return CB->arg_begin(); }
+  User::const_op_iterator arg_end() const { return CB->arg_end(); }
   unsigned arg_size() const { return CB->arg_size(); }
   bool arg_empty() const { return CB->arg_empty(); }
   Value *getArgOperand(unsigned i) const { return CB->getArgOperand(i); }
@@ -70,15 +70,16 @@ public:
 
 class ImmutableCallSite : public CallSite {
 public:
-  explicit ImmutableCallSite(const Instruction *I) : CallSite((Instruction *)I) {}
+  explicit ImmutableCallSite(const Instruction *I)
+      : CallSite((Instruction *)I) {}
   explicit ImmutableCallSite(const Value *V) : CallSite((Value *)V) {}
 };
 
-} /* Ends namesapce llvm */
+} // namespace llvm
 
-#else  /* LLVM_VERSION_MAJOR >= 12 */
+#else /* LLVM_VERSION_MAJOR >= 12 */
 
-# include "llvm/IR/CallSite.h"
+#include "llvm/IR/CallSite.h"
 
 #endif /* LLVM_VERSION_MAJOR >= 12 */
 #endif /* CALLSITE_H */

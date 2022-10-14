@@ -107,7 +107,7 @@ Coming soon
 
 PARCOACH has adopted pretty much the same coding style as LLVM.
 Two tools are used for this:
-  - `clang-tidy`, which checks wether the naming convention are respected, or
+  - `clang-tidy`, which checks wether the naming conventions are respected, or
   if there are parts of the code which are not easily readable, and many other
   criteria. It's not mandatory for the output of `clang-tidy` to be empty,
   but it's generally a good idea to look at it.

@@ -5,22 +5,26 @@ using namespace llvm;
 using namespace std;
 
 void DepGraph::build() {
-  unsigned counter = 0;
-  unsigned nbFunctions = PTACG->getModule().getFunctionList().size();
+  unsigned Counter = 0;
+  unsigned NbFunctions = PTACG->getModule().getFunctionList().size();
+  static constexpr unsigned Steps = 100;
 
   for (Function &F : PTACG->getModule()) {
-    if (!PTACG->isReachableFromEntry(&F))
+    if (!PTACG->isReachableFromEntry(&F)) {
       continue;
+    }
 
-    if (counter % 100 == 0)
-      errs() << "DepGraph: visited " << counter << " functions over "
-             << nbFunctions << " (" << (((float)counter) / nbFunctions * 100)
+    if (Counter % Steps == 0) {
+      errs() << "DepGraph: visited " << Counter << " functions over "
+             << NbFunctions << " (" << (((float)Counter) / NbFunctions * Steps)
              << "%)\n";
+    }
 
-    counter++;
+    Counter++;
 
-    if (isIntrinsicDbgFunction(&F))
+    if (isIntrinsicDbgFunction(&F)) {
       continue;
+    }
 
     buildFunction(&F);
   }

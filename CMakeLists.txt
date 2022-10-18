@@ -3,16 +3,11 @@ cmake_policy(SET CMP0054 NEW)
 
 project(PARCOACH)
 message("This is PARCOACH")
-message("You need a version of LLVM from LLVM 9 to LLVM 12 to build this project")
-
-
-# c++11 for LLVM <= 9
-# set (CMAKE_CXX_STANDARD 11)
-#c++14 for LLVM > 10
-set (CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+message("You need LLVM 12 to build this project")
 find_package(LLVM 12 REQUIRED CONFIG)
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION} in ${LLVM_INSTALL_PREFIX}")
 message(STATUS "Using LLVM binaries in: ${LLVM_TOOLS_BINARY_DIR}")

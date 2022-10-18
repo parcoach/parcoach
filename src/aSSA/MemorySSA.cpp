@@ -62,8 +62,8 @@ void MemorySSA::computeMuChi(const Function *F) {
       if (isIntrinsicDbgInst(inst))
         continue;
 
-      CallSite cs(const_cast<Instruction *>(inst));
-      Function *callee = cs.getCalledFunction();
+      CallBase *cs = const_cast<CallBase *>(cast<CallBase>(inst));
+      Function *callee = cs->getCalledFunction();
 
       // indirect call
       if (callee == NULL) {
@@ -71,8 +71,7 @@ void MemorySSA::computeMuChi(const Function *F) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
 
-          computeMuChiForCalledFunction(inst,
-                                        const_cast<Function *>(mayCallee));
+          computeMuChiForCalledFunction(cs, const_cast<Function *>(mayCallee));
           if (mayCallee->isDeclaration())
             createArtificalChiForCalledFunction(cs, mayCallee);
         }
@@ -83,7 +82,7 @@ void MemorySSA::computeMuChi(const Function *F) {
         if (isIntrinsicDbgFunction(callee))
           continue;
 
-        computeMuChiForCalledFunction(inst, callee);
+        computeMuChiForCalledFunction(cs, callee);
         if (callee->isDeclaration())
           createArtificalChiForCalledFunction(cs, callee);
       }
@@ -156,15 +155,13 @@ void MemorySSA::computeMuChi(const Function *F) {
     funRegToReturnMuMap[F][mu->region] = mu;
 }
 
-void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
+void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
                                               Function *callee) {
-  CallSite cs(const_cast<Instruction *>(inst));
-
   // If the called function is a CUDA synchronization, create an artificial CHI
   // for each shared region.
   if (optCudaTaint && callee->getName().equals("llvm.nvvm.barrier0")) {
     for (MemReg *r : MemReg::getCudaSharedRegions()) {
-      callSiteToSyncChiMap[cs].insert(new MSSASyncChi(r, inst));
+      callSiteToSyncChiMap[inst].insert(new MSSASyncChi(r, inst));
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);
     }
@@ -176,7 +173,7 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
   if (optOmpTaint && callee->getName().equals("__kmpc_barrier")) {
     for (MemReg *r :
          MemReg::getOmpSharedRegions(inst->getParent()->getParent())) {
-      callSiteToSyncChiMap[cs].insert(new MSSASyncChi(r, inst));
+      callSiteToSyncChiMap[inst].insert(new MSSASyncChi(r, inst));
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);
     }
@@ -188,7 +185,7 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
   if (callee->isDeclaration()) {
     assert(isa<CallInst>(inst)); // InvokeInst are not handled yet
     const CallInst *CI = cast<CallInst>(inst);
-    extFuncToCSMap[callee].insert(cs);
+    extFuncToCSMap[callee].insert(inst);
 
     const extModInfo *info = extInfo->getExtModInfo(callee);
     assert(info);
@@ -224,7 +221,7 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
         if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
           continue;
 
-        callSiteToMuMap[cs].insert(new MSSAExtCallMu(r, callee, i));
+        callSiteToMuMap[inst].insert(new MSSAExtCallMu(r, callee, i));
         usedRegs.insert(r);
       }
 
@@ -236,7 +233,8 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
             if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
               continue;
 
-            callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i, inst));
+            callSiteToChiMap[inst].insert(
+                new MSSAExtCallChi(r, callee, i, inst));
             regDefToBBMap[r].insert(inst->getParent());
           }
         }
@@ -246,7 +244,8 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
             if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
               continue;
 
-            callSiteToChiMap[cs].insert(new MSSAExtCallChi(r, callee, i, inst));
+            callSiteToChiMap[inst].insert(
+                new MSSAExtCallChi(r, callee, i, inst));
             regDefToBBMap[r].insert(inst->getParent());
           }
         }
@@ -264,7 +263,8 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
         if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
           continue;
 
-        extCallSiteToCallerRetChi[cs].insert(new MSSAExtRetCallChi(r, callee));
+        extCallSiteToCallerRetChi[inst].insert(
+            new MSSAExtRetCallChi(r, callee));
         regDefToBBMap[r].insert(inst->getParent());
         usedRegs.insert(r);
       }
@@ -280,7 +280,7 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
     // Create Mu for each region \in ref(callee)
     for (MemReg *r : MRA->getFuncRef(callee)) {
       if (killSet.find(r) == killSet.end()) {
-        callSiteToMuMap[cs].insert(new MSSACallMu(r, callee));
+        callSiteToMuMap[inst].insert(new MSSACallMu(r, callee));
         usedRegs.insert(r);
       }
     }
@@ -288,7 +288,7 @@ void MemorySSA::computeMuChiForCalledFunction(const Instruction *inst,
     // Create Chi for each region \in mod(callee)
     for (MemReg *r : MRA->getFuncMod(callee)) {
       if (killSet.find(r) == killSet.end()) {
-        callSiteToChiMap[cs].insert(new MSSACallChi(r, callee, inst));
+        callSiteToChiMap[inst].insert(new MSSACallChi(r, callee, inst));
         regDefToBBMap[r].insert(inst->getParent());
         usedRegs.insert(r);
       }
@@ -384,7 +384,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     const Instruction *inst = &*I;
 
     if (isCallSite(inst)) {
-      CallSite cs(const_cast<Instruction *>(inst));
+      CallBase *cs(const_cast<CallBase *>(cast<CallBase>(inst)));
 
       for (MSSAMu *mu : callSiteToMuMap[cs])
         mu->var = S[mu->region].back();
@@ -471,7 +471,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     const Instruction *inst = &*I;
 
     if (isa<CallInst>(inst)) {
-      CallSite cs(const_cast<Instruction *>(inst));
+      CallBase *cs(const_cast<CallBase *>(cast<CallBase>(inst)));
 
       for (MSSAChi *chi : callSiteToSyncChiMap[cs]) {
         MemReg *V = chi->region;
@@ -670,7 +670,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
         if (isIntrinsicDbgInst(CI))
           continue;
 
-        CallSite cs(const_cast<CallInst *>(CI));
+        CallInst *cs(const_cast<CallInst *>(CI));
         stream << *CI << "\n";
         for (MSSAMu *mu : callSiteToMuMap[cs])
           stream << "  mu(" << mu->region->getName() << mu->var->version
@@ -705,7 +705,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
 }
 
 void MemorySSA::createArtificalChiForCalledFunction(
-    llvm::CallSite CS, const llvm::Function *callee) {
+    llvm::CallBase *CS, const llvm::Function *callee) {
   // Not sure if we need mod/ref info here, we can just create entry/exit chi
   // for each pointer arguments and then only connect the exit/return chis of
   // modified arguments in the dep graph.

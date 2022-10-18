@@ -9,8 +9,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 
-#include "CallSite.h"
-
 #include <map>
 
 class DepGraphDCF;
@@ -30,12 +28,13 @@ class MemorySSA {
   // Chi and Mu annotations
   typedef std::map<const llvm::LoadInst *, MuSet> LoadToMuMap;
   typedef std::map<const llvm::StoreInst *, ChiSet> StoreToChiMap;
-  typedef std::map<llvm::CallSite, MuSet> CallSiteToMuSetMap;
-  typedef std::map<llvm::CallSite, ChiSet> CallSiteToChiSetMap;
-  typedef std::map<const llvm::Function *, std::map<llvm::CallSite, MSSAChi *>>
+  typedef std::map<llvm::CallBase *, MuSet> CallSiteToMuSetMap;
+  typedef std::map<llvm::CallBase *, ChiSet> CallSiteToChiSetMap;
+  typedef std::map<const llvm::Function *,
+                   std::map<llvm::CallBase *, MSSAChi *>>
       FuncCallSiteToChiMap;
   typedef std::map<const llvm::Function *,
-                   std::map<llvm::CallSite, std::map<unsigned, MSSAChi *>>>
+                   std::map<llvm::CallBase *, std::map<unsigned, MSSAChi *>>>
       FuncCallSiteToArgChiMap;
 
   // Phis
@@ -69,12 +68,12 @@ public:
   void printTimers() const;
 
 private:
-  void createArtificalChiForCalledFunction(llvm::CallSite CS,
+  void createArtificalChiForCalledFunction(llvm::CallBase *CB,
                                            const llvm::Function *callee);
 
   void computeMuChi(const llvm::Function *F);
 
-  void computeMuChiForCalledFunction(const llvm::Instruction *inst,
+  void computeMuChiForCalledFunction(llvm::CallBase *inst,
                                      llvm::Function *callee);
 
   // The three following functions generate SSA from mu/chi by implementing the
@@ -137,7 +136,7 @@ protected:
   FuncCallSiteToArgChiMap extCallSiteToArgEntryChi;
   FuncCallSiteToArgChiMap extCallSiteToArgExitChi;
   FuncCallSiteToChiMap extCallSiteToCalleeRetChi;
-  std::map<const llvm::Function *, std::set<llvm::CallSite>> extFuncToCSMap;
+  std::map<const llvm::Function *, std::set<llvm::CallBase *>> extFuncToCSMap;
 };
 
 #endif /* MEMORYSSA_H */

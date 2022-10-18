@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+set -euxo pipefail
 
 if [ $# -ne 2 ]; then
   echo "Usage: ./test_mpi input_file.bc expected_output.txt"

@@ -9,8 +9,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/ValueHandle.h"
 
-#include "CallSite.h"
-
 #include <map>
 #include <set>
 
@@ -124,8 +122,8 @@ public:
   }
 
   /// \brief Adds a function to the list of functions called by this one.
-  void addCalledFunction(llvm::CallSite CS, PTACallGraphNode *M) {
-    CalledFunctions.emplace_back(CS.getInstruction(), M);
+  void addCalledFunction(llvm::CallBase *CB, PTACallGraphNode *M) {
+    CalledFunctions.emplace_back(CB, M);
   }
 
 private:

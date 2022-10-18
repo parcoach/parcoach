@@ -46,14 +46,13 @@ void ModRefAnalysis::visitStoreInst(StoreInst &I) {
   }
 }
 
-void ModRefAnalysis::visitCallSite(CallSite CS) {
+void ModRefAnalysis::visitCallBase(CallBase &CB) {
   // For each external function called, add the region of each pointer
   // parameters passed to the function to the ref set of the called
   // function. Regions are added to the Mod set only if the parameter is
   // modified in the callee.
 
-  assert(CS.isCall());
-  CallInst *CI = cast<CallInst>(CS.getInstruction());
+  CallInst *CI = cast<CallInst>(&CB);
   const Function *callee = CI->getCalledFunction();
 
   // In CUDA after a synchronization, all region in shared memory are written.

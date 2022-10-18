@@ -1,5 +1,6 @@
 #include "PTACallGraph.h"
 
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
 #include <queue>
@@ -62,7 +63,7 @@ void PTACallGraph::addToCallGraph(Function *F) {
 
   // If this function has external linkage, anything could call it.
   if (!F->hasLocalLinkage()) {
-    ExternalCallingNode->addCalledFunction(CallSite(), Node);
+    ExternalCallingNode->addCalledFunction(nullptr, Node);
 
     // Found the entry point?
     if (F->getName() == "main") {
@@ -77,33 +78,31 @@ void PTACallGraph::addToCallGraph(Function *F) {
 
   // If this function has its address taken, anything could call it.
   if (F->hasAddressTaken())
-    ExternalCallingNode->addCalledFunction(CallSite(), Node);
+    ExternalCallingNode->addCalledFunction(nullptr, Node);
 
   // If this function is not defined in this translation unit, it could call
   // anything.
   if (F->isDeclaration() && !F->isIntrinsic())
-    Node->addCalledFunction(CallSite(), CallsExternalNode.get());
+    Node->addCalledFunction(nullptr, CallsExternalNode.get());
 
   // Look for calls by this function.
   for (BasicBlock &BB : *F)
     for (Instruction &I : BB) {
-      auto CS = CallSite(&I);
-      if (CS.isCall()) {
-        const Function *Callee = CS.getCalledFunction();
+      if (auto *CI = dyn_cast<CallInst>(&I)) {
+        const Function *Callee = CI->getCalledFunction();
 
         if (!Callee || !Intrinsic::isLeaf(Callee->getIntrinsicID()))
           // Indirect calls of intrinsics are not allowed so no need to check.
           // We can be more precise here by using TargetArg returned by
           // Intrinsic::isLeaf.
-          Node->addCalledFunction(CS, CallsExternalNode.get());
+          Node->addCalledFunction(CI, CallsExternalNode.get());
         else if (!Callee->isIntrinsic())
-          Node->addCalledFunction(CS, getOrInsertFunction(Callee));
+          Node->addCalledFunction(CI, getOrInsertFunction(Callee));
 
         // Indirect calls
-        if (!Callee && isa<CallInst>(I)) {
-          CallInst &CI = cast<CallInst>(I);
+        if (!Callee) {
           const Value *calledValue =
-              CI.getCalledOperand(); // CI.getCalledValue();
+              CI->getCalledOperand(); // CI.getCalledValue();
           assert(calledValue);
 
           std::vector<const Value *> ptsSet;
@@ -119,15 +118,15 @@ void PTACallGraph::addToCallGraph(Function *F) {
             if (!Callee)
               continue;
 
-            if (CS.arg_size() != Callee->arg_size())
+            if (CI->arg_size() != Callee->arg_size())
               continue;
 
             found = true;
 
-            indirectCallMap[&CI].insert(Callee);
+            indirectCallMap[CI].insert(Callee);
 
             if (Intrinsic::isLeaf(Callee->getIntrinsicID()))
-              Node->addCalledFunction(CS, getOrInsertFunction(Callee));
+              Node->addCalledFunction(CI, getOrInsertFunction(Callee));
           }
 
           if (!found)

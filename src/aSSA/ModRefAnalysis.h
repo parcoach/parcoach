@@ -20,7 +20,7 @@ public:
   void visitAllocaInst(llvm::AllocaInst &I);
   void visitLoadInst(llvm::LoadInst &I);
   void visitStoreInst(llvm::StoreInst &I);
-  void visitCallSite(llvm::CallSite CS);
+  void visitCallBase(llvm::CallBase &CB);
 
   void dump();
 

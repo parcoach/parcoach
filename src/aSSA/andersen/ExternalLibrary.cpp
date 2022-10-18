@@ -1,6 +1,5 @@
 #include "Andersen.h"
 
-#include "../CallSite.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Module.h"
@@ -105,7 +104,7 @@ static bool lookupName(const char *table[], const char *str) {
 // and add constraint correspondingly If this is a call to a "known" function,
 // add the constraints and return true. If this is a call to an unknown
 // function, return false.
-bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
+bool Andersen::addConstraintForExternalLibrary(CallBase const &cs,
                                                const Function *f) {
   assert(f != nullptr && "called function is nullptr!");
   assert((f->isDeclaration() || f->isIntrinsic()) &&
@@ -122,8 +121,8 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
 
   // Library calls that might allocate memory.
   if (lookupName(mallocFuncs, f->getName().data()) ||
-      (isReallocLike && !isa<ConstantPointerNull>(cs.getArgument(0)))) {
-    const Instruction *inst = cs.getInstruction();
+      (isReallocLike && !isa<ConstantPointerNull>(cs.getArgOperand(0)))) {
+    const Instruction *inst = &cs;
 
     // Create the obj node
     NodeIndex objIndex = nodeFactory.createObjectNode(inst);
@@ -133,7 +132,7 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
     if (ptrIndex == AndersNodeFactory::InvalidIndex) {
       // Must be something like posix_memalign()
       if (f->getName() == "posix_memalign") {
-        ptrIndex = nodeFactory.getValueNodeFor(cs.getArgument(0));
+        ptrIndex = nodeFactory.getValueNodeFor(cs.getArgOperand(0));
         assert(ptrIndex != AndersNodeFactory::InvalidIndex &&
                "Failed to find arg0 node");
         constraints.emplace_back(AndersConstraint::STORE, ptrIndex, objIndex);
@@ -150,10 +149,10 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
   }
 
   if (lookupName(retArg0Funcs, f->getName().data()) ||
-      (isReallocLike && isa<ConstantPointerNull>(cs.getArgument(0)))) {
-    NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());
+      (isReallocLike && isa<ConstantPointerNull>(cs.getArgOperand(0)))) {
+    NodeIndex retIndex = nodeFactory.getValueNodeFor(&cs);
     if (retIndex != AndersNodeFactory::InvalidIndex) {
-      NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgument(0));
+      NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgOperand(0));
       assert(arg0Index != AndersNodeFactory::InvalidIndex &&
              "Failed to find arg0 node");
       constraints.emplace_back(AndersConstraint::COPY, retIndex, arg0Index);
@@ -163,10 +162,10 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
   }
 
   if (lookupName(retArg1Funcs, f->getName().data())) {
-    NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());
+    NodeIndex retIndex = nodeFactory.getValueNodeFor(&cs);
     assert(retIndex != AndersNodeFactory::InvalidIndex &&
            "Failed to find call site node");
-    NodeIndex arg1Index = nodeFactory.getValueNodeFor(cs.getArgument(1));
+    NodeIndex arg1Index = nodeFactory.getValueNodeFor(cs.getArgOperand(1));
     assert(arg1Index != AndersNodeFactory::InvalidIndex &&
            "Failed to find arg1 node");
     constraints.emplace_back(AndersConstraint::COPY, retIndex, arg1Index);
@@ -174,10 +173,10 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
   }
 
   if (lookupName(retArg2Funcs, f->getName().data())) {
-    NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());
+    NodeIndex retIndex = nodeFactory.getValueNodeFor(&cs);
     assert(retIndex != AndersNodeFactory::InvalidIndex &&
            "Failed to find call site node");
-    NodeIndex arg2Index = nodeFactory.getValueNodeFor(cs.getArgument(2));
+    NodeIndex arg2Index = nodeFactory.getValueNodeFor(cs.getArgOperand(2));
     assert(arg2Index != AndersNodeFactory::InvalidIndex &&
            "Failed to find arg2 node");
     constraints.emplace_back(AndersConstraint::COPY, retIndex, arg2Index);
@@ -185,10 +184,10 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
   }
 
   if (lookupName(memcpyFuncs, f->getName().data())) {
-    NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgument(0));
+    NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgOperand(0));
     assert(arg0Index != AndersNodeFactory::InvalidIndex &&
            "Failed to find arg0 node");
-    NodeIndex arg1Index = nodeFactory.getValueNodeFor(cs.getArgument(1));
+    NodeIndex arg1Index = nodeFactory.getValueNodeFor(cs.getArgOperand(1));
     assert(arg1Index != AndersNodeFactory::InvalidIndex &&
            "Failed to find arg1 node");
 
@@ -197,7 +196,7 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
     constraints.emplace_back(AndersConstraint::STORE, arg0Index, tempIndex);
 
     // Don't forget the return value
-    NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());
+    NodeIndex retIndex = nodeFactory.getValueNodeFor(&cs);
     if (retIndex != AndersNodeFactory::InvalidIndex)
       constraints.emplace_back(AndersConstraint::COPY, retIndex, arg0Index);
 
@@ -205,11 +204,11 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
   }
 
   if (lookupName(convertFuncs, f->getName().data())) {
-    if (!isa<ConstantPointerNull>(cs.getArgument(1))) {
-      NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgument(0));
+    if (!isa<ConstantPointerNull>(cs.getArgOperand(1))) {
+      NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgOperand(0));
       assert(arg0Index != AndersNodeFactory::InvalidIndex &&
              "Failed to find arg0 node");
-      NodeIndex arg1Index = nodeFactory.getValueNodeFor(cs.getArgument(1));
+      NodeIndex arg1Index = nodeFactory.getValueNodeFor(cs.getArgOperand(1));
       assert(arg1Index != AndersNodeFactory::InvalidIndex &&
              "Failed to find arg1 node");
       constraints.emplace_back(AndersConstraint::STORE, arg0Index, arg1Index);
@@ -219,10 +218,10 @@ bool Andersen::addConstraintForExternalLibrary(ImmutableCallSite cs,
   }
 
   if (f->getName() == "llvm.va_start") {
-    const Instruction *inst = cs.getInstruction();
+    const Instruction *inst = &cs;
     const Function *parentF = inst->getParent()->getParent();
     assert(parentF->getFunctionType()->isVarArg());
-    NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgument(0));
+    NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgOperand(0));
     assert(arg0Index != AndersNodeFactory::InvalidIndex &&
            "Failed to find arg0 node");
     NodeIndex vaIndex = nodeFactory.getVarargNodeFor(parentF);

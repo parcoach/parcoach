@@ -166,10 +166,7 @@ void Andersen::collectConstraintsForInstruction(const Instruction *inst) {
   }
   case Instruction::Call:
   case Instruction::Invoke: {
-    ImmutableCallSite cs(inst);
-    assert(cs && "Something wrong with callsite?");
-
-    addConstraintForCall(cs);
+    addConstraintForCall(*cast<CallBase>(inst));
 
     break;
   }
@@ -352,27 +349,25 @@ void Andersen::collectConstraintsForInstruction(const Instruction *inst) {
 // There are two types of constraints to add for a function call:
 // - ValueNode(callsite) = ReturnNode(call target)
 // - ValueNode(formal arg) = ValueNode(actual arg)
-void Andersen::addConstraintForCall(ImmutableCallSite cs) {
-  if (const Function *f = cs.getCalledFunction()) // Direct call
+void Andersen::addConstraintForCall(CallBase const &CB) {
+  if (const Function *f = CB.getCalledFunction()) // Direct call
   {
     if (f->isDeclaration() || f->isIntrinsic()) // External library call
     {
       // Handle libraries separately
-      if (addConstraintForExternalLibrary(cs, f))
+      if (addConstraintForExternalLibrary(CB, f))
         return;
       else // Unresolved library call: ruin everything!
       {
         // DEBUG(errs() << "Unresolved ext function: " << f->getName() << "\n");
-        if (cs.getType()->isPointerTy()) {
-          NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());
+        if (CB.getType()->isPointerTy()) {
+          NodeIndex retIndex = nodeFactory.getValueNodeFor(&CB);
           assert(retIndex != AndersNodeFactory::InvalidIndex &&
                  "Failed to find ret node!");
           constraints.emplace_back(AndersConstraint::COPY, retIndex,
                                    nodeFactory.getUniversalPtrNode());
         }
-        for (ImmutableCallSite::arg_iterator itr = cs.arg_begin(),
-                                             ite = cs.arg_end();
-             itr != ite; ++itr) {
+        for (auto itr = CB.arg_begin(), ite = CB.arg_end(); itr != ite; ++itr) {
           Value *argVal = *itr;
           if (argVal->getType()->isPointerTy()) {
             NodeIndex argIndex = nodeFactory.getValueNodeFor(argVal);
@@ -385,8 +380,8 @@ void Andersen::addConstraintForCall(ImmutableCallSite cs) {
       }
     } else // Non-external function call
     {
-      if (cs.getType()->isPointerTy()) {
-        NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());
+      if (CB.getType()->isPointerTy()) {
+        NodeIndex retIndex = nodeFactory.getValueNodeFor(&CB);
         assert(retIndex != AndersNodeFactory::InvalidIndex &&
                "Failed to find ret node!");
         // errs() << f->getName() << "\n";
@@ -396,14 +391,14 @@ void Andersen::addConstraintForCall(ImmutableCallSite cs) {
         constraints.emplace_back(AndersConstraint::COPY, retIndex, fRetIndex);
       }
       // The argument constraints
-      addArgumentConstraintForCall(cs, f);
+      addArgumentConstraintForCall(CB, f);
     }
   } else // Indirect call
   {
     // We do the simplest thing here: just assume the returned value can be
     // anything :)
-    if (cs.getType()->isPointerTy()) {
-      NodeIndex retIndex = nodeFactory.getValueNodeFor(cs.getInstruction());
+    if (CB.getType()->isPointerTy()) {
+      NodeIndex retIndex = nodeFactory.getValueNodeFor(&CB);
       assert(retIndex != AndersNodeFactory::InvalidIndex &&
              "Failed to find ret node!");
       constraints.emplace_back(AndersConstraint::COPY, retIndex,
@@ -413,27 +408,25 @@ void Andersen::addConstraintForCall(ImmutableCallSite cs) {
     // For argument constraints, first search through all addr-taken functions:
     // any function that takes can take as many variables is a potential
     // candidate
-    const Module *M =
-        cs.getInstruction()->getParent()->getParent()->getParent();
+    const Module *M = CB.getParent()->getParent()->getParent();
     for (auto const &f : *M) {
       NodeIndex funPtrIndex = nodeFactory.getValueNodeFor(&f);
       if (funPtrIndex == AndersNodeFactory::InvalidIndex)
         // Not an addr-taken function
         continue;
 
-      if (!f.getFunctionType()->isVarArg() && f.arg_size() != cs.arg_size())
+      if (!f.getFunctionType()->isVarArg() && f.arg_size() != CB.arg_size())
         // #arg mismatch
         continue;
 
       if (f.isDeclaration() || f.isIntrinsic()) // External library call
       {
-        if (addConstraintForExternalLibrary(cs, &f))
+        if (addConstraintForExternalLibrary(CB, &f))
           continue;
         else {
           // Pollute everything
-          for (ImmutableCallSite::arg_iterator itr = cs.arg_begin(),
-                                               ite = cs.arg_end();
-               itr != ite; ++itr) {
+          for (auto itr = CB.arg_begin(), ite = CB.arg_end(); itr != ite;
+               ++itr) {
             Value *argVal = *itr;
 
             if (argVal->getType()->isPointerTy()) {
@@ -446,16 +439,16 @@ void Andersen::addConstraintForCall(ImmutableCallSite cs) {
           }
         }
       } else
-        addArgumentConstraintForCall(cs, &f);
+        addArgumentConstraintForCall(CB, &f);
     }
   }
 }
 
-void Andersen::addArgumentConstraintForCall(ImmutableCallSite cs,
+void Andersen::addArgumentConstraintForCall(CallBase const &CB,
                                             const Function *f) {
-  Function::const_arg_iterator fItr = f->arg_begin();
-  ImmutableCallSite::arg_iterator aItr = cs.arg_begin();
-  while (fItr != f->arg_end() && aItr != cs.arg_end()) {
+  auto fItr = f->arg_begin();
+  auto aItr = CB.arg_begin();
+  while (fItr != f->arg_end() && aItr != CB.arg_end()) {
     const Argument *formal = &*fItr;
     const Value *actual = *aItr;
 
@@ -478,7 +471,7 @@ void Andersen::addArgumentConstraintForCall(ImmutableCallSite cs,
 
   // Copy all pointers passed through the varargs section to the varargs node
   if (f->getFunctionType()->isVarArg()) {
-    while (aItr != cs.arg_end()) {
+    while (aItr != CB.arg_end()) {
       const Value *actual = *aItr;
       if (actual->getType()->isPointerTy()) {
         NodeIndex aIndex = nodeFactory.getValueNodeFor(actual);

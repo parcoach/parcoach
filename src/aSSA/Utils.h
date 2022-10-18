@@ -4,8 +4,6 @@
 #include "PTACallGraph.h"
 #include "llvm/Analysis/PostDominators.h"
 
-#include "CallSite.h"
-
 #include <vector>
 
 bool isCallSite(const llvm::Instruction *inst);

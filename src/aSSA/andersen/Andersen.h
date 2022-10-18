@@ -51,8 +51,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DataLayout.h"
-
-#include "../CallSite.h"
+#include "llvm/IR/InstrTypes.h"
 
 #include <vector>
 
@@ -77,10 +76,10 @@ private:
   void collectConstraintsForGlobals(const llvm::Module &);
   void collectConstraintsForInstruction(const llvm::Instruction *);
   void addGlobalInitializerConstraints(NodeIndex, const llvm::Constant *);
-  void addConstraintForCall(llvm::ImmutableCallSite cs);
-  bool addConstraintForExternalLibrary(llvm::ImmutableCallSite cs,
+  void addConstraintForCall(llvm::CallBase const &CB);
+  bool addConstraintForExternalLibrary(llvm::CallBase const &CB,
                                        const llvm::Function *f);
-  void addArgumentConstraintForCall(llvm::ImmutableCallSite cs,
+  void addArgumentConstraintForCall(llvm::CallBase const &CB,
                                     const llvm::Function *f);
 
   // Helper functions for constraint optimization

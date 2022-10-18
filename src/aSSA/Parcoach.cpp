@@ -42,17 +42,15 @@ The project is licensed under the LGPL 2.1 license
 using namespace llvm;
 using namespace std;
 
-#if LLVM_VERSION_MAJOR >= 12
 typedef llvm::UnifyFunctionExitNodesLegacyPass UnifyFunctionExitNodes;
-#else
-typedef llvm::UnifyFunctionExitNodes UnifyFunctionExitNodes;
-#endif
 
 ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
 
 void ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
   au.setPreservesAll();
   // FIXME: May raise assert in llvm with llvm-12
+  // FIXME: this is actually a pass not an analysis; it should be fixable
+  // by using our own pass manager and running it manually.
   // au.addRequiredID(UnifyFunctionExitNodes::ID);
   au.addRequired<DominanceFrontierWrapperPass>();
   au.addRequired<DominatorTreeWrapperPass>();

@@ -1046,11 +1046,7 @@ void ParcoachAnalysisInter::insertCountColl(llvm::Instruction *I,
       strPtr_FILENAME,
       ConstantInt::get(Type::getInt32Ty(M.getContext()), inst)};
   std::string FunctionName = "count_collectives";
-#if LLVM_VERSION_MAJOR >= 11
   FunctionCallee CCFunction = M.getOrInsertFunction(FunctionName, FTy);
-#else
-  Value *CCFunction = M.getOrInsertFunction(FunctionName, FTy).getCallee();
-#endif
   // Create new function
   CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);
 }
@@ -1099,11 +1095,7 @@ void ParcoachAnalysisInter::insertCC(llvm::Instruction *I, int OP_color,
     FunctionName = "check_collective_return";
   }
 
-#if LLVM_VERSION_MAJOR >= 11
   FunctionCallee CCFunction = M.getOrInsertFunction(FunctionName, FTy);
-#else
-  Value *CCFunction = M.getOrInsertFunction(FunctionName, FTy).getCallee();
-#endif
 
   // Create new function
   CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);

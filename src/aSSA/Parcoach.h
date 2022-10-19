@@ -14,27 +14,25 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
-namespace {
-class ParcoachInstr : public llvm::ModulePass {
+namespace parcoach {
+class ParcoachInstr {
 public:
-  static char ID;
-
   /* timers */
   static double tstart, tend, tstart_aa, tend_aa, tstart_pta, tend_pta,
       tstart_regcreation, tend_regcreation, tstart_modref, tend_modref,
       tstart_assa, tend_assa, tstart_depgraph, tend_depgraph, tstart_flooding,
       tend_flooding, tstart_parcoach, tend_parcoach;
-  ParcoachInstr();
+  ParcoachInstr(llvm::ModuleAnalysisManager &AM);
 
-  virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
   virtual bool doInitialization(llvm::Module &M);
   virtual bool doFinalization(llvm::Module &M);
   virtual bool runOnModule(llvm::Module &M);
 
 private:
   ParcoachAnalysisInter *PAInter;
+  llvm::ModuleAnalysisManager &MAM;
 
   typedef bool Preheader;
   typedef std::map<const llvm::BasicBlock *, Preheader> BBPreheaderMap;
@@ -50,6 +48,12 @@ private:
 
   void cudaTransformation(llvm::Module &M);
 };
-} // namespace
+
+struct ParcoachPass : public llvm::PassInfoMixin<ParcoachPass> {
+  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+  static bool isRequired() { return true; }
+};
+
+} // namespace parcoach
 
 #endif /* PARCOACH_H */

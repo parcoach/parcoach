@@ -7,8 +7,9 @@
 #include "PTACallGraph.h"
 
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <optional>
 
 class DepGraphDCF : public llvm::InstVisitor<DepGraphDCF>, public DepGraph {
 public:
@@ -16,9 +17,9 @@ public:
   typedef std::set<const MSSAVar *> ConstVarSet;
   typedef std::set<const llvm::Value *> ValueSet;
 
-  DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, llvm::Pass *pass,
-              bool noPtrDep = false, bool noPred = false,
-              bool disablePhiElim = false);
+  DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG,
+              llvm::FunctionAnalysisManager &AM, bool noPtrDep = false,
+              bool noPred = false, bool disablePhiElim = false);
   virtual ~DepGraphDCF();
 
   virtual void build();
@@ -73,10 +74,10 @@ public:
 private:
   MemorySSA *mssa;
   PTACallGraph *CG;
-  llvm::Pass *pass;
 
   const llvm::Function *curFunc;
-  llvm::PostDominatorTree *curPDT;
+  llvm::FunctionAnalysisManager &FAM;
+  llvm::PostDominatorTree *PDT;
 
   /* Graph nodes */
 

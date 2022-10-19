@@ -53,6 +53,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstrTypes.h"
 
+#include <map>
 #include <vector>
 
 class Andersen {

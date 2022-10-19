@@ -26,11 +26,13 @@ static vector<functionArg> valueSourceFunctions;
 static vector<const char *> loadValueSources;
 static vector<functionArg> resetFunctions;
 
-DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG, Pass *pass,
-                         bool noPtrDep, bool noPred, bool disablePhiElim)
-    : DepGraph(CG), mssa(mssa), CG(CG), pass(pass), buildGraphTime(0),
-      phiElimTime(0), floodDepTime(0), floodCallTime(0), dotTime(0),
-      noPtrDep(noPtrDep), noPred(noPred), disablePhiElim(disablePhiElim) {
+DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG,
+                         FunctionAnalysisManager &AM, bool noPtrDep,
+                         bool noPred, bool disablePhiElim)
+    : DepGraph(CG), mssa(mssa), CG(CG), FAM(AM), PDT(nullptr),
+      buildGraphTime(0), phiElimTime(0), floodDepTime(0), floodCallTime(0),
+      dotTime(0), noPtrDep(noPtrDep), noPred(noPred),
+      disablePhiElim(disablePhiElim) {
 
   if (optMpiTaint)
     enableMPI();
@@ -104,11 +106,9 @@ void DepGraphDCF::buildFunction(const llvm::Function *F) {
   curFunc = F;
 
   if (F->isDeclaration())
-    curPDT = NULL;
+    PDT = nullptr;
   else
-    curPDT = &pass->getAnalysis<PostDominatorTreeWrapperPass>(
-                      *const_cast<Function *>(F))
-                  .getPostDomTree();
+    PDT = &FAM.getResult<PostDominatorTreeAnalysis>(*const_cast<Function *>(F));
 
   visit(*const_cast<Function *>(F));
 
@@ -470,7 +470,7 @@ void DepGraphDCF::visitCallInst(llvm::CallInst &I) {
   funcToCallNodes[curFunc].insert(&I);
 
   // Add pred to call edges
-  set<const Value *> preds = computeIPDFPredicates(*curPDT, I.getParent());
+  set<const Value *> preds = computeIPDFPredicates(*PDT, I.getParent());
   for (const Value *pred : preds) {
     condToCallEdges[pred].insert(&I);
     callsiteToConds[&I].insert(pred);
@@ -826,7 +826,7 @@ void DepGraphDCF::toDot(string filename) {
   double t1 = gettime();
 
   error_code EC;
-  raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
+  raw_fd_ostream stream(filename, EC, sys::fs::OF_Text);
 
   stream << "digraph F {\n";
   stream << "compound=true;\n";
@@ -1124,9 +1124,8 @@ void DepGraphDCF::getCallInterIPDF(const llvm::CallInst *call,
     visitedCallSites.insert(CS);
 
     BasicBlock *BB = const_cast<BasicBlock *>(CS->getParent());
-    PostDominatorTree *PDT =
-        &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
-    vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(*F);
+    vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(PDT, BB);
     ipdf.insert(funcIPDF.begin(), funcIPDF.end());
 
     if (funcToCallSites.find(F) != funcToCallSites.end()) {
@@ -1146,9 +1145,8 @@ void DepGraphDCF::getCallIntraIPDF(const llvm::CallInst *call,
 
   Function *F = const_cast<Function *>(call->getParent()->getParent());
   BasicBlock *BB = const_cast<BasicBlock *>(call->getParent());
-  PostDominatorTree *PDT =
-      &pass->getAnalysis<PostDominatorTreeWrapperPass>(*F).getPostDomTree();
-  vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(*PDT, BB);
+  PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(*F);
+  vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(PDT, BB);
   ipdf.insert(funcIPDF.begin(), funcIPDF.end());
 }
 
@@ -1601,7 +1599,7 @@ void DepGraphDCF::dotTaintPath(const Value *v, string filename,
   assert(stop);
 
   error_code EC;
-  raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
+  raw_fd_ostream stream(filename, EC, sys::fs::OF_Text);
 
   stream << "digraph F {\n";
   stream << "compound=true;\n";
@@ -1777,7 +1775,7 @@ void DepGraphDCF::dotTaintPath(const Value *v, string filename,
   if (getDebugTrace(debugLocs, trace, collective)) {
     string tracefilename = filename + ".trace";
     errs() << "Writing '" << tracefilename << "' ...\n";
-    raw_fd_ostream tracestream(tracefilename, EC, sys::fs::F_Text);
+    raw_fd_ostream tracestream(tracefilename, EC, sys::fs::OF_Text);
     tracestream << trace;
   }
 }

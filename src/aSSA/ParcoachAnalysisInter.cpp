@@ -9,7 +9,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
-//#include <llvm/Analysis/LoopInfo.h>
+// #include <llvm/Analysis/LoopInfo.h>
 #include "llvm/Pass.h"
 
 #include <deque>
@@ -476,9 +476,8 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
 
   // BFS ON EACH LOOP IN F
   // DEBUG//errs() << "-- BFS IN EACH LOOP --\n";
-  curLoop = &pass->getAnalysis<LoopInfoWrapperPass>(*const_cast<Function *>(F))
-                 .getLoopInfo();
-  for (Loop *L : *curLoop) {
+  LoopInfo &LI = FAM.getResult<LoopAnalysis>(*const_cast<Function *>(F));
+  for (Loop *L : LI) {
     Unvisited.push_back(L->getHeader());
     MPI_BFS_Loop(L);
   }
@@ -679,9 +678,8 @@ void ParcoachAnalysisInter::BFS(llvm::Function *F) {
 
   // BFS ON EACH LOOP IN F
   // DEBUG//errs() << "-- BFS IN EACH LOOP --\n";
-  curLoop = &pass->getAnalysis<LoopInfoWrapperPass>(*const_cast<Function *>(F))
-                 .getLoopInfo();
-  for (Loop *L : *curLoop) {
+  LoopInfo &LI = FAM.getResult<LoopAnalysis>(*const_cast<Function *>(F));
+  for (Loop *L : LI) {
     Unvisited.push_back(L->getHeader());
     BFS_Loop(L);
   }

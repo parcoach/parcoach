@@ -34,8 +34,9 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
 
 public:
   ParcoachAnalysisInter(llvm::Module &M, DepGraph *DG, PTACallGraph &PTACG,
-                        llvm::Pass *pass, bool disableInstru = false)
-      : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG), pass(pass) {
+                        llvm::FunctionAnalysisManager &AM,
+                        bool disableInstru = false)
+      : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG), FAM(AM) {
     id++;
   }
 
@@ -45,8 +46,7 @@ public:
 
 private:
   PTACallGraph &PTACG;
-  llvm::LoopInfo *curLoop;
-  llvm::Pass *pass;
+  llvm::FunctionAnalysisManager &FAM;
 
   void setCollSet(llvm::BasicBlock *BB);
   void setMPICollSet(llvm::BasicBlock *BB);

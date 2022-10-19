@@ -1,2 +1,2 @@
 #!/bin/sh
-@LLVM_TOOLS_BINARY_DIR@/opt -load @PARCOACH_LIB@ -parcoach  "$@"
+@LLVM_TOOLS_BINARY_DIR@/opt -load-pass-plugin @PARCOACH_LIB@ -passes=parcoach  "$@"

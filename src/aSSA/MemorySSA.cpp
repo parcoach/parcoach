@@ -191,7 +191,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     assert(info);
 
     // Mu and Chi for parameters
-    for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
+    for (unsigned i = 0; i < CI->arg_size(); ++i) {
       const Value *arg = CI->getArgOperand(i);
       if (arg->getType()->isPointerTy() == false)
         continue;
@@ -598,7 +598,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
   filename.append("-assa.ll");
   errs() << "Writing '" << filename << "' ...\n";
   error_code EC;
-  raw_fd_ostream stream(filename, EC, sys::fs::F_Text);
+  raw_fd_ostream stream(filename, EC, sys::fs::OF_Text);
 
   // Function header
   stream << "define " << *F->getReturnType() << " @" << F->getName().str()

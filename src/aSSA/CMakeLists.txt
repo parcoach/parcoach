@@ -11,6 +11,7 @@ set(ASSA_SOURCES
   PTACallGraph.cpp
   Parcoach.cpp
   ParcoachAnalysisInter.cpp
+  Register.cpp
   Utils.cpp
   andersen/Andersen.cpp
   andersen/ConstraintCollect.cpp
@@ -44,10 +45,10 @@ set(ASSA_HEADERS
   )
 add_sources_to_format(SOURCES ${ASSA_SOURCES})
 add_sources_to_format(SOURCES ${ASSA_HEADERS})
-add_llvm_library(aSSA MODULE
+add_llvm_pass_plugin(
+  aSSAPlugin
   ${ASSA_SOURCES}
-  PLUGIN_TOOL
-  opt
+  SHARED
   )
 
 if(APPLE)
@@ -61,5 +62,5 @@ if(APPLE)
     )
 endif()
 
-set(PARCOACH_LIB ${CMAKE_CURRENT_BINARY_DIR}/aSSA${CMAKE_SHARED_LIBRARY_SUFFIX})
+set(PARCOACH_LIB ${CMAKE_CURRENT_BINARY_DIR}/aSSAPlugin${CMAKE_SHARED_LIBRARY_SUFFIX})
 configure_file(parcoach.in ${CMAKE_BINARY_DIR}/parcoach @ONLY)

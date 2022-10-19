@@ -28,39 +28,23 @@ The project is licensed under the LGPL 2.1 license
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Transforms/Scalar/LowerAtomic.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include <llvm/Analysis/LoopInfo.h>
 
 using namespace llvm;
 using namespace std;
 
-typedef llvm::UnifyFunctionExitNodesLegacyPass UnifyFunctionExitNodes;
+namespace parcoach {
 
-ParcoachInstr::ParcoachInstr() : ModulePass(ID) {}
-
-void ParcoachInstr::getAnalysisUsage(AnalysisUsage &au) const {
-  au.setPreservesAll();
-  // FIXME: May raise assert in llvm with llvm-12
-  // FIXME: this is actually a pass not an analysis; it should be fixable
-  // by using our own pass manager and running it manually.
-  // au.addRequiredID(UnifyFunctionExitNodes::ID);
-  au.addRequired<DominanceFrontierWrapperPass>();
-  au.addRequired<DominatorTreeWrapperPass>();
-  au.addRequired<PostDominatorTreeWrapperPass>();
-  au.addRequired<CallGraphWrapperPass>();
-  au.addRequired<LoopInfoWrapperPass>();
-}
+ParcoachInstr::ParcoachInstr(ModuleAnalysisManager &AM)
+    : PAInter{nullptr}, MAM(AM) {}
 
 bool ParcoachInstr::doInitialization(Module &M) {
-  PAInter = NULL;
   getOptions();
   initCollectives();
 
@@ -232,6 +216,9 @@ void ParcoachInstr::revertOmpTransformation() {
 }
 
 void ParcoachInstr::cudaTransformation(Module &M) {
+  // FIXME: this is currently deactivated as it needs to be adapted to support
+  // opaque pointers.
+#if 0
   // Compute list of kernels
   set<Function *> kernels;
 
@@ -316,9 +303,11 @@ void ParcoachInstr::cudaTransformation(Module &M) {
     Builder.CreateCall(kernel, callArgs);
     Builder.CreateRetVoid();
   }
+#endif
 }
 
 bool ParcoachInstr::runOnModule(Module &M) {
+  doInitialization(M);
   if (!optContextInsensitive && optDotTaintPaths) {
     errs() << "Error: you cannot use -dot-taint-paths option in context "
            << "sensitive mode.\n";
@@ -430,6 +419,8 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
+  // Get an inner FunctionAnalysisManager from the module one.
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   for (Function &F : M) {
     if (!PTACG.isReachableFromEntry(&F)) {
       // errs() << F.getName() << " is not reachable from entry\n";
@@ -450,12 +441,9 @@ bool ParcoachInstr::runOnModule(Module &M) {
       continue;
 
     // errs() << " + Fun: " << counter << " - " << F.getName() << "\n";
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    DominanceFrontier &DF =
-        getAnalysis<DominanceFrontierWrapperPass>(F).getDominanceFrontier();
-    PostDominatorTree &PDT =
-        getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
-    // LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    DominanceFrontier &DF = FAM.getResult<DominanceFrontierAnalysis>(F);
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
 
     MSSA.buildSSA(&F, DT, DF, PDT);
     if (optDumpSSA)
@@ -469,7 +457,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
   // Compute dep graph.
   tstart_depgraph = gettime();
   DepGraph *DG = NULL;
-  DG = new DepGraphDCF(&MSSA, &PTACG, this);
+  DG = new DepGraphDCF(&MSSA, &PTACG, FAM);
   DG->build();
 
   errs() << "* Dep graph done\n";
@@ -497,7 +485,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
   tstart_parcoach = gettime();
   // Parcoach analysis
 
-  PAInter = new ParcoachAnalysisInter(M, DG, PTACG, this, !optInstrumInter);
+  PAInter = new ParcoachAnalysisInter(M, DG, PTACG, FAM, !optInstrumInter);
   PAInter->run();
 
   tend_parcoach = gettime();
@@ -506,10 +494,9 @@ bool ParcoachInstr::runOnModule(Module &M) {
   if (optOmpTaint)
     revertOmpTransformation();
 
+  doFinalization(M);
   return false;
 }
-
-char ParcoachInstr::ID = 0;
 
 double ParcoachInstr::tstart = 0;
 double ParcoachInstr::tend = 0;
@@ -530,11 +517,10 @@ double ParcoachInstr::tend_flooding = 0;
 double ParcoachInstr::tstart_parcoach = 0;
 double ParcoachInstr::tend_parcoach = 0;
 
-static RegisterPass<ParcoachInstr> X("parcoach", "Parcoach pass", true, false);
+PreservedAnalyses ParcoachPass::run(Module &M, ModuleAnalysisManager &AM) {
+  ParcoachInstr P(AM);
+  return P.runOnModule(M) ? PreservedAnalyses::none()
+                          : PreservedAnalyses::all();
+}
 
-static RegisterStandardPasses Y(
-    //    PassManagerBuilder::EP_ModuleOptimizerEarly,
-    PassManagerBuilder::EP_EarlyAsPossible,
-    [](const PassManagerBuilder &Builder, legacy::PassManagerBase &PM) {
-      PM.add(new ParcoachInstr());
-    });
+} // namespace parcoach

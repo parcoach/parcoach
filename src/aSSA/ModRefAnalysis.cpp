@@ -100,7 +100,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
       return;
   }
 
-  for (unsigned i = 0; i < CI->getNumArgOperands(); ++i) {
+  for (unsigned i = 0; i < CI->arg_size(); ++i) {
     const Value *arg = CI->getArgOperand(i);
     if (arg->getType()->isPointerTy() == false)
       continue;

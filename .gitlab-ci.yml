@@ -18,7 +18,7 @@ stages:
 variables:
   # If we need to update llvm we can just change the version here, and the
   # image will be recreated.
-  LINUX_IMAGE_TAG: "ubuntu-focal-build-20220617-llvm-12"
+  LINUX_IMAGE_TAG: "ubuntu-focal-build-20220617-llvm-15"
 
 # If we'd need to create another image we'd duplicate this job, and create a
 # new image tag.

@@ -4,13 +4,12 @@
 #include "Utils.h"
 
 #include "llvm/ADT/SCCIterator.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
-// #include <llvm/Analysis/LoopInfo.h>
-#include "llvm/Pass.h"
 
 #include <deque>
 #include <utility>
@@ -305,7 +304,7 @@ bool ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB) {
 
 void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
                                                    llvm::BasicBlock *pred) {
-  std::set<const Value *> comm;
+  SetVector<const Value *> comm;
 
   for (auto &com : mpiCollListMap[pred])
     comm.insert(com.first);
@@ -321,7 +320,7 @@ void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
 
     // Header and old_header are nullptr
     if (!old_header_cl && !header_cl) {
-      return;
+      continue;
     }
 
     // Update old_header if pred is the source of the list
@@ -502,8 +501,6 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
 
       // BB NOT SEEN BEFORE
       if (bbVisitedMap[Pred] == white) {
-        // DEBUG//errs() << F->getName() << " Pred: " << Pred->getName() <<
-        // "\n";
         for (auto &com : mpiCollListMap[header])
           mpiCollListMap[Pred][com.first] = mpiCollListMap[header][com.first];
 
@@ -887,11 +884,13 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
 
     for (const BasicBlock *BB : callIPDF) {
       // Is this node detected as potentially dangerous by parcoach?
-      if (!optMpiTaint && collMap[BB] != "NAVS")
+      if (!optMpiTaint && collMap[BB] != "NAVS") {
         continue;
+      }
       if (optMpiTaint && OP_arg_id >= 0 && mpiCollListMap[BB][OP_com] &&
-          !mpiCollListMap[BB][OP_com]->isNAVS())
+          !mpiCollListMap[BB][OP_com]->isNAVS()) {
         continue;
+      }
       /*const Value *cond = getBasicBlockCond(BB);
       errs() << "Cond : " << cond->getName() << "\n";
             for(auto& pair : mpiCollMap[BB]){

@@ -74,3 +74,5 @@ TAGS
 #if llvm folder is inside PARCOACH as written in README
 llvm
 build
+build-docker
+compile_commands.json

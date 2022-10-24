@@ -29,6 +29,9 @@ include(AddLLVM)
 # PARCOACH-specific helpers
 include(Helpers)
 
+find_llvm_program(CLANG_BIN clang)
+
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 # Make the LLVM definitions globally available.
 add_definitions(${LLVM_DEFINITIONS})

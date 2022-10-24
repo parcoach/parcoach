@@ -38,4 +38,4 @@ test-linux:
     - mkdir build && cd build
     - cmake .. -G Ninja
     - ninja
-    - ctest --output-on-failure
+    - ctest --output-on-failure -j $(nproc)

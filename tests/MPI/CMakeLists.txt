@@ -35,11 +35,8 @@ set(EXPECTED_FAILURE_TESTS
   field-sensitive.c
   )
 
-set(CLANG_BIN ${LLVM_TOOLS_BINARY_DIR}/clang)
 set(BC_FLAGS -g -c -emit-llvm -I${MPI_C_HEADER_DIR})
 set(ALL_TESTS_TARGETS)
-
-configure_file(test_mpi.in test_mpi @ONLY)
 
 foreach(SRC IN ITEMS ${EXPECTED_SUCCESS_TESTS} ${EXPECTED_FAILURE_TESTS})
   get_filename_component(TEST_NAME ${SRC} NAME_WE)
@@ -54,7 +51,7 @@ foreach(SRC IN ITEMS ${EXPECTED_SUCCESS_TESTS} ${EXPECTED_FAILURE_TESTS})
     DEPENDS aSSAPlugin ${SRC}
     )
   add_custom_target(${TEST_TARGET} DEPENDS ${TEST_BC})
-  add_test(NAME ${TEST_TARGET} COMMAND test_mpi ${CMAKE_CURRENT_BINARY_DIR}/${TEST_BC} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC}.expected)
+  add_test(NAME ${TEST_TARGET} COMMAND ${TEST_MPI_COMMAND} ${CMAKE_CURRENT_BINARY_DIR}/${TEST_BC} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC}.expected)
 endforeach()
 
 # Explicit mark expected failures

@@ -14,8 +14,9 @@
 class DepGraphDCF;
 class ModRefAnalysis;
 
+namespace parcoach {
 class MemorySSA {
-  friend class DepGraphDCF;
+  friend class ::DepGraphDCF;
 
   // Containers for Mu,Chi,Phi,BB and Values
   typedef std::set<MSSAMu *> MuSet;
@@ -138,5 +139,6 @@ protected:
   FuncCallSiteToChiMap extCallSiteToCalleeRetChi;
   std::map<const llvm::Function *, std::set<llvm::CallBase *>> extFuncToCSMap;
 };
+} // namespace parcoach
 
 #endif /* MEMORYSSA_H */

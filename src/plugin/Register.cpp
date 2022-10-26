@@ -1,4 +1,4 @@
-#include "Parcoach.h"
+#include "parcoach/Passes.h"
 
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -11,9 +11,7 @@ namespace {
 bool addPassToMPM(StringRef Name, ModulePassManager &MPM,
                   ArrayRef<PassBuilder::PipelineElement>) {
   if (Name == "parcoach") {
-    MPM.addPass(
-        createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
-    MPM.addPass(parcoach::ParcoachPass());
+    parcoach::RegisterPasses(MPM);
     return true;
   }
   return false;

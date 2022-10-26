@@ -49,11 +49,6 @@ private:
   void cudaTransformation(llvm::Module &M);
 };
 
-struct ParcoachPass : public llvm::PassInfoMixin<ParcoachPass> {
-  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
-  static bool isRequired() { return true; }
-};
-
 } // namespace parcoach
 
 #endif /* PARCOACH_H */

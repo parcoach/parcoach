@@ -17,7 +17,7 @@ public:
   typedef std::set<const MSSAVar *> ConstVarSet;
   typedef std::set<const llvm::Value *> ValueSet;
 
-  DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG,
+  DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph *CG,
               llvm::FunctionAnalysisManager &AM, bool noPtrDep = false,
               bool noPred = false, bool disablePhiElim = false);
   virtual ~DepGraphDCF();
@@ -72,7 +72,7 @@ public:
   void printTimers() const;
 
 private:
-  MemorySSA *mssa;
+  parcoach::MemorySSA *mssa;
   PTACallGraph *CG;
 
   const llvm::Function *curFunc;

@@ -16,6 +16,7 @@ The project is licensed under the LGPL 2.1 license
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
 #include "andersen/Andersen.h"
+#include "parcoach/Passes.h"
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -23,6 +24,7 @@ The project is licensed under the LGPL 2.1 license
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
@@ -34,7 +36,7 @@ The project is licensed under the LGPL 2.1 license
 #include "llvm/Support/WithColor.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include <llvm/Analysis/LoopInfo.h>
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
 using namespace std;
@@ -415,7 +417,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute all-inclusive SSA.
   tstart_assa = gettime();
-  MemorySSA MSSA(&M, &AA, &PTACG, &MRA, &extInfo);
+  parcoach::MemorySSA MSSA(&M, &AA, &PTACG, &MRA, &extInfo);
 
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
@@ -521,6 +523,11 @@ PreservedAnalyses ParcoachPass::run(Module &M, ModuleAnalysisManager &AM) {
   ParcoachInstr P(AM);
   return P.runOnModule(M) ? PreservedAnalyses::none()
                           : PreservedAnalyses::all();
+}
+
+void RegisterPasses(ModulePassManager &MPM) {
+  MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
+  MPM.addPass(parcoach::ParcoachPass());
 }
 
 } // namespace parcoach

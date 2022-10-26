@@ -26,7 +26,7 @@ static vector<functionArg> valueSourceFunctions;
 static vector<const char *> loadValueSources;
 static vector<functionArg> resetFunctions;
 
-DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph *CG,
+DepGraphDCF::DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph *CG,
                          FunctionAnalysisManager &AM, bool noPtrDep,
                          bool noPred, bool disablePhiElim)
     : DepGraph(CG), mssa(mssa), CG(CG), FAM(AM), PDT(nullptr),

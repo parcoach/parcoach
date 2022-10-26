@@ -10,6 +10,8 @@
 using namespace std;
 using namespace llvm;
 
+namespace parcoach {
+
 MemorySSA::MemorySSA(Module *m, Andersen *PTA, PTACallGraph *CG,
                      ModRefAnalysis *MRA, ExtInfo *extInfo)
     : computeMuChiTime(0), computePhiTime(0), renameTime(0),
@@ -758,3 +760,4 @@ void MemorySSA::printTimers() const {
   errs() << "compute Phi Predicates time : " << computePhiPredicatesTime * 1.0e3
          << " ms\n";
 }
+} // namespace parcoach

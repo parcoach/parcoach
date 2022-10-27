@@ -48,5 +48,5 @@ call_llvm_helper(
   add_llvm_library
   aSSA
   ${ASSA_SOURCES}
-  SHARED
+  ${PARCOACH_LIB_TYPE}
   )

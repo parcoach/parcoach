@@ -1,6 +1,8 @@
 stages:
   - build-images
   - tests
+  - coverage
+  - deploy
 
 # Base template for creating image on-demand.
 .build-test-image:
@@ -19,6 +21,10 @@ variables:
   # If we need to update llvm we can just change the version here, and the
   # image will be recreated.
   LINUX_IMAGE_TAG: "ubuntu-focal-build-20220617-llvm-15"
+  PIPENV_VENV_IN_PROJECT: "true"
+  # NOTE: this is not quite accurate as we may get either a small/medium/large
+  # runner, but it's better than nothing!
+  CTEST_PARALLEL_LEVEL: "4"
 
 # If we'd need to create another image we'd duplicate this job, and create a
 # new image tag.
@@ -27,7 +33,20 @@ build-linux-image:
   variables:
     IMAGE_TAG: $LINUX_IMAGE_TAG
 
+# NOTE: while using the shared runners, this doesn't actually do anything :s
+.pipenv-template: &pipenv_configuration
+  cache:
+    - key:
+        files:
+          - Pipfile.lock
+      paths:
+        - .venv
+  before_script:
+    - pipenv install
+    - source .venv/bin/activate
+
 test-linux:
+  <<: *pipenv_configuration
   stage: tests
   image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
   needs:
@@ -35,7 +54,44 @@ test-linux:
   tags:
     - linux
   script:
-    - mkdir build && cd build
-    - cmake .. -G Ninja
-    - ninja
-    - ctest --output-on-failure -j $(nproc)
+    - mkdir build
+    - cmake . -G Ninja -B build
+    - cmake --build build --target run-tests
+
+coverage-linux:
+  <<: *pipenv_configuration
+  stage: coverage
+  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
+  needs:
+    - build-linux-image
+  tags:
+    - linux
+  script:
+    - mkdir build
+    - cmake . -G Ninja -B build -C caches/Coverage.cmake
+    - cmake --build build --target coverage
+    # NOTE: this is a tiny bit tricky: we need to run lcov_cobertura from the
+    # project's source folder so that the paths are correct in the XML.
+    - lcov_cobertura build/parcoach.lcov -o cobertura-coverage.xml
+  coverage: '/Coverage: \d+\.\d+/'
+  artifacts:
+    paths:
+      - build/html
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura-coverage.xml
+
+pages:
+  stage: deploy
+  tags:
+    - linux
+  dependencies:
+    - coverage-linux
+  script:
+    - mv build/html public
+  artifacts:
+    paths:
+      - public
+  only:
+    - master

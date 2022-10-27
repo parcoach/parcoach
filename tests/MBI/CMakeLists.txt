@@ -20,7 +20,8 @@ ExternalProject_Add(MBI
   EXCLUDE_FROM_ALL ON
 )
 
-add_custom_target(generate-mbi-bc ALL)
+# FIXME: we could probably emit all bcs somewhere in the binary dir,
+# and cache it accross jobs based on the MBI-tag
 
 # Gather all reference files.
 # I know using glob for this purpose is relatively bad, but listing all ref
@@ -38,7 +39,7 @@ foreach(REF ${REF_FILES})
     DEPENDS MBI-configure
     )
   add_custom_target(${REF_BASENAME} DEPENDS ${REF_BC})
-  add_dependencies(generate-mbi-bc ${REF_BASENAME})
+  add_dependencies(generate-test-inputs ${REF_BASENAME})
   add_test(
     NAME "MBI_${REF_BASENAME}"
     COMMAND ${TEST_MPI_COMMAND} ${REF_BC} ${REF})

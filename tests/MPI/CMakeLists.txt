@@ -36,20 +36,18 @@ set(EXPECTED_FAILURE_TESTS
   )
 
 set(BC_FLAGS -g -c -emit-llvm -I${MPI_C_HEADER_DIR})
-set(ALL_TESTS_TARGETS)
 
 foreach(SRC IN ITEMS ${EXPECTED_SUCCESS_TESTS} ${EXPECTED_FAILURE_TESTS})
   get_filename_component(TEST_NAME ${SRC} NAME_WE)
   set(TEST_BC ${TEST_NAME}.bc)
   set(TEST_TARGET tests_MPI_${TEST_NAME})
-  # Append the target to all tests targets
-  set(ALL_TESTS_TARGETS ${ALL_TESTS_TARGETS} ${TEST_TARGET})
   add_custom_command(
     OUTPUT ${TEST_BC}
     COMMAND ${CLANG_BIN} ${BC_FLAGS} -o ${TEST_BC} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC}
-    DEPENDS aSSAPlugin ${SRC}
+    DEPENDS aSSA ${SRC}
     )
   add_custom_target(${TEST_TARGET} DEPENDS ${TEST_BC})
+  add_dependencies(generate-test-inputs ${TEST_TARGET})
   add_test(NAME ${TEST_TARGET} COMMAND ${TEST_MPI_COMMAND} ${CMAKE_CURRENT_BINARY_DIR}/${TEST_BC} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC}.expected)
 endforeach()
 
@@ -58,6 +56,3 @@ foreach(SRC IN ITEMS ${EXPECTED_FAILURE_TESTS})
   get_filename_component(TEST_NAME ${SRC} NAME_WE)
   set_tests_properties(tests_MPI_${TEST_NAME} PROPERTIES WILL_FAIL TRUE)
 endforeach()
-
-# Add a phony depend so that precompiled .bc are always built when running building aSSA
-add_custom_target(tests_MPI ALL DEPENDS ${ALL_TESTS_TARGETS})

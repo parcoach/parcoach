@@ -3,6 +3,7 @@ set(ASSA_SOURCES
   CollList.cpp
   DepGraph.cpp
   DepGraphDCF.cpp
+  Debug.cpp
   ExtInfo.cpp
   MemoryRegion.cpp
   MemorySSA.cpp

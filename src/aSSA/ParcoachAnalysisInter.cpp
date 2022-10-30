@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+#define DEBUG_TYPE "bfs"
+
 using namespace llvm;
 using namespace std;
 
@@ -30,7 +32,7 @@ void ParcoachAnalysisInter::run() {
    *  -> keep a set of collectives per BB and set the conditionals at NAVS if
    *     it can lead to a deadlock
    */
-  errs() << " (1) BFS\n";
+  LLVM_DEBUG(dbgs() << " (1) BFS\n");
   scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
   while (!cgSccIter.isAtEnd()) {
     const vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
@@ -49,7 +51,7 @@ void ParcoachAnalysisInter::run() {
   }
 
   /* (2) Check collectives */
-  errs() << " (2) CheckCollectives\n";
+  LLVM_DEBUG(dbgs() << " (2) CheckCollectives\n");
   cgSccIter = scc_begin(&PTACG);
   while (!cgSccIter.isAtEnd()) {
     const vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
@@ -89,13 +91,15 @@ void ParcoachAnalysisInter::run() {
   // If you always want to instrument the code, uncomment the following line
   // if(nbWarnings !=0){
   if (nbWarnings != 0 && !disableInstru) {
-    errs() << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n";
+    LLVM_DEBUG(
+        dbgs()
+        << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n");
     for (Function &F : M) {
       instrumentFunction(&F);
     }
   }
   //	errs() << "Number of collectives to instrument = " << nbColNI << "\n";
-  errs() << " ... Parcoach analysis done\n";
+  LLVM_DEBUG(dbgs() << " ... Parcoach analysis done\n");
 }
 
 /*
@@ -329,19 +333,21 @@ void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
       pred_owner = true;
     }
 
-    errs() << " ** (oh == h) = "
-           << ((old_header_cl && header_cl && (*old_header_cl == *header_cl))
-                   ? "true"
-                   : "false")
-           << "\n"
-           << "     p = " << (pred_cl ? pred_cl->toCollMap() : "") << "\n"
-           << "    oh = " << (old_header_cl ? old_header_cl->toCollMap() : "")
-           << "\n"
-           << "     h = " << (header_cl ? header_cl->toCollMap() : "") << "\n"
-           << "   fun = "
-           << (header ? header->getParent()->getName().str()
-                      : (pred ? pred->getParent()->getName().str() : "xxx"))
-           << "\n";
+    LLVM_DEBUG({
+      dbgs() << " ** (oh == h) = "
+             << ((old_header_cl && header_cl && (*old_header_cl == *header_cl))
+                     ? "true"
+                     : "false")
+             << "\n"
+             << "     p = " << (pred_cl ? pred_cl->toCollMap() : "") << "\n"
+             << "    oh = " << (old_header_cl ? old_header_cl->toCollMap() : "")
+             << "\n"
+             << "     h = " << (header_cl ? header_cl->toCollMap() : "") << "\n"
+             << "   fun = "
+             << (header ? header->getParent()->getName().str()
+                        : (pred ? pred->getParent()->getName().str() : "xxx"))
+             << "\n";
+    });
 
     // Equals
     if (old_header_cl && header_cl && (*old_header_cl == *header_cl))
@@ -761,8 +767,8 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
       // check if MPI_Finalize or abort for instrumentation
       if (f->getName().equals("MPI_Finalize") ||
           f->getName().equals("MPI_Abort") || f->getName().equals("abort")) {
-        errs() << "-> insert a check before " << OP_name << " line " << OP_line
-               << "\n";
+        LLVM_DEBUG(dbgs() << "-> insert a check before " << OP_name << " line "
+                          << OP_line << "\n");
         insertCC(i, v_coll.size() + 1, OP_name, OP_line, Warning, File);
         // nbCC++;
       }
@@ -796,8 +802,8 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
     if (toinstrument) {
       nbColNI++; // collective to instrument
       // Instrument
-      errs() << "-> insert a check before " << OP_name << " line " << OP_line
-             << "\n";
+      LLVM_DEBUG(dbgs() << "-> insert a check before " << OP_name << " line "
+                        << OP_line << "\n");
       insertCountColl(i, OP_name, OP_line, File, 1);
       insertCC(i, OP_color, OP_name, OP_line, Warning, File);
       nbCC++;
@@ -1002,16 +1008,16 @@ void ParcoachAnalysisInter::instrumentFunction(llvm::Function *F) {
         if (callee->getName().equals("MPI_Finalize") ||
             callee->getName().equals("MPI_Abort") ||
             callee->getName().equals("abort")) {
-          errs() << "-> insert check before " << OP_name << " line " << OP_line
-                 << "\n";
+          LLVM_DEBUG(dbgs() << "-> insert check before " << OP_name << " line "
+                            << OP_line << "\n");
           insertCC(Inst, v_coll.size() + 1, OP_name, OP_line, Warning, File);
           // nbCC++;
           continue;
         }
         // Before a collective
         if (OP_color >= 0) {
-          errs() << "-> insert check before " << OP_name << " line " << OP_line
-                 << "\n";
+          LLVM_DEBUG(dbgs() << "-> insert check before " << OP_name << " line "
+                            << OP_line << "\n");
           insertCC(Inst, OP_color, OP_name, OP_line, Warning, File);
           // nbCC++;
         }
@@ -1096,9 +1102,9 @@ void ParcoachAnalysisInter::insertCC(llvm::Instruction *I, int OP_color,
 
   // Create new function
   CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);
-  errs() << "=> Insertion of " << FunctionName << " (" << OP_color << ", "
-         << OP_name << ", " << OP_line << ", " << WarningMsg << ", " << File
-         << ")\n";
+  LLVM_DEBUG(dbgs() << "=> Insertion of " << FunctionName << " (" << OP_color
+                    << ", " << OP_name << ", " << OP_line << ", " << WarningMsg
+                    << ", " << File << ")\n");
 }
 
 std::string ParcoachAnalysisInter::getWarning(llvm::Instruction &inst) {

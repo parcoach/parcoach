@@ -17,6 +17,9 @@ endif()
 set(COVERAGE_OPTIONS
   "-fprofile-instr-generate"
   "-fcoverage-mapping"
+  # Pass NDEBUG to remove all asserts: we don't want to include debug stuff
+  # like asserts in the coverage.
+  "-DNDEBUG"
   )
 
 add_compile_options(${COVERAGE_OPTIONS})

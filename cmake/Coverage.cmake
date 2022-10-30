@@ -1,8 +1,8 @@
-if(PARCOACH_SHARED_BUILD)
+if(PARCOACH_BUILD_SHARED)
   message(FATAL_ERROR
     "PARCOACH configured with shared libs, but coverage requires to statically "
     "link the lib into the binary. Turn off shared build by passing "
-    "-DPARCOACH_SHARED_BUILD=OFF to cmake."
+    "-DPARCOACH_BUILD_SHARED=OFF to cmake."
     )
 endif()
 

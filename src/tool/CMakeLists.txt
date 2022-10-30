@@ -5,19 +5,11 @@ set(LLVM_LINK_COMPONENTS
   AllTargetsInfos
   Analysis
   AsmParser
-  BitWriter
-  CodeGen
   Core
-  Extensions
-  IPO
   IRReader
   Instrumentation
-  MC
-  Remarks
   Support
-  Target
   TransformUtils
-  Vectorize
   Passes
   )
 set(TOOL_SOURCES
@@ -33,6 +25,7 @@ call_llvm_helper(
   add_llvm_tool
   parcoach
   ${TOOL_SOURCES}
+  ${LLVM_DYLIB_OPTION}
   DEPENDS
   aSSA
   )

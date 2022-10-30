@@ -45,9 +45,20 @@ set(ASSA_HEADERS
   )
 add_sources_to_format(SOURCES ${ASSA_SOURCES})
 add_sources_to_format(SOURCES ${ASSA_HEADERS})
+
+if(PARCOACH_LINK_DYLIB)
+  set(BUILDTREE "")
+else()
+  # If we don't link the dylib we're doing a full static build, in which case
+  # we just want to install the tool.
+  set(BUILDTREE "BUILDTREE_ONLY")
+endif()
+
 call_llvm_helper(
   add_llvm_library
   aSSA
   ${ASSA_SOURCES}
   ${PARCOACH_LIB_TYPE}
+  ${LLVM_DYLIB_OPTION}
+  ${BUILDTREE}
   )

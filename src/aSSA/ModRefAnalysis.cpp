@@ -22,7 +22,11 @@ void ModRefAnalysis::visitAllocaInst(AllocaInst &I) {
 
 void ModRefAnalysis::visitLoadInst(LoadInst &I) {
   vector<const Value *> ptsSet;
-  assert(PTA->getPointsToSet(I.getPointerOperand(), ptsSet));
+  bool Found = PTA->getPointsToSet(I.getPointerOperand(), ptsSet);
+  // FIXME: should this be an actual error?
+  assert(Found && "Load not found");
+  if (!Found)
+    return;
   vector<MemReg *> regs;
   MemReg::getValuesRegion(ptsSet, regs);
 
@@ -35,7 +39,11 @@ void ModRefAnalysis::visitLoadInst(LoadInst &I) {
 
 void ModRefAnalysis::visitStoreInst(StoreInst &I) {
   vector<const Value *> ptsSet;
-  assert(PTA->getPointsToSet(I.getPointerOperand(), ptsSet));
+  bool Found = PTA->getPointsToSet(I.getPointerOperand(), ptsSet);
+  // FIXME: should this be an actual error?
+  assert(Found && "Store not found");
+  if (!Found)
+    return;
   vector<MemReg *> regs;
   MemReg::getValuesRegion(ptsSet, regs);
 

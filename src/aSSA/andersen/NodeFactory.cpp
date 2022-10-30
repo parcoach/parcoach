@@ -219,8 +219,9 @@ void AndersNodeFactory::dumpNode(NodeIndex idx) const {
     errs() << "[V ";
   else if (n.type == AndersNode::OBJ_NODE)
     errs() << "[O ";
-  else
+  else {
     assert(false && "Wrong type number!");
+  }
   errs() << "#" << n.idx << "]";
 }
 

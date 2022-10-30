@@ -99,7 +99,10 @@ void MemorySSA::computeMuChi(const Function *F) {
     if (isa<LoadInst>(inst)) {
       const LoadInst *LI = cast<LoadInst>(inst);
       vector<const Value *> ptsSet;
-      assert(PTA->getPointsToSet(LI->getPointerOperand(), ptsSet));
+      bool Found = PTA->getPointsToSet(LI->getPointerOperand(), ptsSet);
+      assert(Found && "Load not found in MSSA");
+      if (!Found)
+        continue;
       vector<MemReg *> regs;
       MemReg::getValuesRegion(ptsSet, regs);
 
@@ -121,7 +124,10 @@ void MemorySSA::computeMuChi(const Function *F) {
     if (isa<StoreInst>(inst)) {
       const StoreInst *SI = cast<StoreInst>(inst);
       vector<const Value *> ptsSet;
-      assert(PTA->getPointsToSet(SI->getPointerOperand(), ptsSet));
+      bool Found = PTA->getPointsToSet(SI->getPointerOperand(), ptsSet);
+      assert(Found && "Store not found in MSSA");
+      if (!Found)
+        continue;
       vector<MemReg *> regs;
       MemReg::getValuesRegion(ptsSet, regs);
 
@@ -212,7 +218,10 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
 
       vector<const Value *> ptsSet;
       vector<const Value *> argPtsSet;
-      assert(PTA->getPointsToSet(arg, argPtsSet));
+      bool Found = PTA->getPointsToSet(arg, argPtsSet);
+      assert(Found && "arg not found in MSSA");
+      if (!Found)
+        continue;
       ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
 
       vector<MemReg *> regs;
@@ -257,7 +266,11 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     // Chi for return value if it is a pointer
     if (CI->getType()->isPointerTy() && info->retIsMod) {
       vector<const Value *> ptsSet;
-      assert(PTA->getPointsToSet(CI, ptsSet));
+      bool Found = PTA->getPointsToSet(CI, ptsSet);
+      assert(Found && "CI not found in MSSA");
+      if (!Found)
+        return;
+
       vector<MemReg *> regs;
       MemReg::getValuesRegion(ptsSet, regs);
 
@@ -591,7 +604,6 @@ unsigned MemorySSA::whichPred(const BasicBlock *pred,
       return index;
   }
 
-  assert(false);
   return index;
 }
 

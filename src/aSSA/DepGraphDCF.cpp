@@ -986,6 +986,7 @@ std::string DepGraphDCF::getCallNodeStyle(const llvm::Value *v) {
 }
 
 void DepGraphDCF::computeTaintedValuesContextInsensitive() {
+#ifndef NDEBUG
   unsigned funcToLLVMNodesMapSize = funcToLLVMNodesMap.size();
   unsigned funcToSSANodesMapSize = funcToSSANodesMap.size();
   unsigned varArgNodeSize = varArgNodes.size();
@@ -1002,6 +1003,7 @@ void DepGraphDCF::computeTaintedValuesContextInsensitive() {
   unsigned condToCallEdgesSize = condToCallEdges.size();
   unsigned funcToCallSitesSize = funcToCallSites.size();
   unsigned callsiteToCondsSize = callsiteToConds.size();
+#endif
 
   double t1 = gettime();
 
@@ -1294,6 +1296,8 @@ void DepGraphDCF::eliminatePhi(MSSAPhi *phi, vector<MSSAVar *> ops) {
               break;
             }
           }
+          if (!found)
+            continue;
           assert(found);
         }
       }
@@ -1447,6 +1451,7 @@ void DepGraphDCF::removeEdge(const llvm::Value *s, const llvm::Value *d) {
   assert(n == 1);
   n = llvmToLLVMParents[d].erase(s);
   assert(n == 1);
+  (void)n;
 }
 
 void DepGraphDCF::removeEdge(const llvm::Value *s, MSSAVar *d) {
@@ -1455,6 +1460,7 @@ void DepGraphDCF::removeEdge(const llvm::Value *s, MSSAVar *d) {
   assert(n == 1);
   n = ssaToLLVMParents[d].erase(s);
   assert(n == 1);
+  (void)n;
 }
 
 void DepGraphDCF::removeEdge(MSSAVar *s, const llvm::Value *d) {
@@ -1463,6 +1469,7 @@ void DepGraphDCF::removeEdge(MSSAVar *s, const llvm::Value *d) {
   assert(n == 1);
   n = llvmToSSAParents[d].erase(s);
   assert(n == 1);
+  (void)n;
 }
 
 void DepGraphDCF::removeEdge(MSSAVar *s, MSSAVar *d) {
@@ -1471,6 +1478,7 @@ void DepGraphDCF::removeEdge(MSSAVar *s, MSSAVar *d) {
   assert(n == 1);
   n = ssaToSSAParents[d].erase(s);
   assert(n == 1);
+  (void)n;
 }
 
 void DepGraphDCF::dotTaintPath(const Value *v, string filename,
@@ -2245,7 +2253,6 @@ void DepGraphDCF::floodFunctionFromFunction(const Function *to,
 
 void DepGraphDCF::resetFunctionTaint(const Function *F) {
   assert(CG->isReachableFromEntry(F));
-  // assert(funcToSSANodesMap.find(F) != funcToSSANodesMap.end());
   if (funcToSSANodesMap.find(F) != funcToSSANodesMap.end()) {
     for (MSSAVar *v : funcToSSANodesMap[F]) {
       if (taintedSSANodes.find(v) != taintedSSANodes.end()) {
@@ -2284,6 +2291,7 @@ void DepGraphDCF::computeFunctionCSTaintedConds(const llvm::Function *F) {
 }
 
 void DepGraphDCF::computeTaintedValuesContextSensitive() {
+#ifndef NDEBUG
   unsigned funcToLLVMNodesMapSize = funcToLLVMNodesMap.size();
   unsigned funcToSSANodesMapSize = funcToSSANodesMap.size();
   unsigned varArgNodeSize = varArgNodes.size();
@@ -2300,6 +2308,7 @@ void DepGraphDCF::computeTaintedValuesContextSensitive() {
   unsigned condToCallEdgesSize = condToCallEdges.size();
   unsigned funcToCallSitesSize = funcToCallSites.size();
   unsigned callsiteToCondsSize = callsiteToConds.size();
+#endif
 
   PTACallGraphNode *entry = CG->getEntry();
   if (entry->getFunction()) {

@@ -6,8 +6,8 @@ if(PARCOACH_BUILD_SHARED)
     )
 endif()
 
-string(TOLOWER "${CMAKE_BUILD_TYPE}" BUILD_TYPE_LOWERED)
-if(NOT "${BUILD_TYPE_LOWERED}" STREQUAL "debug")
+string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_TYPE_LOWERED)
+if(NOT BUILD_TYPE_LOWERED STREQUAL "debug")
   message(FATAL_ERROR
     "PARCOACH must be configured in Debug mode for accurate coverage. "
     "Please pass -DCMAKE_BUILD_TYPE=Debug to cmake."

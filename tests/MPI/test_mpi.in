@@ -10,5 +10,5 @@ IN_FILE=$1
 OUT_FILE=$1.out
 EXPECTED_OUTPUT=$2
 
-@CMAKE_BINARY_DIR@/parcoach --color=0 -check-mpi ${IN_FILE} -o /dev/null 2>${OUT_FILE}
-@Python3_EXECUTABLE@ @CMAKE_SOURCE_DIR@/tests/file_contains.py ${OUT_FILE} ${EXPECTED_OUTPUT}
+@PARCOACH_BIN@ --color=0 -check-mpi ${IN_FILE} -o /dev/null 2>${OUT_FILE}
+@Python3_EXECUTABLE@ @CMAKE_CURRENT_SOURCE_DIR@/file_contains.py ${OUT_FILE} ${EXPECTED_OUTPUT}

@@ -1,5 +1,17 @@
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  cmake_minimum_required(VERSION 3.18)
+  project(PARCOACH-tests)
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake")
+  include(CMakePolicy)
+  find_program(PARCOACH_BIN parcoach REQUIRED HINTS ${PARCOACH_DIR})
+  find_program(CLANG_BIN clang REQUIRED HINTS ${LLVM_TOOLS_BINARY_DIR})
+  enable_testing()
+else()
+  set(PARCOACH_BIN ${CMAKE_BINARY_DIR}/parcoach)
+  find_llvm_program(CLANG_BIN clang)
+endif()
+
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
-find_llvm_program(CLANG_BIN clang)
 
 # Top-level target for all generated test input files.
 # This makes it easy for jobs like coverage to have a single tests dependencies.
@@ -11,7 +23,7 @@ add_custom_target(run-tests
   ${CMAKE_CTEST_COMMAND} --output-on-failure
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   USES_TERMINAL
-  DEPENDS parcoach generate-test-inputs
+  DEPENDS ${PARCOACH_BIN} generate-test-inputs
   )
 
 # For now only MPI tests are supported through CMake

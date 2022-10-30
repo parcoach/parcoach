@@ -44,7 +44,7 @@ foreach(SRC IN ITEMS ${EXPECTED_SUCCESS_TESTS} ${EXPECTED_FAILURE_TESTS})
   add_custom_command(
     OUTPUT ${TEST_BC}
     COMMAND ${CLANG_BIN} ${BC_FLAGS} -o ${TEST_BC} ${CMAKE_CURRENT_SOURCE_DIR}/${SRC}
-    DEPENDS aSSA ${SRC}
+    DEPENDS ${SRC}
     )
   add_custom_target(${TEST_TARGET} DEPENDS ${TEST_BC})
   add_dependencies(generate-test-inputs ${TEST_TARGET})

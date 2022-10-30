@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
-cmake_policy(SET CMP0054 NEW)
-
 project(PARCOACH)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(CMakePolicy)
 include(Variables)
 include(ParcoachOptions)
 
@@ -15,10 +14,10 @@ include(FindLLVM)
 
 # PARCOACH-specific helpers
 include(LLVMHelpers)
-if(${PARCOACH_ENABLE_COVERAGE})
+if(PARCOACH_ENABLE_COVERAGE)
   include(Coverage)
 endif()
-if(${PARCOACH_ENABLE_TIDY})
+if(PARCOACH_ENABLE_TIDY)
   include(Tidy)
 endif()
 
@@ -30,7 +29,7 @@ set(PARCOACH_FORMAT_SOURCES "" CACHE INTERNAL "" FORCE)
 
 add_subdirectory(src)
 
-if(${PARCOACH_ENABLE_TESTS})
+if(PARCOACH_ENABLE_TESTS)
   enable_testing()
   add_subdirectory(tests)
 endif()

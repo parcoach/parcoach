@@ -21,5 +21,6 @@ extern bool optOmpTaint;
 extern bool optCudaTaint;
 extern bool optMpiTaint;
 extern bool optUpcTaint;
+extern bool optVersion;
 
 #endif /* OPTIONS_H */

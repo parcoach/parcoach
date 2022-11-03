@@ -15,6 +15,7 @@ The project is licensed under the LGPL 2.1 license
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
+#include "Version.h"
 #include "andersen/Andersen.h"
 #include "parcoach/Passes.h"
 
@@ -312,7 +313,12 @@ bool ParcoachInstr::runOnModule(Module &M) {
   if (!optContextInsensitive && optDotTaintPaths) {
     errs() << "Error: you cannot use -dot-taint-paths option in context "
            << "sensitive mode.\n";
-    exit(0);
+    exit(1);
+  }
+
+  if (optVersion) {
+    outs() << "PARCOACH version " << PARCOACH_VERSION << "\n";
+    return false;
   }
 
   if (optStats) {

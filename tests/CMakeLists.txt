@@ -3,6 +3,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(PARCOACH-tests)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake")
   include(CMakePolicy)
+  include(Variables)
   find_program(PARCOACH_BIN parcoach REQUIRED HINTS ${PARCOACH_DIR})
   find_program(CLANG_BIN clang REQUIRED HINTS ${CLANG_DIR})
   enable_testing()
@@ -10,6 +11,9 @@ else()
   set(PARCOACH_BIN ${CMAKE_BINARY_DIR}/parcoach)
   find_llvm_program(CLANG_BIN clang)
 endif()
+
+set(PARCOACH_GREP_BIN ${CMAKE_CURRENT_BINARY_DIR}/parcoach_grep)
+configure_file(parcoach_grep.in ${PARCOACH_GREP_BIN})
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
@@ -37,6 +41,8 @@ if(MPI_FOUND)
 else()
   message(STATUS "MPI was *NOT* found, disabling MPI tests")
 endif()
+
+add_subdirectory(interface)
 
 if(PARCOACH_ENABLE_COVERAGE)
   add_subdirectory(coverage)

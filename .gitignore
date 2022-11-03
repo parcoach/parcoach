@@ -59,7 +59,6 @@ acs-*.bib
 *.DS_Store
 
 #
-*.ll
 *.bc
 *.o
 *.a

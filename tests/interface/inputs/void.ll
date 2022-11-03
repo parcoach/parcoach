@@ -1,0 +1,1 @@
+declare void @foo()

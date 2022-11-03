@@ -92,6 +92,11 @@ static cl::opt<bool, true>
     clOptUpcTaint("check-upc", cl::desc("enable UPC collectives checking"),
                   cl::cat(ParcoachCategory), cl::location(optUpcTaint));
 
+static cl::opt<bool, true> clOptVersion("parcoach-version",
+                                        cl::desc("Show PARCOACH version"),
+                                        cl::cat(ParcoachCategory),
+                                        cl::location(optVersion));
+
 bool optDumpSSA;
 string optDumpSSAFunc;
 bool optDotGraph;
@@ -110,3 +115,4 @@ bool optOmpTaint;
 bool optCudaTaint;
 bool optMpiTaint;
 bool optUpcTaint;
+bool optVersion;

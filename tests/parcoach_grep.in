@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "Usage: ./parcoach_grep string parcoach_args"
+  exit
+fi
+
+GREP=$1
+shift
+
+@PARCOACH_BIN@ $@ | grep "$GREP"

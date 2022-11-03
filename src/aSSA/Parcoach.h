@@ -26,12 +26,9 @@ public:
       tend_flooding, tstart_parcoach, tend_parcoach;
   ParcoachInstr(llvm::ModuleAnalysisManager &AM);
 
-  virtual bool doInitialization(llvm::Module &M);
-  virtual bool doFinalization(llvm::Module &M);
   virtual bool runOnModule(llvm::Module &M);
 
 private:
-  ParcoachAnalysisInter *PAInter;
   llvm::ModuleAnalysisManager &MAM;
 
   typedef bool Preheader;
@@ -39,6 +36,9 @@ private:
   BBPreheaderMap bbPreheaderMap;
 
   std::map<llvm::Instruction *, llvm::Instruction *> ompNewInst2oldInst;
+
+  bool doInitialization(llvm::Module &M);
+  bool doFinalization(llvm::Module &M, ParcoachAnalysisInter const &);
 
   void replaceOMPMicroFunctionCalls(
       llvm::Module &M,

@@ -22,6 +22,4 @@ extern bool optCudaTaint;
 extern bool optMpiTaint;
 extern bool optUpcTaint;
 
-void getOptions();
-
 #endif /* OPTIONS_H */

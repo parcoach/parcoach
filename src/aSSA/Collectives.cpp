@@ -107,8 +107,8 @@ void initCollectives() {
   hasBeenInitalized = true;
 
   if (optMpiTaint)
-    for (const auto &mpi : MPI_v_coll)
-      v_coll.push_back((const char *)mpi.name);
+    for (const auto &[name, _] : MPI_v_coll)
+      v_coll.push_back(name);
   if (optOmpTaint)
     v_coll.insert(v_coll.end(), OMP_v_coll.begin(), OMP_v_coll.end());
   if (optUpcTaint)

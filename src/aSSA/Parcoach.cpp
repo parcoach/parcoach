@@ -43,11 +43,9 @@ using namespace std;
 
 namespace parcoach {
 
-ParcoachInstr::ParcoachInstr(ModuleAnalysisManager &AM)
-    : PAInter{nullptr}, MAM(AM) {}
+ParcoachInstr::ParcoachInstr(ModuleAnalysisManager &AM) : MAM(AM) {}
 
 bool ParcoachInstr::doInitialization(Module &M) {
-  getOptions();
   initCollectives();
 
   tstart = gettime();
@@ -55,7 +53,8 @@ bool ParcoachInstr::doInitialization(Module &M) {
   return true;
 }
 
-bool ParcoachInstr::doFinalization(Module &M) {
+bool ParcoachInstr::doFinalization(Module &M,
+                                   ParcoachAnalysisInter const &PAInter) {
   tend = gettime();
 
   unsigned intersectionSize;
@@ -67,28 +66,28 @@ bool ParcoachInstr::doFinalization(Module &M) {
     CyanErr() << "===  PARCOACH INTER WITH DEP ANALYSIS  ===\n";
     CyanErr() << "==========================================\n";
     errs() << "Module name: " << M.getModuleIdentifier() << "\n";
-    errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
-    errs() << PAInter->getNbCollectivesCondCalled()
+    errs() << PAInter.getNbCollectivesFound() << " collective(s) found\n";
+    errs() << PAInter.getNbCollectivesCondCalled()
            << " collective(s) conditionally called\n";
-    errs() << PAInter->getNbWarnings() << " warning(s) issued\n";
-    errs() << PAInter->getNbConds() << " cond(s) \n";
-    errs() << PAInter->getConditionSet().size() << " different cond(s)\n";
-    errs() << PAInter->getNbCC() << " CC functions inserted \n";
+    errs() << PAInter.getNbWarnings() << " warning(s) issued\n";
+    errs() << PAInter.getNbConds() << " cond(s) \n";
+    errs() << PAInter.getConditionSet().size() << " different cond(s)\n";
+    errs() << PAInter.getNbCC() << " CC functions inserted \n";
 
     intersectionSize = getBBSetIntersectionSize(
-        PAInter->getConditionSet(), PAInter->getConditionSetParcoachOnly());
+        PAInter.getConditionSet(), PAInter.getConditionSetParcoachOnly());
 
-    CnbAdded = PAInter->getConditionSet().size() - intersectionSize;
+    CnbAdded = PAInter.getConditionSet().size() - intersectionSize;
     CnbRemoved =
-        PAInter->getConditionSetParcoachOnly().size() - intersectionSize;
+        PAInter.getConditionSetParcoachOnly().size() - intersectionSize;
     errs() << CnbAdded << " condition(s) added and " << CnbRemoved
            << " condition(s) removed with dep analysis.\n";
 
     intersectionSize = getInstSetIntersectionSize(
-        PAInter->getWarningSet(), PAInter->getWarningSetParcoachOnly());
+        PAInter.getWarningSet(), PAInter.getWarningSetParcoachOnly());
 
-    WnbAdded = PAInter->getWarningSet().size() - intersectionSize;
-    WnbRemoved = PAInter->getWarningSetParcoachOnly().size() - intersectionSize;
+    WnbAdded = PAInter.getWarningSet().size() - intersectionSize;
+    WnbRemoved = PAInter.getWarningSetParcoachOnly().size() - intersectionSize;
     errs() << WnbAdded << " warning(s) added and " << WnbRemoved
            << " warning(s) removed with dep analysis.\n";
   } else {
@@ -96,12 +95,12 @@ bool ParcoachInstr::doFinalization(Module &M) {
     CyanErr() << "================================================\n";
     CyanErr() << "===== PARCOACH INTER WITHOUT DEP ANALYSIS ======\n";
     CyanErr() << "================================================\n";
-    errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
-    errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
-    errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
-    errs() << PAInter->getConditionSetParcoachOnly().size()
+    errs() << PAInter.getNbCollectivesFound() << " collective(s) found\n";
+    errs() << PAInter.getNbWarningsParcoachOnly() << " warning(s) issued\n";
+    errs() << PAInter.getNbCondsParcoachOnly() << " cond(s) \n";
+    errs() << PAInter.getConditionSetParcoachOnly().size()
            << " different cond(s)\n";
-    errs() << PAInter->getNbCC() << " CC functions inserted \n";
+    errs() << PAInter.getNbCC() << " CC functions inserted \n";
   }
 
   /* if (!optNoDataFlow) {
@@ -487,8 +486,8 @@ bool ParcoachInstr::runOnModule(Module &M) {
   tstart_parcoach = gettime();
   // Parcoach analysis
 
-  PAInter = new ParcoachAnalysisInter(M, DG, PTACG, FAM, !optInstrumInter);
-  PAInter->run();
+  ParcoachAnalysisInter PAInter(M, DG, PTACG, FAM, !optInstrumInter);
+  PAInter.run();
 
   tend_parcoach = gettime();
 
@@ -496,7 +495,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
   if (optOmpTaint)
     revertOmpTransformation();
 
-  doFinalization(M);
+  doFinalization(M, PAInter);
   return false;
 }
 

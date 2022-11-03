@@ -5,7 +5,7 @@ include(CMakePolicy)
 include(Variables)
 include(ParcoachOptions)
 
-message(STATUS "This is PARCOACH")
+message(STATUS "This is PARCOACH ${PACKAGE_VERSION}")
 message(STATUS "You need LLVM ${REQUIRED_LLVM_VERSION} to build this project")
 message(STATUS "Using CXX Compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Using C Compiler: ${CMAKE_C_COMPILER}")

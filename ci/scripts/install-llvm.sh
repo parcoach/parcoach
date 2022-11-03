@@ -33,6 +33,7 @@ apt_install -t "llvm-toolchain-${UBUNTU_VERSION}-${LLVM_VERSION}" \
   libclang-${LLVM_VERSION}-dev \
   libclang-cpp${LLVM_VERSION}-dev \
   libunwind-${LLVM_VERSION}-dev \
+  zlib1g-dev \
 
 # Set clang/clang++ as the default compiler
 update-alternatives --install /usr/bin/cc cc /usr/bin/clang-${LLVM_VERSION} 100

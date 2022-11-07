@@ -54,6 +54,19 @@ static cl::opt<std::string> OutputFilename("o",
                                            cl::desc("Override output filename"),
                                            cl::value_desc("filename"));
 
+static cl::opt<bool> OutputAssembly("S",
+                                    cl::desc("Write output as LLVM assembly"));
+
+static cl::opt<bool> NoOutput("disable-output",
+                              cl::desc("Do not write result bitcode file"),
+                              cl::Hidden);
+
+enum OutputKind {
+  OK_NoOutput,
+  OK_OutputAssembly,
+  OK_OutputBitcode,
+};
+
 int main(int argc, char **argv) {
   InitLLVM X(argc, argv);
 
@@ -98,17 +111,26 @@ int main(int argc, char **argv) {
 
   // Figure out what stream we are supposed to write to...
   std::unique_ptr<ToolOutputFile> Out;
-  std::unique_ptr<ToolOutputFile> ThinLinkOut;
+  OutputKind OK{OK_NoOutput};
 
-  // Default to standard output.
-  if (OutputFilename.empty())
-    OutputFilename = "-";
+  if (NoOutput) {
+    if (!OutputFilename.empty())
+      errs() << "WARNING: The -o (output filename) option is ignored when\n"
+                "the --disable-output option is used.\n";
+  } else {
+    // Default to standard output.
+    if (OutputFilename.empty())
+      OutputFilename = "-";
 
-  std::error_code EC;
-  Out.reset(new ToolOutputFile(OutputFilename, EC, sys::fs::OF_Text));
-  if (EC) {
-    errs() << EC.message() << '\n';
-    return 1;
+    std::error_code EC;
+    sys::fs::OpenFlags Flags =
+        OutputAssembly ? sys::fs::OF_TextWithCRLF : sys::fs::OF_None;
+    Out.reset(new ToolOutputFile(OutputFilename, EC, Flags));
+    if (EC) {
+      errs() << EC.message() << '\n';
+      return 1;
+    }
+    OK = OutputAssembly ? OK_OutputAssembly : OK_OutputBitcode;
   }
 
   Triple ModuleTriple(M->getTargetTriple());
@@ -141,6 +163,17 @@ int main(int argc, char **argv) {
 
   ModulePassManager MPM;
   parcoach::RegisterPasses(MPM);
+
+  switch (OK) {
+  case OK_NoOutput:
+    break; // No output pass needed.
+  case OK_OutputAssembly:
+    MPM.addPass(PrintModulePass(Out->os(), "", false));
+    break;
+  case OK_OutputBitcode:
+    MPM.addPass(BitcodeWriterPass(Out->os(), false, false, false));
+    break;
+  }
 
   MPM.run(*M, MAM);
 

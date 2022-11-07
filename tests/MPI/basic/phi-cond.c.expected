@@ -1,1 +1,0 @@
-PARCOACH: tests/MPI/basic/phi-cond.c: warning: MPI_Barrier line 25 possibly not called by all processes because of conditional(s) line(s)  24 (tests/MPI/basic/phi-cond.c) (full-inter)

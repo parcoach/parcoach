@@ -1,0 +1,5 @@
+PARCOACH: tests/MPI/basic/src/CIVL_BcastReduce_bad.c: warning: MPI_Reduce line 19 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/CIVL_BcastReduce_bad.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/CIVL_BcastReduce_bad.c: warning: MPI_Bcast line 21 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/CIVL_BcastReduce_bad.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/CIVL_BcastReduce_bad.c: warning: MPI_Bcast line 24 possibly not called by all processes because of conditional(s) line(s)  23 (tests/MPI/basic/src/CIVL_BcastReduce_bad.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/CIVL_BcastReduce_bad.c: warning: MPI_Reduce line 26 possibly not called by all processes because of conditional(s) line(s)  23 (tests/MPI/basic/src/CIVL_BcastReduce_bad.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/CIVL_BcastReduce_bad.c: warning: MPI_Finalize line 28 possibly not called by all processes because of conditional(s) line(s)  27 (tests/MPI/basic/src/CIVL_BcastReduce_bad.c) (full-inter)

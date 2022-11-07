@@ -81,10 +81,9 @@ test-releases:
   script:
     - mkdir install
     - tar -xf packages/*-${TYPE}-Linux.tar.gz -C install
-    - export PARCOACH_DIR="$(dirname $(find $PWD/install -name parcoach))"
-    - export CLANG_DIR="$(dirname $(find /usr/lib -name clang -type f))"
+    - export PARCOACH_INSTALL_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))"
     - mkdir build
-    - cmake tests -G Ninja -B build -DPARCOACH_DIR=$PARCOACH_DIR -DCLANG_DIR=$CLANG_DIR
+    - cmake tests -G Ninja -B build -C caches/Tests-releases.cmake
     - cmake --build build --target run-tests
 
 # This is the default debug+assert build+tests in-tree

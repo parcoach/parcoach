@@ -46,7 +46,7 @@ set(ASSA_HEADERS
 add_sources_to_format(SOURCES ${ASSA_SOURCES})
 add_sources_to_format(SOURCES ${ASSA_HEADERS})
 
-configure_file(Version.h.in ${CMAKE_CURRENT_BINARY_DIR}/Version.h @ONLY)
+configure_file(Config.h.in ${CMAKE_CURRENT_BINARY_DIR}/Config.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 if(PARCOACH_LINK_DYLIB)

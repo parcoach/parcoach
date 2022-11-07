@@ -15,12 +15,10 @@ set(LLVM_COV_ARGS
 
 add_custom_target(run-tests-coverage
   ${CMAKE_COMMAND} -E remove_directory ${PROFILE_FOLDER}
-  COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${PROFILE_FOLDER}/%p.profraw" ${CMAKE_CTEST_COMMAND}
+  COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${PROFILE_FOLDER}/%p.profraw" ${CMAKE_CTEST_COMMAND} --output-on-failure --timeout 30
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   USES_TERMINAL
-  DEPENDS
-  parcoach
-  generate-test-inputs
+  DEPENDS ${PARCOACH_BIN} tests-dependencies
   )
 
 add_custom_command(

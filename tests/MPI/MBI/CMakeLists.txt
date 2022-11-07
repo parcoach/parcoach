@@ -35,11 +35,12 @@ foreach(REF ${REF_FILES})
   set(REF_SOURCE "${MBI_SOURCE_DIR}/gencodes/${REF_BASENAME}.c")
   add_custom_command(
     OUTPUT ${REF_BC}
-    COMMAND ${CLANG_BIN} ${BC_FLAGS} -o ${REF_BC} ${REF_SOURCE}
+    # PARCOACH's cmake enforces the compiler to be clang.
+    COMMAND ${CMAKE_C_COMPILER} ${BC_FLAGS} -o ${REF_BC} ${REF_SOURCE}
     DEPENDS MBI-configure
     )
   add_custom_target(${REF_BASENAME} DEPENDS ${REF_BC})
-  add_dependencies(generate-test-inputs ${REF_BASENAME})
+  add_dependencies(tests-dependencies ${REF_BASENAME})
   add_test(
     NAME "MBI_${REF_BASENAME}"
     COMMAND ${TEST_MPI_COMMAND} ${REF_BC} ${REF})

@@ -5,6 +5,7 @@ The project is licensed under the LGPL 2.1 license
 
 #include "Parcoach.h"
 #include "Collectives.h"
+#include "Config.h"
 #include "DepGraph.h"
 #include "DepGraphDCF.h"
 #include "ExtInfo.h"
@@ -15,7 +16,6 @@ The project is licensed under the LGPL 2.1 license
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
-#include "Version.h"
 #include "andersen/Andersen.h"
 #include "parcoach/Passes.h"
 

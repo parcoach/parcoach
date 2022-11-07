@@ -1,1 +1,0 @@
-#cmakedefine PARCOACH_VERSION "@PARCOACH_VERSION@"

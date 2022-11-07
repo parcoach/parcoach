@@ -1,0 +1,1 @@
+PARCOACH: tests/MPI/basic/src/loop_finalize.c: warning: MPI_Finalize line 23 possibly not called by all processes because of conditional(s) line(s)  22 (tests/MPI/basic/src/loop_finalize.c) (full-inter)

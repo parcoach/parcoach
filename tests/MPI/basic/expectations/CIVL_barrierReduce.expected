@@ -1,0 +1,4 @@
+PARCOACH: tests/MPI/basic/src/CIVL_barrierReduce.c: warning: MPI_Barrier line 21 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/CIVL_barrierReduce.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/CIVL_barrierReduce.c: warning: MPI_Reduce line 23 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/CIVL_barrierReduce.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/CIVL_barrierReduce.c: warning: MPI_Reduce line 25 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/CIVL_barrierReduce.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/CIVL_barrierReduce.c: warning: MPI_Barrier line 27 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/CIVL_barrierReduce.c) (full-inter)

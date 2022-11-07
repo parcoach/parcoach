@@ -1,9 +1,9 @@
-if (MPI_FOUND)
-  add_library(MPI_DynamicCheck SHARED MPI_DynamicCheck.c)
-  target_include_directories(MPI_DynamicCheck PUBLIC ${MPI_INCLUDE_PATH})
-  target_link_libraries(MPI_DynamicCheck PUBLIC ${MPI_LIBRARY})
-endif()
-
+find_package(MPI REQUIRED)
+add_sources_to_format(SOURCES MPI_DynamicCheck.c)
+add_library(MPI_DynamicCheck SHARED MPI_DynamicCheck.c)
+target_include_directories(MPI_DynamicCheck PUBLIC MPI::MPI_C)
+target_link_libraries(MPI_DynamicCheck MPI::MPI_C)
+install(TARGETS MPI_DynamicCheck)
 
 if (OpenMP_FOUND)
   add_library(OMP_DynamicCheck SHARED OMP_DynamicCheck.c)

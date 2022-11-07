@@ -16,6 +16,9 @@ set(SHARED_HEADERS
 add_sources_to_format(SOURCES ${SHARED_HEADERS})
 
 add_subdirectory(aSSA)
+if(PARCOACH_ENABLE_INSTRUMENTATION)
+  add_subdirectory(lib)
+endif()
 add_subdirectory(tool)
 if(PARCOACH_BUILD_SHARED)
   # The plugin can only be built when building shared libs.

@@ -1,0 +1,1 @@
+PARCOACH: tests/MPI/basic/src/pointer-instance.c: warning: MPI_Barrier line 11 possibly not called by all processes because of conditional(s) line(s)  10 (tests/MPI/basic/src/pointer-instance.c) (full-inter)

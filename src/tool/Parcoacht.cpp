@@ -156,6 +156,7 @@ int main(int argc, char **argv) {
 
   // Register all the basic analyses with the managers.
   PB.registerModuleAnalyses(MAM);
+  parcoach::RegisterAnalysis(MAM);
   PB.registerCGSCCAnalyses(CGAM);
   PB.registerFunctionAnalyses(FAM);
   PB.registerLoopAnalyses(LAM);

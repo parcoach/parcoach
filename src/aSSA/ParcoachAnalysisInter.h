@@ -5,32 +5,29 @@
 
 #include "PTACallGraph.h"
 #include "ParcoachAnalysis.h"
+#include "parcoach/Analysis.h"
+#include <llvm/ADT/DenseMap.h>
 #include <llvm/Analysis/LoopInfo.h>
 
+namespace parcoach {
+
 class ParcoachAnalysisInter : public ParcoachAnalysis {
-
-  typedef bool Latches;
-  typedef std::map<const llvm::BasicBlock *, Latches> BBLatchesMap;
-  BBLatchesMap bbLatchesMap;
-
   // typedef std::set<const llvm::Function *F> CollSet;
-  typedef std::string CollSet;
+  using CollSet = std::string;
   // typedef bool Visited;
   enum Visited { white, grey, black };
   using ComCollMap = std::map<const llvm::Value *, CollSet>;
 
-  typedef std::map<const llvm::BasicBlock *, Visited> BBVisitedMap;
+  using BBVisitedMap = std::map<const llvm::BasicBlock *, Visited>;
 
-  typedef std::map<const llvm::Value *, CollList *> VCollListMap;
-  typedef std::map<const llvm::BasicBlock *, VCollListMap> CollListMap;
+  using VCollListMap = std::map<const llvm::Value *, CollList *>;
+  using CollListMap = std::map<const llvm::BasicBlock *, VCollListMap>;
 
-  typedef std::map<const llvm::Function *, VCollListMap> CollListperFuncMap;
+  using CollListperFuncMap = std::map<const llvm::Function *, VCollListMap>;
 
-  typedef std::map<const llvm::BasicBlock *, ComCollMap> MPICollMap;
-  typedef std::map<const llvm::BasicBlock *, CollSet> CollMap;
+  using CollMap = std::map<const llvm::BasicBlock *, CollSet>;
 
-  typedef std::map<const llvm::Function *, ComCollMap> MPICollperFuncMap;
-  typedef std::map<const llvm::Function *, CollSet> CollperFuncMap;
+  using CollperFuncMap = std::map<const llvm::Function *, CollSet>;
 
 public:
   ParcoachAnalysisInter(llvm::Module &M, DepGraph *DG, PTACallGraph &PTACG,
@@ -44,6 +41,9 @@ public:
 
   virtual void run();
 
+  // FIXME: this should be const, or simply be returned by run!
+  IAResult &getResult() { return Output_; };
+
 private:
   PTACallGraph &PTACG;
   llvm::FunctionAnalysisManager &FAM;
@@ -53,20 +53,17 @@ private:
   void cmpAndUpdateMPICollSet(llvm::BasicBlock *header, llvm::BasicBlock *pred);
   void MPI_BFS_Loop(llvm::Loop *L);
   void BFS_Loop(llvm::Loop *L);
-  void Tag_LoopLatches(llvm::Loop *L);
   bool isExitNode(llvm::BasicBlock *BB);
   bool mustWait(llvm::BasicBlock *bb);
   bool mustWaitLoop(llvm::BasicBlock *bb, llvm::Loop *l);
   void BFS(llvm::Function *F);
   void MPI_BFS(llvm::Function *F);
   void checkCollectives(llvm::Function *F);
-  void countCollectivesToInst(llvm::Function *F);
   void instrumentFunction(llvm::Function *F);
   void insertCC(llvm::Instruction *I, int OP_color, std::string OP_name,
                 int OP_line, llvm::StringRef WarningMsg, llvm::StringRef File);
-  void insertCountColl(llvm::Instruction *I, std::string OP_name, int OP_line,
-                       llvm::StringRef File, int inst);
-  std::string getWarning(llvm::Instruction &inst);
+
+  IAResult Output_;
 
   static int id;
 
@@ -74,9 +71,10 @@ protected:
   BBVisitedMap bbVisitedMap;
   CollListMap mpiCollListMap;
   CollMap collMap;
-  // MPICollperFuncMap mpiCollperFuncMap;
   CollListperFuncMap mpiCollListperFuncMap;
   CollperFuncMap collperFuncMap;
 };
+
+} // namespace parcoach
 
 #endif /* PARCOACHANALYSISINTER_H */

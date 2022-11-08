@@ -8,7 +8,7 @@
 
 using namespace llvm;
 
-PTACallGraph::PTACallGraph(llvm::Module &M, Andersen *AA)
+PTACallGraph::PTACallGraph(llvm::Module &M, Andersen const &AA)
     : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),
       ExternalCallingNode(getOrInsertFunction(nullptr)),
       CallsExternalNode(std::make_unique<PTACallGraphNode>(nullptr)) {
@@ -101,7 +101,7 @@ void PTACallGraph::addToCallGraph(Function *F) {
           assert(calledValue);
 
           std::vector<const Value *> ptsSet;
-          if (!AA->getPointsToSet(calledValue, ptsSet)) {
+          if (!AA.getPointsToSet(calledValue, ptsSet)) {
             errs() << "coult not compute points to set for call inst : " << I
                    << "\n";
             continue;

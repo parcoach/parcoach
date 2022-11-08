@@ -1,4 +1,4 @@
-#include "Andersen.h"
+#include "parcoach/andersen/Andersen.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Module.h"
@@ -17,7 +17,13 @@ cl::opt<bool> DumpConstraintInfo("dump-cons",
                                  cl::desc("Dump constraint info into stderr"),
                                  cl::init(false), cl::Hidden);
 
-Andersen::Andersen(const Module &module) { runOnModule(module); }
+AnalysisKey AndersenAA::Key;
+
+Andersen AndersenAA::run(Module &M, ModuleAnalysisManager &) {
+  Andersen AA;
+  AA.runOnModule(M);
+  return AA;
+}
 
 void Andersen::getAllAllocationSites(
     std::vector<const llvm::Value *> &allocSites) const {

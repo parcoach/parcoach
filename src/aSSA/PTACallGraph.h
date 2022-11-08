@@ -1,7 +1,7 @@
 #ifndef PTACALLGRAPH_H
 #define PTACALLGRAPH_H
 
-#include "andersen/Andersen.h"
+#include "parcoach/andersen/Andersen.h"
 
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/STLExtras.h"
@@ -16,7 +16,7 @@ class PTACallGraphNode;
 
 class PTACallGraph {
   llvm::Module &M;
-  Andersen *AA;
+  Andersen const &AA;
 
   typedef std::map<const llvm::Function *, std::unique_ptr<PTACallGraphNode>>
       FunctionMapTy;
@@ -44,7 +44,7 @@ class PTACallGraph {
   void addToCallGraph(llvm::Function *F);
 
 public:
-  explicit PTACallGraph(llvm::Module &M, Andersen *AA);
+  explicit PTACallGraph(llvm::Module &M, Andersen const &AA);
   ~PTACallGraph();
 
   PTACallGraphNode *getEntry() const { return Root; }

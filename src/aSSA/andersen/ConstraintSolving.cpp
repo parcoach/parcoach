@@ -1,6 +1,6 @@
-#include "Andersen.h"
-#include "CycleDetector.h"
-#include "SparseBitVectorGraph.h"
+#include "parcoach/andersen/Andersen.h"
+#include "parcoach/andersen/CycleDetector.h"
+#include "parcoach/andersen/SparseBitVectorGraph.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"

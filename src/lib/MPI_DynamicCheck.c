@@ -84,15 +84,15 @@ void check_collective_MPI(int OP_color, const char *OP_name, int OP_line,
     MPI_Reduce(&OP_color, &res, 1, MPI_INT, equalsop, 0, ini_comm);
     MPI_Op_free(&equalsop);
 
-#ifdef DEBUG
+#ifndef NDEBUG
     printf("Proc %d has color %d\n", rank, OP_color);
 #endif
     if (rank == 0) {
-#ifdef DEBUG
+#ifndef NDEBUG
       printf("CHECK CC OK\n");
 #endif
       if (res == ~0) {
-#ifdef DEBUG
+#ifndef NDEBUG
         printf("CHECK CC NOK\n");
 #endif
         printf("PARCOACH DYNAMIC-CHECK : Error detected on rank %d\n"
@@ -104,8 +104,8 @@ void check_collective_MPI(int OP_color, const char *OP_name, int OP_line,
         MPI_Abort(MPI_COMM_WORLD, 0);
       }
     }
-#ifdef DEBUG
-    printf("PARCOACH DYNAMIC-CHECK : OK\n");
+#ifndef NDEBUG
+    printf("DYNAMIC-CHECK : OK\n");
 #endif
   }
 }
@@ -135,15 +135,15 @@ void check_collective_return(int OP_color, const char *OP_name, int OP_line,
     MPI_Reduce(&OP_color, &res, 1, MPI_INT, equalsop, 0, ini_comm);
     MPI_Op_free(&equalsop);
 
-#ifdef DEBUG
+#ifndef NDEBUG
     printf(" Proc %d has color %d\n", rank, OP_color);
 #endif
     if (rank == 0) {
-#ifdef DEBUG
+#ifndef NDEBUG
       printf(" CHECK CC OK\n");
 #endif
       if (res == ~0) {
-#ifdef DEBUG
+#ifndef NDEBUG
         printf(" CHECK CC NOK\n");
 #endif
         printf("PARCOACH DYNAMIC-CHECK : Error detected on rank %d\n"
@@ -154,8 +154,8 @@ void check_collective_return(int OP_color, const char *OP_name, int OP_line,
         MPI_Abort(MPI_COMM_WORLD, 0);
       }
     }
-#ifdef DEBUG
-    printf("PARCOACH DYNAMIC-CHECK : OK\n");
+#ifndef NDEBUG
+    printf("DYNAMIC-CHECK : OK\n");
 #endif
   }
 }

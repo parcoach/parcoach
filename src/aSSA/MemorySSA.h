@@ -4,7 +4,7 @@
 #include "ExtInfo.h"
 #include "MSSAMuChi.h"
 #include "PTACallGraph.h"
-#include "andersen/Andersen.h"
+#include "parcoach/andersen/Andersen.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/DominanceFrontier.h"
@@ -57,7 +57,7 @@ class MemorySSA {
       FuncToArgChiMap;
 
 public:
-  MemorySSA(llvm::Module *m, Andersen *PTA, PTACallGraph *CG,
+  MemorySSA(llvm::Module *m, Andersen const &PTA, PTACallGraph *CG,
             ModRefAnalysis *MRA, ExtInfo *extInfo);
   virtual ~MemorySSA();
 
@@ -104,7 +104,7 @@ private:
 
 protected:
   llvm::Module *m;
-  Andersen *PTA;
+  Andersen const &PTA;
   PTACallGraph *CG;
   ModRefAnalysis *MRA;
   ExtInfo *extInfo;

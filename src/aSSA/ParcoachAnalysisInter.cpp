@@ -1,5 +1,6 @@
 #include "ParcoachAnalysisInter.h"
 #include "Collectives.h"
+#include "Instrumentation.h"
 #include "Options.h"
 #include "Utils.h"
 
@@ -18,11 +19,39 @@
 #define DEBUG_TYPE "bfs"
 
 using namespace llvm;
-using namespace std;
 
+namespace parcoach {
 int ParcoachAnalysisInter::id = 0;
 
 int nbColNI = 0;
+
+Warning::Warning(Function const *F, DebugLoc &DL, ConditionalsContainerTy &&C)
+    : Missed(F), Where(DL), Conditionals(C) {
+  // Make sure lines are displayed in order.
+  llvm::sort(Conditionals, [](DebugLoc const &A, DebugLoc const &B) {
+    return (A ? A.getLine() : 0) < (B ? B.getLine() : 0);
+  });
+}
+
+std::string Warning::toString() const {
+  assert(this->operator bool() && "toString called on an invalid Warning");
+
+  std::string Res;
+  raw_string_ostream OS(Res);
+  auto Line = Where ? Where.getLine() : 0;
+  OS << Missed->getName() << " line " << Line;
+  OS << " possibly not called by all processes because of conditional(s) "
+        "line(s) ";
+
+  for (auto &Loc : Conditionals) {
+    OS << " " << (Loc ? std::to_string(Loc.getLine()) : "?");
+    OS << " (" << (Loc ? Loc->getFilename() : "?") << ")";
+  }
+  OS << " (full-inter)";
+  return Res;
+}
+
+Warning::operator bool() const { return Missed != nullptr; }
 
 void ParcoachAnalysisInter::run() {
   // Parcoach analysis
@@ -35,7 +64,7 @@ void ParcoachAnalysisInter::run() {
   LLVM_DEBUG(dbgs() << " (1) BFS\n");
   scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
   while (!cgSccIter.isAtEnd()) {
-    const vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
+    const std::vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
       if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
@@ -54,7 +83,7 @@ void ParcoachAnalysisInter::run() {
   LLVM_DEBUG(dbgs() << " (2) CheckCollectives\n");
   cgSccIter = scc_begin(&PTACG);
   while (!cgSccIter.isAtEnd()) {
-    const vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
+    const std::vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
     for (PTACallGraphNode *node : nodeVec) {
       Function *F = node->getFunction();
       if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
@@ -88,14 +117,13 @@ void ParcoachAnalysisInter::run() {
           }
           }
   */
-  // If you always want to instrument the code, uncomment the following line
-  // if(nbWarnings !=0){
-  if (nbWarnings != 0 && !disableInstru) {
+  if (!warningSet.empty() && !disableInstru) {
+    parcoach::CollectiveInstrumentation Instrum(Output_);
     LLVM_DEBUG(
         dbgs()
         << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n");
     for (Function &F : M) {
-      instrumentFunction(&F);
+      Instrum.run(F);
     }
   }
   //	errs() << "Number of collectives to instrument = " << nbColNI << "\n";
@@ -129,8 +157,8 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
           if (!collperFuncMap[callee].empty()) // && collMap[BB]!="NAVS")
             collMap[BB] = collperFuncMap[callee] + " " + collMap[BB];
           // Is it a collective operation?
-          if (isCollective(callee)) {
-            string OP_name = callee->getName().str();
+          if (isCollective(*callee)) {
+            std::string OP_name = callee->getName().str();
             if (collMap[BB].empty())
               collMap[BB] = OP_name;
             else
@@ -147,8 +175,8 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
             collMap[BB] = collperFuncMap[callee] + " " + collMap[BB];
         }
         // Is it a collective operation?
-        if (isCollective(callee)) {
-          string OP_name = callee->getName().str();
+        if (isCollective(*callee)) {
+          std::string OP_name = callee->getName().str();
           if (collMap[BB].empty())
             collMap[BB] = OP_name;
           else
@@ -193,9 +221,9 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
             }
           }
           // Is it a collective operation?
-          if (isCollective(callee)) {
-            string OP_name = callee->getName().str();
-            int OP_color = getCollectiveColor(callee);
+          if (isCollective(*callee)) {
+            std::string OP_name = callee->getName().str();
+            int OP_color = getCollectiveColor(*callee);
             int OP_arg_id = Com_arg_id(OP_color);
             Value *OP_com = nullptr;
 
@@ -236,9 +264,9 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
           }
         }
         // Is it a collective operation?
-        if (isCollective(callee)) {
-          string OP_name = callee->getName().str();
-          int OP_color = getCollectiveColor(callee);
+        if (isCollective(*callee)) {
+          std::string OP_name = callee->getName().str();
+          int OP_color = getCollectiveColor(*callee);
           int OP_arg_id = Com_arg_id(OP_color);
           Value *OP_com = nullptr;
 
@@ -263,21 +291,6 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
         }
       }
     }
-  }
-}
-
-// Tag loop preheader
-void ParcoachAnalysisInter::Tag_LoopLatches(llvm::Loop *L) {
-  BasicBlock *Lheader = L->getHeader();
-  if (L->getNumBlocks() == 1)
-    return; // header=preheader when the loop has only one node, no need for a
-            // particular case
-
-  pred_iterator PI = pred_begin(Lheader), E = pred_end(Lheader);
-  for (; PI != E; ++PI) {
-    BasicBlock *Pred = *PI;
-    if (L->contains(Pred))
-      bbLatchesMap[Pred] = true;
   }
 }
 
@@ -645,7 +658,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
       else {
         // DEBUG//errs() << F->getName() << " - BB " << Pred->getName() << "
         // already seen\n";
-        string temp = collMap[Pred];
+        std::string temp = collMap[Pred];
         collMap[Pred] = collMap[header];
         setCollSet(Pred);
         // DEBUG//errs() << collMap[Pred] << " = " << temp << "?\n";
@@ -670,7 +683,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
 void ParcoachAnalysisInter::BFS(llvm::Function *F) {
   std::deque<BasicBlock *> Unvisited;
 
-  // DEBUG//errs() << "-- BFS --\n";
+  LLVM_DEBUG(dbgs() << "-- BFS --\n");
   // GET ALL EXIT NODES
   for (BasicBlock &I : *F) {
     // Set all nodes to white
@@ -685,7 +698,7 @@ void ParcoachAnalysisInter::BFS(llvm::Function *F) {
   }
 
   // BFS ON EACH LOOP IN F
-  // DEBUG//errs() << "-- BFS IN EACH LOOP --\n";
+  LLVM_DEBUG(dbgs() << "-- BFS IN EACH LOOP --\n");
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(*const_cast<Function *>(F));
   for (Loop *L : LI) {
     Unvisited.push_back(L->getHeader());
@@ -727,7 +740,7 @@ void ParcoachAnalysisInter::BFS(llvm::Function *F) {
       else {
         // DEBUG//errs() << F->getName() << " - BB " << Pred->getName() << "
         // already seen\n";
-        string temp = collMap[Pred];
+        std::string temp = collMap[Pred];
         collMap[Pred] = collMap[header];
         setCollSet(Pred);
         // DEBUG//errs() << collMap[Pred] << " = " << temp << "?\n";
@@ -744,10 +757,12 @@ void ParcoachAnalysisInter::BFS(llvm::Function *F) {
   // if(F->getName() == "main")
   // DEBUG//errs() << F->getName() << " summary = " << collperFuncMap[F] <<
   // "\n";
+  LLVM_DEBUG(dbgs() << "-- END BFS --\n");
 }
 
 // COUNT COLLECTIVES TO INST AND INSTRUMENT THEM
 // Not correct..
+#if 0
 void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
     bool toinstrument = false;
@@ -758,11 +773,11 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
     Function *f = CI->getCalledFunction();
     if (!f)
       continue;
-    string OP_name = f->getName().str();
-    string Warning = getWarning(*i);
+    std::string OP_name = f->getName().str();
+    std::string Warning = getWarning(*i);
     DebugLoc locC = i->getDebugLoc();
     int OP_line = 0;
-    string File = "";
+    std::string File = "";
     if (locC) {
       OP_line = locC.getLine();
       File = locC->getFilename().str();
@@ -783,7 +798,7 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
     int OP_color = getCollectiveColor(f);
     Value *OP_com = CI->getArgOperand(Com_arg_id(OP_color));
     // Get conditionals from the callsite
-    set<const BasicBlock *> callIPDF;
+    std::set<const BasicBlock *> callIPDF;
     DG->getCallInterIPDF(CI, callIPDF);
 
     for (const BasicBlock *BB : callIPDF) {
@@ -831,54 +846,43 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
 
   } // END FOR
 }
+#endif
 
 // CHECK COLLECTIVES FUNCTION
 void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
-  using Warning = pair<unsigned, string>;
-  for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    Instruction *i = &*I;
-    // Debug info (line in the source code, file)
-    DebugLoc DLoc = i->getDebugLoc();
-    StringRef File = "";
-    unsigned OP_line = 0;
-    if (DLoc) {
-      OP_line = DLoc.getLine();
-      File = DLoc->getFilename();
+  auto IsaDirectCallToCollective = [](Instruction const &I) {
+    if (CallInst const *CI = dyn_cast<CallInst>(&I)) {
+      Function const *F = CI->getCalledFunction();
+      return F && isCollective(*F);
     }
+    return false;
+  };
+  auto Candidates =
+      make_filter_range(instructions(F), IsaDirectCallToCollective);
+  for (Instruction &I : Candidates) {
+    // Debug info (line in the source code, file)
     // Warning info
     const char *ProgName = "PARCOACH";
     SMDiagnostic Diag;
-    vector<Warning> Warnings;
+    SmallVector<DebugLoc, 2> Conditionals;
 
-    CallInst *CI = dyn_cast<CallInst>(i);
-    if (!CI)
-      continue;
-
-    Function *f = CI->getCalledFunction();
-    if (!f)
-      continue;
-
-    StringRef OP_name = f->getName();
-
-    // Is it a collective call?
-    if (!isCollective(f)) {
-      continue;
-    }
+    CallInst &CI = cast<CallInst>(I);
+    Function &F = *CI.getCalledFunction();
 
     LLVM_DEBUG({
       dbgs() << "Running on ";
-      CI->print(dbgs());
+      CI.print(dbgs());
       dbgs() << "\n";
     });
 
-    int OP_color = getCollectiveColor(f);
+    int OP_color = getCollectiveColor(F);
     Value *OP_com = nullptr;
     int OP_arg_id = -1;
 
     if (optMpiTaint) {
       OP_arg_id = Com_arg_id(OP_color);
       if (OP_arg_id >= 0)
-        OP_com = CI->getArgOperand(OP_arg_id); // 0 for Barrier only
+        OP_com = CI.getArgOperand(OP_arg_id); // 0 for Barrier only
     }
 
     // CI->getArgOperand(0)->dump();
@@ -890,8 +894,8 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
     bool isColWarningParcoach = false;
 
     // Get conditionals from the callsite
-    set<const BasicBlock *> callIPDF;
-    DG->getCallInterIPDF(CI, callIPDF);
+    std::set<const BasicBlock *> callIPDF;
+    DG->getCallInterIPDF(&CI, callIPDF);
     // For the summary-based approach, use the following instead of the previous
     // line
     // DG->getCallIntraIPDF(CI, callIPDF);
@@ -914,18 +918,10 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
 errs() << pair.first << "{" << pair.second << "}\n";}*/
 
       isColWarningParcoach = true;
-      nbCondsParcoachOnly++;
       conditionSetParcoachOnly.insert(BB);
 
       // Is this condition tainted?
       const Value *cond = getBasicBlockCond(BB);
-
-      /*errs() << "Cond with NAVS: " << cond->getName() << "\n";
-
-for(auto& pair : mpiCollMap[BB]){
-errs() << pair.first << "{" << pair.second << "}\n";
-}
-      */
 
       if (!cond || (!optNoDataFlow && !DG->isTaintedValue(cond))) {
         const Instruction *instE = BB->getTerminator();
@@ -935,115 +931,67 @@ errs() << pair.first << "{" << pair.second << "}\n";
       }
 
       isColWarning = true;
-      nbConds++;
       conditionSet.insert(BB);
 
       DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
       const Instruction *inst = BB->getTerminator();
       DebugLoc loc = inst->getDebugLoc();
-      Warnings.push_back(make_pair(loc ? loc.getLine() : 0,
-                                   loc ? loc->getFilename().str() : "?"));
+      Conditionals.push_back(loc);
 
       if (optDotTaintPaths) {
-        string dotfilename("taintedpath-");
-        string cfilename = loc->getFilename().str();
+        std::string dotfilename("taintedpath-");
+        std::string cfilename = loc->getFilename().str();
         size_t lastpos_slash = cfilename.find_last_of('/');
         if (lastpos_slash != cfilename.npos)
           cfilename = cfilename.substr(lastpos_slash + 1, cfilename.size());
         dotfilename.append(cfilename).append("-");
-        dotfilename.append(to_string(loc.getLine())).append(".dot");
-        DG->dotTaintPath(cond, dotfilename, i);
+        dotfilename.append(std::to_string(loc.getLine())).append(".dot");
+        DG->dotTaintPath(cond, dotfilename, &CI);
       }
     } // END FOR
 
     // Is there at least one node from the IPDF+ detected as potentially
     // dangerous by parcoach
     if (isColWarningParcoach) {
-      nbWarningsParcoachOnly++;
-      warningSetParcoachOnly.insert(CI);
+      warningSetParcoachOnly.insert(&CI);
     }
 
     // Is there at least one node from the IPDF+ tainted
     if (!isColWarning)
       continue;
 
-    nbWarnings++;
-    warningSet.insert(CI);
-    std::string Buf;
-    raw_string_ostream WarningMsg(Buf);
-    WarningMsg << OP_name << " line " << OP_line;
-    WarningMsg << " possibly not called by all processes because of "
-                  "conditional(s) line(s) ";
-    // Make sure lines are displayed in order.
-    std::sort(Warnings.begin(), Warnings.end());
-    for (auto &W : Warnings) {
-      WarningMsg << " " << (W.first ? to_string(W.first) : "?");
-      WarningMsg << " (" << W.second << ")";
-    }
-    WarningMsg << " (full-inter)";
+    warningSet.insert(&CI);
+    DebugLoc DLoc = CI.getDebugLoc();
+    auto [Entry, _] = Output_.Warnings.insert(
+        {&CI, Warning(&F, DLoc, std::move(Conditionals))});
 
-    MDNode *mdNode = MDNode::get(
-        i->getContext(), MDString::get(i->getContext(), WarningMsg.str()));
-    i->setMetadata("inter.inst.warning" + to_string(id), mdNode);
-    Diag = SMDiagnostic(File, SourceMgr::DK_Warning, WarningMsg.str());
+    Diag = SMDiagnostic(DLoc ? DLoc->getFilename() : "", SourceMgr::DK_Warning,
+                        Entry->second.toString());
     Diag.print(ProgName, errs(), 1, 1);
   }
+}
+
+AnalysisKey InterproceduralAnalysis::Key;
+
+IAResult InterproceduralAnalysis::run(Module &M, ModuleAnalysisManager &) {
+  IAResult R;
+  // TODO
+  LLVM_DEBUG(dbgs() << "Running PARCOACH InterproceduralAnalysis\n");
+  return R;
 }
 
 /*
  * INSTRUMENTATION
  */
 
-void ParcoachAnalysisInter::instrumentFunction(llvm::Function *F) {
-  for (Function::iterator bb = F->begin(), e = F->end(); bb != e; ++bb) {
-    for (BasicBlock::iterator i = bb->begin(), e = bb->end(); i != e; ++i) {
-      Instruction *Inst = &*i;
-      string Warning = getWarning(*Inst);
-      // Debug info (line in the source code, file)
-      DebugLoc DLoc = i->getDebugLoc();
-      string File = "o";
-      int OP_line = -1;
-      if (DLoc) {
-        OP_line = DLoc.getLine();
-        File = DLoc->getFilename().str();
-      }
-      // call instruction
-      if (CallInst *CI = dyn_cast<CallInst>(i)) {
-        Function *callee = CI->getCalledFunction();
-        if (callee == NULL)
-          continue;
-        string OP_name = callee->getName().str();
-        int OP_color = getCollectiveColor(callee);
-
-        // Before finalize or exit/abort
-        if (callee->getName().equals("MPI_Finalize") ||
-            callee->getName().equals("MPI_Abort") ||
-            callee->getName().equals("abort")) {
-          LLVM_DEBUG(dbgs() << "-> insert check before " << OP_name << " line "
-                            << OP_line << "\n");
-          insertCC(Inst, v_coll.size() + 1, OP_name, OP_line, Warning, File);
-          // nbCC++;
-          continue;
-        }
-        // Before a collective
-        if (OP_color >= 0) {
-          LLVM_DEBUG(dbgs() << "-> insert check before " << OP_name << " line "
-                            << OP_line << "\n");
-          insertCC(Inst, OP_color, OP_name, OP_line, Warning, File);
-          // nbCC++;
-        }
-      } // END IF
-    }   // END FOR
-  }     // END FOR
-}
-
+#if 0
 void ParcoachAnalysisInter::insertCountColl(llvm::Instruction *I,
                                             std::string OP_name, int OP_line,
                                             llvm::StringRef File, int inst) {
 
   IRBuilder<> builder(I);
   // Arguments of the new function
-  vector<const Type *> params = vector<const Type *>();
+  std::vector<const Type *> params{};
   params.push_back(PointerType::getInt8PtrTy(M.getContext())); // OP_name
   Value *strPtr_NAME = builder.CreateGlobalStringPtr(OP_name);
   params.push_back(Type::getInt32Ty(M.getContext()));          // OP_line
@@ -1064,69 +1012,5 @@ void ParcoachAnalysisInter::insertCountColl(llvm::Instruction *I,
   // Create new function
   CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);
 }
-
-// Check Collective function before a collective
-// + Check Collective function before return statements
-// --> check_collective_MPI(int OP_color, const char* OP_name, int OP_line,
-// char* OP_warnings, char *FILE_name)
-// --> void check_collective_UPC(int OP_color, const char* OP_name,
-// int OP_line, char* warnings, char *FILE_name)
-void ParcoachAnalysisInter::insertCC(llvm::Instruction *I, int OP_color,
-                                     std::string OP_name, int OP_line,
-                                     llvm::StringRef WarningMsg,
-                                     llvm::StringRef File) {
-
-  IRBuilder<> builder(I);
-  // Arguments of the new function
-  vector<const Type *> params = vector<const Type *>();
-  params.push_back(Type::getInt32Ty(M.getContext()));          // OP_color
-  params.push_back(PointerType::getInt8PtrTy(M.getContext())); // OP_name
-  Value *strPtr_NAME = builder.CreateGlobalStringPtr(OP_name);
-  params.push_back(Type::getInt32Ty(M.getContext()));          // OP_line
-  params.push_back(PointerType::getInt8PtrTy(M.getContext())); // OP_warnings
-  const std::string Warnings = WarningMsg.str();
-  Value *strPtr_WARNINGS = builder.CreateGlobalStringPtr(Warnings);
-  params.push_back(PointerType::getInt8PtrTy(M.getContext())); // FILE_name
-  const std::string Filename = File.str();
-  Value *strPtr_FILENAME = builder.CreateGlobalStringPtr(Filename);
-  // Set new function name, type and arguments
-  FunctionType *FTy = FunctionType::get(
-      Type::getVoidTy(M.getContext()),
-      ArrayRef<Type *>((Type **)params.data(), params.size()), false);
-  Value *CallArgs[] = {
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), OP_color), strPtr_NAME,
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), OP_line),
-      strPtr_WARNINGS, strPtr_FILENAME};
-  std::string FunctionName;
-
-  if (isMpiCollective(OP_color)) {
-    FunctionName = "check_collective_MPI";
-  } else if (isOmpCollective(OP_color)) {
-    FunctionName = "check_collective_OMP";
-  } else if (isUpcCollective(OP_color)) {
-    FunctionName = "check_collective_UPC";
-  } else {
-    FunctionName = "check_collective_return";
-  }
-
-  FunctionCallee CCFunction = M.getOrInsertFunction(FunctionName, FTy);
-
-  // Create new function
-  CallInst::Create(CCFunction, ArrayRef<Value *>(CallArgs), "", I);
-  LLVM_DEBUG(dbgs() << "=> Insertion of " << FunctionName << " (" << OP_color
-                    << ", " << OP_name << ", " << OP_line << ", " << WarningMsg
-                    << ", " << File << ")\n");
-}
-
-std::string ParcoachAnalysisInter::getWarning(llvm::Instruction &inst) {
-  string warning = " ";
-  if (MDNode *node = inst.getMetadata("inter.inst.warning" + to_string(id))) {
-    if (Metadata *value = node->getOperand(0)) {
-      MDString *mdstring = cast<MDString>(value);
-      warning = mdstring->getString().str();
-    }
-  } else {
-    // errs() << "Did not find metadata\n";
-  }
-  return warning;
-}
+#endif
+} // namespace parcoach

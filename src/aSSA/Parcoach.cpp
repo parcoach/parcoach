@@ -16,8 +16,8 @@ The project is licensed under the LGPL 2.1 license
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
-#include "andersen/Andersen.h"
 #include "parcoach/Passes.h"
+#include "parcoach/andersen/Andersen.h"
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -358,14 +358,14 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Run Andersen alias analysis.
   tstart_aa = gettime();
-  Andersen AA(M);
+  Andersen const AA = MAM.getResult<AndersenAA>(M);
   tend_aa = gettime();
 
   errs() << "* AA done\n";
 
   // Create PTA call graph
   tstart_pta = gettime();
-  PTACallGraph PTACG(M, &AA);
+  PTACallGraph PTACG(M, AA);
   tend_pta = gettime();
   errs() << "* PTA Call graph creation done\n";
 
@@ -409,7 +409,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute MOD/REF analysis
   tstart_modref = gettime();
-  ModRefAnalysis MRA(PTACG, &AA, &extInfo);
+  ModRefAnalysis MRA(PTACG, AA, &extInfo);
   tend_modref = gettime();
   if (optDumpModRef)
     MRA.dump();
@@ -418,7 +418,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute all-inclusive SSA.
   tstart_assa = gettime();
-  parcoach::MemorySSA MSSA(&M, &AA, &PTACG, &MRA, &extInfo);
+  parcoach::MemorySSA MSSA(&M, AA, &PTACG, &MRA, &extInfo);
 
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
@@ -527,8 +527,16 @@ PreservedAnalyses ParcoachPass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 void RegisterPasses(ModulePassManager &MPM) {
+  // TODO
+  // MPM.addPass(ParcoachInstrumentationPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
   MPM.addPass(parcoach::ParcoachPass());
+}
+
+void RegisterAnalysis(ModuleAnalysisManager &MAM) {
+  // TODO
+  // MAM.registerPass([&]() { return InterproceduralAnalysis(); });
+  MAM.registerPass([&]() { return AndersenAA(); });
 }
 
 } // namespace parcoach

@@ -5,6 +5,7 @@ set(ASSA_SOURCES
   DepGraphDCF.cpp
   Debug.cpp
   ExtInfo.cpp
+  Instrumentation.cpp
   MemoryRegion.cpp
   MemorySSA.cpp
   ModRefAnalysis.cpp
@@ -26,22 +27,17 @@ set(ASSA_HEADERS
   DepGraph.h
   DepGraphDCF.h
   ExtInfo.h
+  Instrumentation.h
   MemoryRegion.h
   MemorySSA.h
   ModRefAnalysis.h
   MSSAMuChi.h
   Options.h
   Parcoach.h
+  ParcoachAnalysis.h
   ParcoachAnalysisInter.h
   PTACallGraph.h
   Utils.h
-  andersen/Andersen.h
-  andersen/Constraint.h
-  andersen/CycleDetector.h
-  andersen/GraphTraits.h
-  andersen/NodeFactory.h
-  andersen/PtsSet.h
-  andersen/SparseBitVectorGraph.h
   )
 add_sources_to_format(SOURCES ${ASSA_SOURCES})
 add_sources_to_format(SOURCES ${ASSA_HEADERS})

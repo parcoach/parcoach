@@ -6,7 +6,7 @@
 using namespace llvm;
 using namespace std;
 
-ModRefAnalysis::ModRefAnalysis(PTACallGraph &CG, Andersen *PTA,
+ModRefAnalysis::ModRefAnalysis(PTACallGraph &CG, Andersen const &PTA,
                                ExtInfo *extInfo)
     : CG(CG), PTA(PTA), extInfo(extInfo) {
   analyze();
@@ -22,7 +22,7 @@ void ModRefAnalysis::visitAllocaInst(AllocaInst &I) {
 
 void ModRefAnalysis::visitLoadInst(LoadInst &I) {
   vector<const Value *> ptsSet;
-  bool Found = PTA->getPointsToSet(I.getPointerOperand(), ptsSet);
+  bool Found = PTA.getPointsToSet(I.getPointerOperand(), ptsSet);
   // FIXME: should this be an actual error?
   assert(Found && "Load not found");
   if (!Found)
@@ -39,7 +39,7 @@ void ModRefAnalysis::visitLoadInst(LoadInst &I) {
 
 void ModRefAnalysis::visitStoreInst(StoreInst &I) {
   vector<const Value *> ptsSet;
-  bool Found = PTA->getPointsToSet(I.getPointerOperand(), ptsSet);
+  bool Found = PTA.getPointsToSet(I.getPointerOperand(), ptsSet);
   // FIXME: should this be an actual error?
   assert(Found && "Store not found");
   if (!Found)
@@ -127,7 +127,11 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
 
     vector<const Value *> argPtsSet;
 
-    assert(PTA->getPointsToSet(arg, argPtsSet));
+    bool Found = PTA.getPointsToSet(arg, argPtsSet);
+    assert(Found && "arg not found in ModRefAnalysis");
+    if (!Found) {
+      continue;
+    }
     vector<MemReg *> regs;
     MemReg::getValuesRegion(argPtsSet, regs);
 
@@ -212,7 +216,12 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
 
     if (callee->getReturnType()->isPointerTy()) {
       vector<const Value *> retPtsSet;
-      assert(PTA->getPointsToSet(CI, retPtsSet));
+      bool Found = PTA.getPointsToSet(CI, retPtsSet);
+      assert(Found && "callee not found in ModRefAnalysis");
+      if (!Found) {
+        return;
+      }
+
       vector<MemReg *> regs;
       MemReg::getValuesRegion(retPtsSet, regs);
       for (MemReg *r : regs) {
@@ -241,7 +250,11 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
 
       if (mayCallee->getReturnType()->isPointerTy()) {
         vector<const Value *> retPtsSet;
-        assert(PTA->getPointsToSet(CI, retPtsSet));
+        bool Found = PTA.getPointsToSet(CI, retPtsSet);
+        assert(Found && "CI not found in ModRefAnalysis");
+        if (!Found) {
+          continue;
+        }
         vector<MemReg *> regs;
         MemReg::getValuesRegion(retPtsSet, regs);
         for (MemReg *r : regs) {
@@ -269,7 +282,7 @@ void ModRefAnalysis::analyze() {
   // Compute global kill set containing regions whose allocation sites are
   // in functions not reachable from prog entry.
   vector<const Value *> allocSites;
-  PTA->getAllAllocationSites(allocSites);
+  PTA.getAllAllocationSites(allocSites);
   for (const Value *v : allocSites) {
     const Instruction *inst = dyn_cast<Instruction>(v);
     if (!inst)

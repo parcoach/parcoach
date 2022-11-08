@@ -117,9 +117,9 @@ void initCollectives() {
     v_coll.insert(v_coll.end(), CUDA_v_coll.begin(), CUDA_v_coll.end());
 }
 
-bool isCollective(const llvm::Function *F) {
+bool isCollective(const llvm::Function &F) {
   for (unsigned i = 0; i < v_coll.size(); ++i) {
-    if (F->getName().equals(v_coll[i]))
+    if (F.getName().equals(v_coll[i]))
       return true;
   }
 
@@ -174,9 +174,9 @@ bool isCudaCollective(int color) {
   return false;
 }
 
-int getCollectiveColor(const llvm::Function *F) {
+int getCollectiveColor(const llvm::Function &F) {
   for (unsigned i = 0; i < v_coll.size(); ++i) {
-    if (F->getName().equals(v_coll[i]))
+    if (F.getName().equals(v_coll[i]))
       return i;
   }
 

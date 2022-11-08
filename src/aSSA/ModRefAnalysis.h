@@ -4,13 +4,13 @@
 #include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "PTACallGraph.h"
-#include "andersen/Andersen.h"
+#include "parcoach/andersen/Andersen.h"
 
 #include "llvm/IR/InstVisitor.h"
 
 class ModRefAnalysis : public llvm::InstVisitor<ModRefAnalysis> {
 public:
-  ModRefAnalysis(PTACallGraph &CG, Andersen *PTA, ExtInfo *extInfo);
+  ModRefAnalysis(PTACallGraph &CG, Andersen const &PTA, ExtInfo *extInfo);
   ~ModRefAnalysis();
 
   MemRegSet getFuncMod(const llvm::Function *F);
@@ -31,7 +31,7 @@ private:
 
   const llvm::Function *curFunc;
   PTACallGraph &CG;
-  Andersen *PTA;
+  Andersen const &PTA;
   ExtInfo *extInfo;
   std::map<const llvm::Function *, MemRegSet> funcModMap;
   std::map<const llvm::Function *, MemRegSet> funcRefMap;

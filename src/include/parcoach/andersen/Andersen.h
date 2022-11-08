@@ -45,13 +45,14 @@
 #ifndef TCFS_ANDERSEN_H
 #define TCFS_ANDERSEN_H
 
-#include "Constraint.h"
-#include "NodeFactory.h"
-#include "PtsSet.h"
+#include "parcoach/andersen/Constraint.h"
+#include "parcoach/andersen/NodeFactory.h"
+#include "parcoach/andersen/PtsSet.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/Passes/PassBuilder.h"
 
 #include <map>
 #include <vector>
@@ -96,7 +97,6 @@ private:
 public:
   //	static char ID;
 
-  Andersen(const llvm::Module &);
   bool runOnModule(const llvm::Module &M);
 
   // Given a llvm pointer v,
@@ -112,6 +112,16 @@ public:
   getAllAllocationSites(std::vector<const llvm::Value *> &allocSites) const;
 
   //	friend class AndersenAAResult;
+};
+
+class AndersenAA : public llvm::AnalysisInfoMixin<AndersenAA> {
+  friend llvm::AnalysisInfoMixin<AndersenAA>;
+  static llvm::AnalysisKey Key;
+
+public:
+  using Result = Andersen;
+
+  Andersen run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 
 #endif

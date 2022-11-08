@@ -8,8 +8,7 @@ class ParcoachAnalysis {
 public:
   ParcoachAnalysis(llvm::Module &M, DepGraph *DG, bool disableInstru = false)
       : M(M), DG(DG), nbCollectivesFound(0), nbCollectivesCondCalled(0),
-        nbCollectivesFoundParcoachOnly(0), nbWarnings(0),
-        nbWarningsParcoachOnly(0), nbConds(0), nbCondsParcoachOnly(0), nbCC(0),
+        nbCollectivesFoundParcoachOnly(0), nbCC(0),
         disableInstru(disableInstru) {}
 
   virtual ~ParcoachAnalysis() {}
@@ -26,29 +25,34 @@ public:
     return nbCollectivesFoundParcoachOnly;
   }
 
-  unsigned getNbWarnings() const { return nbWarnings; }
+  unsigned getNbWarnings() const { return warningSet.size(); }
 
-  unsigned getNbWarningsParcoachOnly() const { return nbWarningsParcoachOnly; }
+  unsigned getNbWarningsParcoachOnly() const {
+    return warningSetParcoachOnly.size();
+  }
 
-  unsigned getNbConds() const { return nbConds; }
+  unsigned getNbConds() const { return conditionSet.size(); }
 
-  unsigned getNbCondsParcoachOnly() const { return nbCondsParcoachOnly; }
+  unsigned getNbCondsParcoachOnly() const {
+    return conditionSetParcoachOnly.size();
+  }
 
   unsigned getNbCC() const { return nbCC; }
 
-  std::set<const llvm::BasicBlock *> getConditionSet() const {
+  std::set<const llvm::BasicBlock *> const &getConditionSet() const {
     return conditionSet;
   }
 
-  std::set<const llvm::BasicBlock *> getConditionSetParcoachOnly() const {
+  std::set<const llvm::BasicBlock *> const &
+  getConditionSetParcoachOnly() const {
     return conditionSetParcoachOnly;
   }
 
-  std::set<const llvm::Instruction *> getWarningSet() const {
+  std::set<const llvm::Instruction *> const &getWarningSet() const {
     return warningSet;
   }
 
-  std::set<const llvm::Instruction *> getWarningSetParcoachOnly() const {
+  std::set<const llvm::Instruction *> const &getWarningSetParcoachOnly() const {
     return warningSetParcoachOnly;
   }
 
@@ -59,10 +63,6 @@ protected:
   unsigned nbCollectivesFound;
   unsigned nbCollectivesCondCalled;
   unsigned nbCollectivesFoundParcoachOnly;
-  unsigned nbWarnings;
-  unsigned nbWarningsParcoachOnly;
-  unsigned nbConds;
-  unsigned nbCondsParcoachOnly;
   unsigned nbCC;
 
   std::set<const llvm::BasicBlock *> conditionSet;

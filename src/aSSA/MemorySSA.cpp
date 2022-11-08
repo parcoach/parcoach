@@ -12,7 +12,7 @@ using namespace llvm;
 
 namespace parcoach {
 
-MemorySSA::MemorySSA(Module *m, Andersen *PTA, PTACallGraph *CG,
+MemorySSA::MemorySSA(Module *m, Andersen const &PTA, PTACallGraph *CG,
                      ModRefAnalysis *MRA, ExtInfo *extInfo)
     : computeMuChiTime(0), computePhiTime(0), renameTime(0),
       computePhiPredicatesTime(0), m(m), PTA(PTA), CG(CG), MRA(MRA),
@@ -99,7 +99,7 @@ void MemorySSA::computeMuChi(const Function *F) {
     if (isa<LoadInst>(inst)) {
       const LoadInst *LI = cast<LoadInst>(inst);
       vector<const Value *> ptsSet;
-      bool Found = PTA->getPointsToSet(LI->getPointerOperand(), ptsSet);
+      bool Found = PTA.getPointsToSet(LI->getPointerOperand(), ptsSet);
       assert(Found && "Load not found in MSSA");
       if (!Found)
         continue;
@@ -124,7 +124,7 @@ void MemorySSA::computeMuChi(const Function *F) {
     if (isa<StoreInst>(inst)) {
       const StoreInst *SI = cast<StoreInst>(inst);
       vector<const Value *> ptsSet;
-      bool Found = PTA->getPointsToSet(SI->getPointerOperand(), ptsSet);
+      bool Found = PTA.getPointsToSet(SI->getPointerOperand(), ptsSet);
       assert(Found && "Store not found in MSSA");
       if (!Found)
         continue;
@@ -224,7 +224,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
 
       vector<const Value *> ptsSet;
       vector<const Value *> argPtsSet;
-      bool Found = PTA->getPointsToSet(arg, argPtsSet);
+      bool Found = PTA.getPointsToSet(arg, argPtsSet);
       assert(Found && "arg not found in MSSA");
       if (!Found)
         continue;
@@ -272,7 +272,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     // Chi for return value if it is a pointer
     if (CI->getType()->isPointerTy() && info->retIsMod) {
       vector<const Value *> ptsSet;
-      bool Found = PTA->getPointsToSet(CI, ptsSet);
+      bool Found = PTA.getPointsToSet(CI, ptsSet);
       assert(Found && "CI not found in MSSA");
       if (!Found)
         return;

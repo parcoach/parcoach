@@ -21,6 +21,7 @@ bool addPassToMPM(StringRef Name, ModulePassManager &MPM,
 PassPluginLibraryInfo getParcoachPluginInfo() {
   return {LLVM_PLUGIN_API_VERSION, "PARCOACH", LLVM_VERSION_STRING,
           [](PassBuilder &PB) {
+            PB.registerAnalysisRegistrationCallback(parcoach::RegisterAnalysis);
             PB.registerPipelineParsingCallback(addPassToMPM);
           }};
 }

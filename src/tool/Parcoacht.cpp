@@ -177,6 +177,8 @@ int main(int argc, char **argv) {
 
   MPM.run(*M, MAM);
 
-  Out->keep();
+  if (Out) {
+    Out->keep();
+  }
   return 0;
 }

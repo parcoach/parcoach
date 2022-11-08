@@ -61,6 +61,14 @@ foreach(SRC IN ITEMS ${EXPECTED_SUCCESS_TESTS} ${EXPECTED_FAILURE_TESTS})
     create_mpi_instrumented_executable(${EXE_TARGET} ${TEST_BC} C)
     add_test(NAME ${EXE_TARGET}
       COMMAND ${TEST_INSTR_MPI_COMMAND} ${CMAKE_CURRENT_BINARY_DIR}/${EXE_TARGET} ${CMAKE_CURRENT_SOURCE_DIR}/expectations-instr/${TEST_NAME}.expected)
+    if(PARCOACH_ENABLE_COVERAGE)
+      # Make the PARCOACH instrumentation part of the tests for coverage!
+      # This is just to have accurate coverage data as the call to
+      # create_mpi_instrumented_executable is not counted in there.
+      add_test(NAME gen_instr_bc_${TEST_NAME}
+        COMMAND ${PARCOACH_BIN} ${TEST_BC} --disable-output -instrum-inter -check-mpi
+        )
+    endif()
   endif()
 endforeach()
 

@@ -12,6 +12,8 @@ else()
   find_llvm_program(CLANG_BIN clang)
 endif()
 
+option(PARCOACH_ENABLE_MPI_TESTS "Enable PARCOACH MPI test targets." ON)
+
 set(PARCOACH_GREP_BIN ${CMAKE_CURRENT_BINARY_DIR}/parcoach_grep)
 configure_file(parcoach_grep.in ${PARCOACH_GREP_BIN})
 
@@ -31,8 +33,10 @@ add_custom_target(run-tests
   DEPENDS ${PARCOACH_BIN} generate-test-inputs
   )
 
-# TODO: if enable mpi, add this
-add_subdirectory(MPI)
+if(PARCOACH_ENABLE_MPI_TESTS)
+  add_subdirectory(MPI)
+endif()
+
 add_subdirectory(interface)
 
 if(PARCOACH_ENABLE_COVERAGE)

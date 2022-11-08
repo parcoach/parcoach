@@ -1,0 +1,1 @@
+PARCOACH: tests/MPI/basic/pointer-alias.c: warning: MPI_Barrier line 16 possibly not called by all processes because of conditional(s) line(s)  15 (tests/MPI/basic/pointer-alias.c) (full-inter)

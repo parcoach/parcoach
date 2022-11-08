@@ -1,1 +1,0 @@
-PARCOACH: tests/MPI/index-dep.c: warning: MPI_Barrier line 15 possibly not called by all processes because of conditional(s) line(s)  14 (tests/MPI/index-dep.c) (full-inter)

@@ -1,0 +1,2 @@
+PARCOACH: tests/MPI/basic/loop_barrier2.c: warning: MPI_Barrier line 21 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/loop_barrier2.c) 20 (tests/MPI/basic/loop_barrier2.c) (full-inter)
+PARCOACH: tests/MPI/basic/loop_barrier2.c: warning: MPI_Barrier line 27 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/loop_barrier2.c) 25 (tests/MPI/basic/loop_barrier2.c) 26 (tests/MPI/basic/loop_barrier2.c) (full-inter)

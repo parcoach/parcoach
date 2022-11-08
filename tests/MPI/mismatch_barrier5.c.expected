@@ -1,1 +1,0 @@
-PARCOACH: tests/MPI/mismatch_barrier5.c: warning: MPI_Barrier line 7 possibly not called by all processes because of conditional(s) line(s)  20 (tests/MPI/mismatch_barrier5.c) (full-inter)

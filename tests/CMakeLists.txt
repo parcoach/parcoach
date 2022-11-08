@@ -16,6 +16,7 @@ set(PARCOACH_GREP_BIN ${CMAKE_CURRENT_BINARY_DIR}/parcoach_grep)
 configure_file(parcoach_grep.in ${PARCOACH_GREP_BIN})
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(PARCOACH_FILE_CONTAINS ${CMAKE_CURRENT_SOURCE_DIR}/file_contains.py)
 
 # Top-level target for all generated test input files.
 # This makes it easy for jobs like coverage to have a single tests dependencies.
@@ -30,18 +31,8 @@ add_custom_target(run-tests
   DEPENDS ${PARCOACH_BIN} generate-test-inputs
   )
 
-# For now only MPI tests are supported through CMake
-find_package(MPI)
-if(MPI_FOUND)
-  message(STATUS "Configuring MPI tests")
-  configure_file(MPI/test_mpi.in test_mpi @ONLY)
-  set(TEST_MPI_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_mpi)
-  add_subdirectory(MPI)
-  add_subdirectory(MBI)
-else()
-  message(STATUS "MPI was *NOT* found, disabling MPI tests")
-endif()
-
+# TODO: if enable mpi, add this
+add_subdirectory(MPI)
 add_subdirectory(interface)
 
 if(PARCOACH_ENABLE_COVERAGE)

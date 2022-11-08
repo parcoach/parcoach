@@ -1,4 +1,0 @@
-PARCOACH: tests/MPI/CIVL_barrierScatter.c: warning: MPI_Scatter line 26 possibly not called by all processes because of conditional(s) line(s)  21 (tests/MPI/CIVL_barrierScatter.c) (full-inter)
-PARCOACH: tests/MPI/CIVL_barrierScatter.c: warning: MPI_Barrier line 27 possibly not called by all processes because of conditional(s) line(s)  21 (tests/MPI/CIVL_barrierScatter.c) (full-inter)
-PARCOACH: tests/MPI/CIVL_barrierScatter.c: warning: MPI_Barrier line 29 possibly not called by all processes because of conditional(s) line(s)  21 (tests/MPI/CIVL_barrierScatter.c) (full-inter)
-PARCOACH: tests/MPI/CIVL_barrierScatter.c: warning: MPI_Scatter line 30 possibly not called by all processes because of conditional(s) line(s)  21 (tests/MPI/CIVL_barrierScatter.c) (full-inter)

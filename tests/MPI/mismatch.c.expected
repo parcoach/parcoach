@@ -1,5 +1,0 @@
-PARCOACH: tests/MPI/mismatch.c: warning: MPI_Reduce line 10 possibly not called by all processes because of conditional(s) line(s)  31 (tests/MPI/mismatch.c) (full-inter)
-PARCOACH: tests/MPI/mismatch.c: warning: MPI_Reduce line 12 possibly not called by all processes because of conditional(s) line(s)  31 (tests/MPI/mismatch.c) (full-inter)
-PARCOACH: tests/MPI/mismatch.c: warning: MPI_Barrier line 14 possibly not called by all processes because of conditional(s) line(s)  31 (tests/MPI/mismatch.c) (full-inter)
-PARCOACH: tests/MPI/mismatch.c: warning: MPI_Barrier line 33 possibly not called by all processes because of conditional(s) line(s)  31 (tests/MPI/mismatch.c) (full-inter)
-PARCOACH: tests/MPI/mismatch.c: warning: MPI_Reduce line 34 possibly not called by all processes because of conditional(s) line(s)  31 (tests/MPI/mismatch.c) (full-inter)

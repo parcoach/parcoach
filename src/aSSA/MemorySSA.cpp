@@ -1,6 +1,8 @@
-#include "MemorySSA.h"
+#include "parcoach/MemorySSA.h"
 
+#include "MSSAMuChi.h"
 #include "Options.h"
+#include "PTACallGraph.h"
 #include "Utils.h"
 #include "parcoach/MemoryRegion.h"
 #include "parcoach/ModRefAnalysis.h"
@@ -13,13 +15,53 @@ using namespace llvm;
 
 namespace parcoach {
 
-MemorySSA::MemorySSA(Module *m, Andersen const &PTA, PTACallGraph const &CG,
-                     ModRefAnalysisResult *MRA, ExtInfo *extInfo)
+MemorySSA::MemorySSA(Module &M, Andersen const &PTA, PTACallGraph const &CG,
+                     ModRefAnalysisResult *MRA, ExtInfo *extInfo,
+                     ModuleAnalysisManager &AM)
     : computeMuChiTime(0), computePhiTime(0), renameTime(0),
-      computePhiPredicatesTime(0), m(m), PTA(PTA), CG(CG), MRA(MRA),
-      extInfo(extInfo), curDF(NULL), curDT(NULL) {}
+      computePhiPredicatesTime(0), PTA(PTA), CG(CG), MRA(MRA), extInfo(extInfo),
+      curDF(NULL), curDT(NULL) {
+  buildSSA(M, AM);
+}
 
 MemorySSA::~MemorySSA() {}
+
+void MemorySSA::buildSSA(llvm::Module &M, llvm::ModuleAnalysisManager &AM) {
+  unsigned nbFunctions = M.getFunctionList().size();
+  unsigned counter = 0;
+  // Get an inner FunctionAnalysisManager from the module one.
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  for (Function &F : M) {
+    if (!CG.isReachableFromEntry(F)) {
+      // errs() << F.getName() << " is not reachable from entry\n";
+
+      continue;
+    }
+
+    if (counter % 100 == 0)
+      errs() << "MSSA: visited " << counter << " functions over " << nbFunctions
+             << " (" << (((float)counter) / nbFunctions * 100) << "%)\n";
+    counter++;
+
+    if (isIntrinsicDbgFunction(&F)) {
+      continue;
+    }
+
+    if (F.isDeclaration())
+      continue;
+
+    // errs() << " + Fun: " << counter << " - " << F.getName() << "\n";
+    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+    DominanceFrontier &DF = FAM.getResult<DominanceFrontierAnalysis>(F);
+    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
+
+    buildSSA(&F, DT, DF, PDT);
+    if (optDumpSSA)
+      dumpMSSA(&F);
+    if (F.getName().equals(optDumpSSAFunc))
+      dumpMSSA(&F);
+  }
+}
 
 void MemorySSA::buildSSA(const Function *F, DominatorTree &DT,
                          DominanceFrontier &DF, PostDominatorTree &PDT) {

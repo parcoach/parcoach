@@ -28,7 +28,6 @@ set(ASSA_HEADERS
   DepGraph.h
   DepGraphDCF.h
   Instrumentation.h
-  MemorySSA.h
   MSSAMuChi.h
   Options.h
   Parcoach.h

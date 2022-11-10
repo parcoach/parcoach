@@ -8,13 +8,13 @@ The project is licensed under the LGPL 2.1 license
 #include "Config.h"
 #include "DepGraph.h"
 #include "DepGraphDCF.h"
-#include "MemorySSA.h"
 #include "Options.h"
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
 #include "parcoach/ExtInfo.h"
 #include "parcoach/MemoryRegion.h"
+#include "parcoach/MemorySSA.h"
 #include "parcoach/ModRefAnalysis.h"
 #include "parcoach/Passes.h"
 #include "parcoach/StatisticsAnalysis.h"
@@ -397,48 +397,14 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute all-inclusive SSA.
   tstart_assa = gettime();
-  MemorySSA MSSA(&M, AA, *PTACG, MRA.get(), extInfo.get());
-
-  unsigned nbFunctions = M.getFunctionList().size();
-  unsigned counter = 0;
-  // Get an inner FunctionAnalysisManager from the module one.
-  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  for (Function &F : M) {
-    if (!PTACG->isReachableFromEntry(F)) {
-      // errs() << F.getName() << " is not reachable from entry\n";
-
-      continue;
-    }
-
-    if (counter % 100 == 0)
-      errs() << "MSSA: visited " << counter << " functions over " << nbFunctions
-             << " (" << (((float)counter) / nbFunctions * 100) << "%)\n";
-    counter++;
-
-    if (isIntrinsicDbgFunction(&F)) {
-      continue;
-    }
-
-    if (F.isDeclaration())
-      continue;
-
-    // errs() << " + Fun: " << counter << " - " << F.getName() << "\n";
-    DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
-    DominanceFrontier &DF = FAM.getResult<DominanceFrontierAnalysis>(F);
-    PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
-
-    MSSA.buildSSA(&F, DT, DF, PDT);
-    if (optDumpSSA)
-      MSSA.dumpMSSA(&F);
-    if (F.getName().equals(optDumpSSAFunc))
-      MSSA.dumpMSSA(&F);
-  }
+  MemorySSA MSSA(M, AA, *PTACG, MRA.get(), extInfo.get(), MAM);
   tend_assa = gettime();
   errs() << "* SSA done\n";
 
   // Compute dep graph.
   tstart_depgraph = gettime();
   DepGraph *DG = NULL;
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   DG = new DepGraphDCF(&MSSA, *PTACG, FAM);
   DG->build();
 

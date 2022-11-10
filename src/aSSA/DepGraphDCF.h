@@ -3,8 +3,8 @@
 
 #include "DepGraph.h"
 #include "MSSAMuChi.h"
-#include "MemorySSA.h"
 #include "PTACallGraph.h"
+#include "parcoach/MemorySSA.h"
 
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/raw_ostream.h"

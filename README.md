@@ -1,14 +1,6 @@
 # PARCOACH (PARallel COntrol flow Anomaly CHecker)
 
-**PARCOACH** automatically checks parallel applications to verify the correct use of collectives. This is **PARCOACH**. This version uses an inter-procedural control- and data-flow analysis to detect potential errors at compile-time.
-
-## News
-
-
-* <b> Parcoach now supports LLVM 9 to 12! </b>
-* <b> Parcoach is now on github! </b>
-
-
+**PARCOACH** automatically checks parallel applications to verify the correct use of collectives. This tool uses an inter-procedural control- and data-flow analysis to detect potential errors at compile-time.
 
 ## Getting Started
 
@@ -27,7 +19,7 @@ a shell in a docker container, with your local PARCOACH folder mounted at `/home
 docker compose run --rm shell
 ```
 
-It will let you have an environment to build PARCOACH, without having to install
+It will build a docker image with the environment to build PARCOACH, without having to install
 everything on your machine, but while still being able to use your editor out
 of the docker container (because the source tree will be shared between the
 host and the docker container).
@@ -36,7 +28,7 @@ If you want to take a look at how the docker images are built and how the CI
 works, please take a look at the dedicated [README](ci/README.md).
 
 At the time of writing these lines, the two main dependencies are CMake >= 3.16
-and LLVM 12.
+and LLVM 15.
 
 ### Build instructions
 

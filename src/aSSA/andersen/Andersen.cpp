@@ -4,6 +4,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#define DEBUG_TYPE "andersen"
 
 using namespace llvm;
 
@@ -21,6 +22,7 @@ AnalysisKey AndersenAA::Key;
 
 Andersen AndersenAA::run(Module &M, ModuleAnalysisManager &) {
   Andersen AA;
+  LLVM_DEBUG(dbgs() << "Running Andersen\n");
   AA.runOnModule(M);
   return AA;
 }

@@ -17,7 +17,7 @@ public:
   typedef std::set<const MSSAVar *> ConstVarSet;
   typedef std::set<const llvm::Value *> ValueSet;
 
-  DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph *CG,
+  DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph const &CG,
               llvm::FunctionAnalysisManager &AM, bool noPtrDep = false,
               bool noPred = false, bool disablePhiElim = false);
   virtual ~DepGraphDCF();
@@ -60,7 +60,7 @@ public:
 
   void computeTaintedValuesContextInsensitive();
   void computeTaintedValuesContextSensitive();
-  void computeTaintedValuesCSForEntry(PTACallGraphNode *entry);
+  void computeTaintedValuesCSForEntry(PTACallGraphNode const *entry);
   bool isTaintedValue(const llvm::Value *v);
 
   void getCallInterIPDF(const llvm::CallInst *call,
@@ -73,7 +73,7 @@ public:
 
 private:
   parcoach::MemorySSA *mssa;
-  PTACallGraph *CG;
+  PTACallGraph const &CG;
 
   const llvm::Function *curFunc;
   llvm::FunctionAnalysisManager &FAM;

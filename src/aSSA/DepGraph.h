@@ -10,7 +10,7 @@
 
 class DepGraph {
 public:
-  DepGraph(PTACallGraph *PTACG) : PTACG(PTACG) {}
+  DepGraph(PTACallGraph const &PTACG) : PTACG(PTACG) {}
 
   virtual void build();
   virtual void buildFunction(const llvm::Function *F) = 0;
@@ -26,7 +26,7 @@ public:
                             const llvm::Instruction *collective) = 0;
 
 protected:
-  PTACallGraph *PTACG;
+  PTACallGraph const &PTACG;
 };
 
 #endif /* DEPGRAPH_H */

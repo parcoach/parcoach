@@ -12,7 +12,7 @@ using namespace llvm;
 
 namespace parcoach {
 
-MemorySSA::MemorySSA(Module *m, Andersen const &PTA, PTACallGraph *CG,
+MemorySSA::MemorySSA(Module *m, Andersen const &PTA, PTACallGraph const &CG,
                      ModRefAnalysis *MRA, ExtInfo *extInfo)
     : computeMuChiTime(0), computePhiTime(0), renameTime(0),
       computePhiPredicatesTime(0), m(m), PTA(PTA), CG(CG), MRA(MRA),
@@ -69,7 +69,7 @@ void MemorySSA::computeMuChi(const Function *F) {
 
       // indirect call
       if (callee == NULL) {
-        for (const Function *mayCallee : CG->indirectCallMap[inst]) {
+        for (const Function *mayCallee : CG.getIndirectCallMap().lookup(inst)) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
 

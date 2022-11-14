@@ -26,7 +26,7 @@ static vector<functionArg> valueSourceFunctions;
 static vector<const char *> loadValueSources;
 static vector<functionArg> resetFunctions;
 
-DepGraphDCF::DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph *CG,
+DepGraphDCF::DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph const &CG,
                          FunctionAnalysisManager &AM, bool noPtrDep,
                          bool noPred, bool disablePhiElim)
     : DepGraph(CG), mssa(mssa), CG(CG), FAM(AM), PDT(nullptr),
@@ -48,10 +48,10 @@ DepGraphDCF::~DepGraphDCF() {}
 
 void DepGraphDCF::build() {
   unsigned counter = 0;
-  unsigned nbFunctions = PTACG->getModule().getFunctionList().size();
+  unsigned nbFunctions = PTACG.getModule().getFunctionList().size();
 
-  for (Function &F : PTACG->getModule()) {
-    if (!PTACG->isReachableFromEntry(&F))
+  for (Function const &F : PTACG.getModule()) {
+    if (!PTACG.isReachableFromEntry(F))
       continue;
 
     if (counter % 100 == 0)
@@ -499,7 +499,7 @@ void DepGraphDCF::visitCallInst(llvm::CallInst &I) {
 
   // indirect call
   else {
-    for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+    for (const Function *mayCallee : CG.getIndirectCallMap().lookup(&I)) {
       callToFuncEdges[&I] = mayCallee;
       funcToCallSites[mayCallee].insert(&I);
 
@@ -667,7 +667,7 @@ void DepGraphDCF::connectCSEffectiveParameters(llvm::CallInst &I) {
 
   // indirect call
   else {
-    for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+    for (const Function *mayCallee : CG.getIndirectCallMap().lookup(&I)) {
       if (mayCallee->isDeclaration()) {
         connectCSEffectiveParametersExt(I, mayCallee);
         return;
@@ -715,7 +715,7 @@ void DepGraphDCF::connectCSCalledReturnValue(llvm::CallInst &I) {
 
   // indirect call
   else {
-    for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+    for (const Function *mayCallee : CG.getIndirectCallMap().lookup(&I)) {
       if (!mayCallee->isDeclaration() &&
           !mayCallee->getReturnType()->isVoidTy()) {
         funcToLLVMNodesMap[curFunc].insert(&I);
@@ -749,7 +749,7 @@ void DepGraphDCF::connectCSRetChi(llvm::CallInst &I) {
 
   // indirect call
   else {
-    for (const Function *mayCallee : CG->indirectCallMap[&I]) {
+    for (const Function *mayCallee : CG.getIndirectCallMap().lookup(&I)) {
       if (mayCallee->isDeclaration() &&
           mayCallee->getReturnType()->isPointerTy()) {
         for (MSSAChi *chi : mssa->extCallSiteToCallerRetChi[&I]) {
@@ -837,7 +837,8 @@ void DepGraphDCF::toDot(string filename) {
   stream << "style=filled;\ncolor=lightgrey;\n";
   stream << "label=< <B>  Global Values </B> >;\n";
   stream << "node [style=filled,color=white];\n";
-  for (const Value &g : mssa->m->globals()) {
+  Module const &M = PTACG.getModule();
+  for (const Value &g : M.globals()) {
     stream << "Node" << ((void *)&g) << " [label=\"" << getValueLabel(&g)
            << "\" " << getNodeStyle(&g) << "];\n";
   }
@@ -1379,7 +1380,7 @@ void DepGraphDCF::phiElimination() {
 
   // For each function, iterate through its basic block and try to eliminate phi
   // function until reaching a fixed point.
-  for (const Function &F : *mssa->m) {
+  for (const Function &F : PTACG.getModule()) {
     bool changed = true;
 
     while (changed) {
@@ -2252,7 +2253,7 @@ void DepGraphDCF::floodFunctionFromFunction(const Function *to,
 }
 
 void DepGraphDCF::resetFunctionTaint(const Function *F) {
-  assert(CG->isReachableFromEntry(F));
+  assert(F && CG.isReachableFromEntry(*F));
   if (funcToSSANodesMap.find(F) != funcToSSANodesMap.end()) {
     for (MSSAVar *v : funcToSSANodesMap[F]) {
       if (taintedSSANodes.find(v) != taintedSSANodes.end()) {
@@ -2310,7 +2311,7 @@ void DepGraphDCF::computeTaintedValuesContextSensitive() {
   unsigned callsiteToCondsSize = callsiteToConds.size();
 #endif
 
-  PTACallGraphNode *entry = CG->getEntry();
+  PTACallGraphNode const *entry = CG.getEntry();
   if (entry->getFunction()) {
     computeTaintedValuesCSForEntry(entry);
   } else {
@@ -2338,17 +2339,19 @@ void DepGraphDCF::computeTaintedValuesContextSensitive() {
   assert(callsiteToCondsSize == callsiteToConds.size());
 }
 
-void DepGraphDCF::computeTaintedValuesCSForEntry(PTACallGraphNode *entry) {
-  vector<PTACallGraphNode *> S;
+void DepGraphDCF::computeTaintedValuesCSForEntry(
+    PTACallGraphNode const *entry) {
+  vector<PTACallGraphNode const *> S;
 
-  map<PTACallGraphNode *, set<PTACallGraphNode *>> node2VisitedChildrenMap;
+  map<PTACallGraphNode const *, set<PTACallGraphNode *>>
+      node2VisitedChildrenMap;
   S.push_back(entry);
 
   bool goingDown = true;
   const Function *prev = NULL;
 
   while (!S.empty()) {
-    PTACallGraphNode *N = S.back();
+    PTACallGraphNode const *N = S.back();
     bool foundChildren = false;
 
     //    if (N->getFunction())

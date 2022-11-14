@@ -1,4 +1,5 @@
 #include "PTACallGraph.h"
+#include "parcoach/andersen/Andersen.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -8,13 +9,20 @@
 
 using namespace llvm;
 
-PTACallGraph::PTACallGraph(llvm::Module &M, Andersen const &AA)
+AnalysisKey PTACallGraphAnalysis::Key;
+PTACallGraphAnalysis::Result
+PTACallGraphAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  Andersen const &AA = AM.getResult<AndersenAA>(M);
+  return std::make_unique<PTACallGraph>(M, AA);
+}
+
+PTACallGraph::PTACallGraph(llvm::Module const &M, Andersen const &AA)
     : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),
       ExternalCallingNode(getOrInsertFunction(nullptr)),
       CallsExternalNode(std::make_unique<PTACallGraphNode>(nullptr)) {
 
-  for (Function &F : M)
-    addToCallGraph(&F);
+  for (Function const &F : M)
+    addToCallGraph(F);
 
   if (!Root)
     Root = ExternalCallingNode;
@@ -53,15 +61,15 @@ PTACallGraph::~PTACallGraph() {
   // TODO
 }
 
-void PTACallGraph::addToCallGraph(Function *F) {
-  PTACallGraphNode *Node = getOrInsertFunction(F);
+void PTACallGraph::addToCallGraph(Function const &F) {
+  PTACallGraphNode *Node = getOrInsertFunction(&F);
 
   // If this function has external linkage, anything could call it.
-  if (!F->hasLocalLinkage()) {
+  if (!F.hasLocalLinkage()) {
     ExternalCallingNode->addCalledFunction(nullptr, Node);
 
     // Found the entry point?
-    if (F->getName() == "main") {
+    if (F.getName() == "main") {
       if (Root) // Found multiple external mains?  Don't pick one.
         Root = ExternalCallingNode;
       else
@@ -72,17 +80,17 @@ void PTACallGraph::addToCallGraph(Function *F) {
   }
 
   // If this function has its address taken, anything could call it.
-  if (F->hasAddressTaken())
+  if (F.hasAddressTaken())
     ExternalCallingNode->addCalledFunction(nullptr, Node);
 
   // If this function is not defined in this translation unit, it could call
   // anything.
-  if (F->isDeclaration() && !F->isIntrinsic())
+  if (F.isDeclaration() && !F.isIntrinsic())
     Node->addCalledFunction(nullptr, CallsExternalNode.get());
 
   // Look for calls by this function.
-  for (BasicBlock &BB : *F)
-    for (Instruction &I : BB) {
+  for (BasicBlock const &BB : F)
+    for (Instruction const &I : BB) {
       if (auto *CI = dyn_cast<CallInst>(&I)) {
         const Function *Callee = CI->getCalledFunction();
 
@@ -132,8 +140,8 @@ void PTACallGraph::addToCallGraph(Function *F) {
     }
 }
 
-bool PTACallGraph::isReachableFromEntry(const Function *F) const {
-  return !ProgEntry || reachableFunctions.find(F) != reachableFunctions.end();
+bool PTACallGraph::isReachableFromEntry(const Function &F) const {
+  return !ProgEntry || reachableFunctions.find(&F) != reachableFunctions.end();
 }
 
 PTACallGraphNode *PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
@@ -146,4 +154,9 @@ PTACallGraphNode *PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
   // LLVM10: CGN = std::make_unique<PTACallGraphNode>(const_cast<Function
   // *>(F));
   return CGN.get();
+}
+
+void PTACallGraphNode::addCalledFunction(CallBase const *CB,
+                                         PTACallGraphNode *M) {
+  CalledFunctions.emplace_back(CB, M);
 }

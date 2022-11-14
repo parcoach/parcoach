@@ -19,9 +19,6 @@ The project is licensed under the LGPL 2.1 license
 #include "parcoach/Passes.h"
 #include "parcoach/andersen/Andersen.h"
 
-#include "llvm/ADT/SCCIterator.h"
-#include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -358,14 +355,15 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Run Andersen alias analysis.
   tstart_aa = gettime();
-  Andersen const AA = MAM.getResult<AndersenAA>(M);
+  Andersen const &AA = MAM.getResult<AndersenAA>(M);
   tend_aa = gettime();
 
   errs() << "* AA done\n";
 
   // Create PTA call graph
   tstart_pta = gettime();
-  PTACallGraph PTACG(M, AA);
+  auto &PTACG = MAM.getResult<PTACallGraphAnalysis>(M);
+  assert(PTACG && "expected a PTACallGraph");
   tend_pta = gettime();
   errs() << "* PTA Call graph creation done\n";
 
@@ -409,7 +407,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute MOD/REF analysis
   tstart_modref = gettime();
-  ModRefAnalysis MRA(PTACG, AA, &extInfo);
+  ModRefAnalysis MRA(*PTACG, AA, &extInfo);
   tend_modref = gettime();
   if (optDumpModRef)
     MRA.dump();
@@ -418,14 +416,14 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute all-inclusive SSA.
   tstart_assa = gettime();
-  parcoach::MemorySSA MSSA(&M, AA, &PTACG, &MRA, &extInfo);
+  parcoach::MemorySSA MSSA(&M, AA, *PTACG, &MRA, &extInfo);
 
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
   // Get an inner FunctionAnalysisManager from the module one.
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   for (Function &F : M) {
-    if (!PTACG.isReachableFromEntry(&F)) {
+    if (!PTACG->isReachableFromEntry(F)) {
       // errs() << F.getName() << " is not reachable from entry\n";
 
       continue;
@@ -460,7 +458,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
   // Compute dep graph.
   tstart_depgraph = gettime();
   DepGraph *DG = NULL;
-  DG = new DepGraphDCF(&MSSA, &PTACG, FAM);
+  DG = new DepGraphDCF(&MSSA, *PTACG, FAM);
   DG->build();
 
   errs() << "* Dep graph done\n";
@@ -488,7 +486,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
   tstart_parcoach = gettime();
   // Parcoach analysis
 
-  ParcoachAnalysisInter PAInter(M, DG, PTACG, FAM, !optInstrumInter);
+  ParcoachAnalysisInter PAInter(M, DG, *PTACG, FAM, !optInstrumInter);
   PAInter.run();
 
   tend_parcoach = gettime();
@@ -536,6 +534,7 @@ void RegisterPasses(ModulePassManager &MPM) {
 void RegisterAnalysis(ModuleAnalysisManager &MAM) {
   // TODO
   // MAM.registerPass([&]() { return InterproceduralAnalysis(); });
+  MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
   MAM.registerPass([&]() { return AndersenAA(); });
 }
 

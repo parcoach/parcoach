@@ -6,7 +6,7 @@
 using namespace llvm;
 using namespace std;
 
-ModRefAnalysis::ModRefAnalysis(PTACallGraph &CG, Andersen const &PTA,
+ModRefAnalysis::ModRefAnalysis(PTACallGraph const &CG, Andersen const &PTA,
                                ExtInfo *extInfo)
     : CG(CG), PTA(PTA), extInfo(extInfo) {
   analyze();
@@ -89,7 +89,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
   // indirect call
   if (!callee) {
     bool mayCallExternalFunction = false;
-    for (const Function *mayCallee : CG.indirectCallMap[CI]) {
+    for (const Function *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
       if (mayCallee->isDeclaration() && !isIntrinsicDbgFunction(mayCallee)) {
         mayCallExternalFunction = true;
         break;
@@ -175,7 +175,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
 
     // indirect call
     else {
-      for (const Function *mayCallee : CG.indirectCallMap[CI]) {
+      for (const Function *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
         if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
           continue;
 
@@ -241,7 +241,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
   }
 
   else {
-    for (const Function *mayCallee : CG.indirectCallMap[CI]) {
+    for (const Function *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
       if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
         continue;
 
@@ -287,7 +287,7 @@ void ModRefAnalysis::analyze() {
     const Instruction *inst = dyn_cast<Instruction>(v);
     if (!inst)
       continue;
-    if (CG.isReachableFromEntry(inst->getParent()->getParent()))
+    if (CG.isReachableFromEntry(*inst->getParent()->getParent()))
       continue;
     globalKillSet.insert(MemReg::getValueRegion(v));
   }
@@ -295,24 +295,26 @@ void ModRefAnalysis::analyze() {
   // First compute the mod/ref sets of each function from its load/store
   // instructions and calls to external functions.
 
-  for (Function &F : CG.getModule()) {
-    if (!CG.isReachableFromEntry(&F))
+  for (Function const &F : CG.getModule()) {
+    if (!CG.isReachableFromEntry(F))
       continue;
 
     curFunc = &F;
-    visit(&F);
+    // FIXME: this const cast will go away once ModRefAnalysis properly uses
+    // llvm analysis.
+    visit(const_cast<Function *>(&F));
   }
 
   // Then iterate through the PTACallGraph with an SCC iterator
   // and add mod/ref sets from callee to caller.
-  scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&CG);
+  scc_iterator<PTACallGraph const *> cgSccIter = scc_begin(&CG);
   while (!cgSccIter.isAtEnd()) {
 
-    const vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
+    auto const &nodeVec = *cgSccIter;
 
     // For each function in the SCC compute kill sets
     // from callee not in the SCC and update mod/ref sets accordingly.
-    for (PTACallGraphNode *node : nodeVec) {
+    for (PTACallGraphNode const *node : nodeVec) {
       const Function *F = node->getFunction();
       if (F == NULL)
         continue;
@@ -366,7 +368,7 @@ void ModRefAnalysis::analyze() {
     while (changed) {
       changed = false;
 
-      for (PTACallGraphNode *node : nodeVec) {
+      for (PTACallGraphNode const *node : nodeVec) {
         const Function *F = node->getFunction();
         if (F == NULL)
           continue;
@@ -425,11 +427,11 @@ MemRegSet ModRefAnalysis::getFuncKill(const Function *F) {
 }
 
 void ModRefAnalysis::dump() {
-  scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&CG);
+  scc_iterator<PTACallGraph const *> cgSccIter = scc_begin(&CG);
   while (!cgSccIter.isAtEnd()) {
-    const vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
+    auto const &nodeVec = *cgSccIter;
 
-    for (PTACallGraphNode *node : nodeVec) {
+    for (PTACallGraphNode const *node : nodeVec) {
       Function *F = node->getFunction();
       if (F == NULL || isIntrinsicDbgFunction(F))
         continue;

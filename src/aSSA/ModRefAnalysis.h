@@ -10,7 +10,7 @@
 
 class ModRefAnalysis : public llvm::InstVisitor<ModRefAnalysis> {
 public:
-  ModRefAnalysis(PTACallGraph &CG, Andersen const &PTA, ExtInfo *extInfo);
+  ModRefAnalysis(PTACallGraph const &CG, Andersen const &PTA, ExtInfo *extInfo);
   ~ModRefAnalysis();
 
   MemRegSet getFuncMod(const llvm::Function *F);
@@ -30,7 +30,7 @@ private:
   void analyze();
 
   const llvm::Function *curFunc;
-  PTACallGraph &CG;
+  PTACallGraph const &CG;
   Andersen const &PTA;
   ExtInfo *extInfo;
   std::map<const llvm::Function *, MemRegSet> funcModMap;

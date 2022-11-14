@@ -1,25 +1,64 @@
 #ifndef PTACALLGRAPH_H
 #define PTACALLGRAPH_H
 
-#include "parcoach/andersen/Andersen.h"
-
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/ValueMap.h"
+#include "llvm/Passes/PassBuilder.h"
 
 #include <map>
 #include <set>
 
+namespace llvm {
+class CallBase;
+class Function;
+class Module;
+} // namespace llvm
 class PTACallGraphNode;
+class Andersen;
+
+class PTACallGraphNode {
+public:
+  using CallRecord = std::pair<llvm::CallBase const *, PTACallGraphNode *>;
+
+  using CalledFunctionsVector = std::vector<CallRecord>;
+
+  inline PTACallGraphNode(llvm::Function *F) : F(F) {}
+
+  ~PTACallGraphNode() {}
+
+  using iterator = std::vector<CallRecord>::iterator;
+  using const_iterator = std::vector<CallRecord>::const_iterator;
+
+  /// \brief Returns the function that this call graph node represents.
+  llvm::Function *getFunction() const { return F; }
+
+  inline const_iterator begin() const { return CalledFunctions.begin(); }
+  inline const_iterator end() const { return CalledFunctions.end(); }
+
+  /// \brief Adds a function to the list of functions called by this one.
+  void addCalledFunction(llvm::CallBase const *CB, PTACallGraphNode *M);
+
+private:
+  friend class PTACallGraph;
+
+  llvm::AssertingVH<llvm::Function> F;
+
+  std::vector<CallRecord> CalledFunctions;
+};
 
 class PTACallGraph {
-  llvm::Module &M;
-  Andersen const &AA;
+public:
+  using FunctionMapTy =
+      std::map<const llvm::Function *, std::unique_ptr<PTACallGraphNode>>;
+  using iterator = FunctionMapTy::iterator;
+  using const_iterator = FunctionMapTy::const_iterator;
 
-  typedef std::map<const llvm::Function *, std::unique_ptr<PTACallGraphNode>>
-      FunctionMapTy;
+private:
+  llvm::Module const &M;
+  Andersen const &AA;
 
   /// \brief A map from \c Function* to \c CallGraphNode*.
   FunctionMapTy FunctionMap;
@@ -41,37 +80,30 @@ class PTACallGraph {
 
   /// \brief Add a function to the call graph, and link the node to all of the
   /// functions that it calls.
-  void addToCallGraph(llvm::Function *F);
+  void addToCallGraph(llvm::Function const &F);
+
+  llvm::ValueMap<const llvm::Instruction *, std::set<const llvm::Function *>>
+      indirectCallMap;
+
+  inline iterator begin() { return FunctionMap.begin(); }
+  inline iterator end() { return FunctionMap.end(); }
+
+  PTACallGraphNode *getOrInsertFunction(const llvm::Function *F);
 
 public:
-  explicit PTACallGraph(llvm::Module &M, Andersen const &AA);
+  explicit PTACallGraph(llvm::Module const &M, Andersen const &AA);
   ~PTACallGraph();
 
   PTACallGraphNode *getEntry() const { return Root; }
 
-  std::map<const llvm::Instruction *, std::set<const llvm::Function *>>
-      indirectCallMap;
-
-  typedef FunctionMapTy::iterator iterator;
-  typedef FunctionMapTy::const_iterator const_iterator;
-
   /// \brief Returns the module the call graph corresponds to.
-  llvm::Module &getModule() const { return M; }
+  llvm::Module const &getModule() const { return M; }
 
-  inline iterator begin() { return FunctionMap.begin(); }
-  inline iterator end() { return FunctionMap.end(); }
   inline const_iterator begin() const { return FunctionMap.begin(); }
   inline const_iterator end() const { return FunctionMap.end(); }
 
   /// \brief Returns the call graph node for the provided function.
   inline const PTACallGraphNode *operator[](const llvm::Function *F) const {
-    const_iterator I = FunctionMap.find(F);
-    assert(I != FunctionMap.end() && "Function not in callgraph!");
-    return I->second.get();
-  }
-
-  /// \brief Returns the call graph node for the provided function.
-  inline PTACallGraphNode *operator[](const llvm::Function *F) {
     const_iterator I = FunctionMap.find(F);
     assert(I != FunctionMap.end() && "Function not in callgraph!");
     return I->second.get();
@@ -83,58 +115,23 @@ public:
     return ExternalCallingNode;
   }
 
-  PTACallGraphNode *getCallsExternalNode() const {
+  PTACallGraphNode const *getCallsExternalNode() const {
     return CallsExternalNode.get();
   }
 
-  PTACallGraphNode *getOrInsertFunction(const llvm::Function *F);
-
-  bool isReachableFromEntry(const llvm::Function *F) const;
+  bool isReachableFromEntry(const llvm::Function &F) const;
+  auto const &getIndirectCallMap() const { return indirectCallMap; }
 };
 
-class PTACallGraphNode {
+class PTACallGraphAnalysis
+    : public llvm::AnalysisInfoMixin<PTACallGraphAnalysis> {
+  friend llvm::AnalysisInfoMixin<PTACallGraphAnalysis>;
+  static llvm::AnalysisKey Key;
+
 public:
-  typedef std::pair<llvm::WeakVH, PTACallGraphNode *> CallRecord;
-
-  typedef std::vector<CallRecord> CalledFunctionsVector;
-
-  inline PTACallGraphNode(llvm::Function *F) : F(F) {}
-
-  ~PTACallGraphNode() {}
-
-  typedef std::vector<CallRecord>::iterator iterator;
-  typedef std::vector<CallRecord>::const_iterator const_iterator;
-
-  /// \brief Returns the function that this call graph node represents.
-  llvm::Function *getFunction() const { return F; }
-
-  inline iterator begin() { return CalledFunctions.begin(); }
-  inline iterator end() { return CalledFunctions.end(); }
-  inline const_iterator begin() const { return CalledFunctions.begin(); }
-  inline const_iterator end() const { return CalledFunctions.end(); }
-  inline bool empty() const { return CalledFunctions.empty(); }
-  inline unsigned size() const { return (unsigned)CalledFunctions.size(); }
-
-  /// \brief Returns the i'th called function.
-  PTACallGraphNode *operator[](unsigned i) const {
-    assert(i < CalledFunctions.size() && "Invalid index");
-    return CalledFunctions[i].second;
-  }
-
-  /// \brief Adds a function to the list of functions called by this one.
-  void addCalledFunction(llvm::CallBase *CB, PTACallGraphNode *M) {
-    CalledFunctions.emplace_back(CB, M);
-  }
-
-private:
-  friend class PTACallGraph;
-
-  llvm::AssertingVH<llvm::Function> F;
-
-  std::vector<CallRecord> CalledFunctions;
-
-  PTACallGraphNode(const PTACallGraphNode &) = delete;
-  void operator=(const PTACallGraphNode &) = delete;
+  // We return a unique_ptr to ensure stability of the analysis' internal state.
+  using Result = std::unique_ptr<PTACallGraph>;
+  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 
 //===----------------------------------------------------------------------===//
@@ -146,28 +143,6 @@ private:
 // traversals.
 
 namespace llvm {
-
-template <> struct GraphTraits<PTACallGraphNode *> {
-  typedef PTACallGraphNode NodeType;
-  typedef PTACallGraphNode *NodeRef;
-
-  typedef PTACallGraphNode::CallRecord CGNPairTy;
-  typedef std::pointer_to_unary_function<CGNPairTy, PTACallGraphNode *>
-      CGNDerefFun;
-
-  static NodeType *getEntryNode(PTACallGraphNode *CGN) { return CGN; }
-
-  typedef mapped_iterator<NodeType::iterator, CGNDerefFun> ChildIteratorType;
-
-  static inline ChildIteratorType child_begin(NodeType *N) {
-    return map_iterator(N->begin(), CGNDerefFun(CGNDeref));
-  }
-  static inline ChildIteratorType child_end(NodeType *N) {
-    return map_iterator(N->end(), CGNDerefFun(CGNDeref));
-  }
-
-  static PTACallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
-};
 
 template <> struct GraphTraits<const PTACallGraphNode *> {
   typedef const PTACallGraphNode NodeType;
@@ -190,28 +165,6 @@ template <> struct GraphTraits<const PTACallGraphNode *> {
   }
 
   static const PTACallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
-};
-
-template <>
-struct GraphTraits<PTACallGraph *> : public GraphTraits<PTACallGraphNode *> {
-  static NodeType *getEntryNode(PTACallGraph *CGN) {
-    return CGN->getExternalCallingNode(); // Start at the external node!
-  }
-  typedef std::pair<const Function *const, std::unique_ptr<PTACallGraphNode>>
-      PairTy;
-  typedef std::pointer_to_unary_function<const PairTy &, PTACallGraphNode &>
-      DerefFun;
-
-  // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
-  typedef mapped_iterator<PTACallGraph::iterator, DerefFun> nodes_iterator;
-  static nodes_iterator nodes_begin(PTACallGraph *CG) {
-    return map_iterator(CG->begin(), DerefFun(CGdereference));
-  }
-  static nodes_iterator nodes_end(PTACallGraph *CG) {
-    return map_iterator(CG->end(), DerefFun(CGdereference));
-  }
-
-  static PTACallGraphNode &CGdereference(const PairTy &P) { return *P.second; }
 };
 
 template <>
@@ -241,26 +194,5 @@ struct GraphTraits<const PTACallGraph *>
   }
 };
 } // namespace llvm
-
-class PTACallGraphSCC {
-  const PTACallGraph &CG; // The call graph for this SCC.
-  std::vector<PTACallGraphNode *> Nodes;
-
-public:
-  PTACallGraphSCC(PTACallGraph &cg) : CG(cg) {}
-
-  void initialize(PTACallGraphNode *const *I, PTACallGraphNode *const *E) {
-    Nodes.assign(I, E);
-  }
-
-  bool isSingular() const { return Nodes.size() == 1; }
-  unsigned size() const { return Nodes.size(); }
-
-  typedef std::vector<PTACallGraphNode *>::const_iterator iterator;
-  iterator begin() const { return Nodes.begin(); }
-  iterator end() const { return Nodes.end(); }
-
-  const PTACallGraph &getCallGraph() { return CG; }
-};
 
 #endif /* PTACALLGRAPH_H */

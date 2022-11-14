@@ -62,12 +62,12 @@ void ParcoachAnalysisInter::run() {
    *     it can lead to a deadlock
    */
   LLVM_DEBUG(dbgs() << " (1) BFS\n");
-  scc_iterator<PTACallGraph *> cgSccIter = scc_begin(&PTACG);
+  scc_iterator<PTACallGraph const *> cgSccIter = scc_begin(&PTACG);
   while (!cgSccIter.isAtEnd()) {
-    const std::vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
-    for (PTACallGraphNode *node : nodeVec) {
+    auto const &nodeVec = *cgSccIter;
+    for (PTACallGraphNode const *node : nodeVec) {
       Function *F = node->getFunction();
-      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
+      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(*F))
         continue;
       // DBG: errs() << "Function: " << F->getName() << "\n";
 
@@ -83,10 +83,10 @@ void ParcoachAnalysisInter::run() {
   LLVM_DEBUG(dbgs() << " (2) CheckCollectives\n");
   cgSccIter = scc_begin(&PTACG);
   while (!cgSccIter.isAtEnd()) {
-    const std::vector<PTACallGraphNode *> &nodeVec = *cgSccIter;
-    for (PTACallGraphNode *node : nodeVec) {
+    auto const &nodeVec = *cgSccIter;
+    for (PTACallGraphNode const *node : nodeVec) {
       Function *F = node->getFunction();
-      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(F))
+      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(*F))
         continue;
       // DBG: //errs() << "Function: " << F->getName() << "\n";
       checkCollectives(F);
@@ -149,7 +149,8 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
 
       //// Indirect calls
       if (callee == NULL) {
-        for (const Function *mayCallee : PTACG.indirectCallMap[inst]) {
+        for (const Function *mayCallee :
+             PTACG.getIndirectCallMap().lookup(inst)) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
           callee = const_cast<Function *>(mayCallee);
@@ -197,8 +198,10 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
       //// Indirect call
       if (callee == NULL) {
         LLVM_DEBUG(dbgs() << "Indirect call map size: "
-                          << PTACG.indirectCallMap[inst].size() << "\n");
-        for (const Function *mayCallee : PTACG.indirectCallMap[inst]) {
+                          << PTACG.getIndirectCallMap().lookup(inst).size()
+                          << "\n");
+        for (const Function *mayCallee :
+             PTACG.getIndirectCallMap().lookup(inst)) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
           callee = const_cast<Function *>(mayCallee);

@@ -10,7 +10,6 @@
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 
-#include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"

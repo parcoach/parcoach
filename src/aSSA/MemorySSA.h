@@ -57,7 +57,7 @@ class MemorySSA {
       FuncToArgChiMap;
 
 public:
-  MemorySSA(llvm::Module *m, Andersen const &PTA, PTACallGraph *CG,
+  MemorySSA(llvm::Module *m, Andersen const &PTA, PTACallGraph const &CG,
             ModRefAnalysis *MRA, ExtInfo *extInfo);
   virtual ~MemorySSA();
 
@@ -105,7 +105,7 @@ private:
 protected:
   llvm::Module *m;
   Andersen const &PTA;
-  PTACallGraph *CG;
+  PTACallGraph const &CG;
   ModRefAnalysis *MRA;
   ExtInfo *extInfo;
 

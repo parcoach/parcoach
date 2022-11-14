@@ -6,11 +6,11 @@ using namespace std;
 
 void DepGraph::build() {
   unsigned Counter = 0;
-  unsigned NbFunctions = PTACG->getModule().getFunctionList().size();
+  unsigned NbFunctions = PTACG.getModule().getFunctionList().size();
   static constexpr unsigned Steps = 100;
 
-  for (Function &F : PTACG->getModule()) {
-    if (!PTACG->isReachableFromEntry(&F)) {
+  for (Function const &F : PTACG.getModule()) {
+    if (!PTACG.isReachableFromEntry(F)) {
       continue;
     }
 

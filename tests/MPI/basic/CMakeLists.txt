@@ -8,6 +8,8 @@ set(EXPECTED_SUCCESS_TESTS
   src/CIVL_BcastReduce_bad.c
   src/error2.c
   src/index-dep.c
+  src/indirect_barrier.c
+  src/indirect_ok.c
   src/loop_exit.c
   src/loop_exit2.c
   src/loop_finalize.c

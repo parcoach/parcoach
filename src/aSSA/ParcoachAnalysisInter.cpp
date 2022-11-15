@@ -168,10 +168,15 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
 
       //// Indirect call
       if (callee == NULL) {
+        LLVM_DEBUG(dbgs() << "Indirect call map size: "
+                          << PTACG.indirectCallMap[inst].size() << "\n");
         for (const Function *mayCallee : PTACG.indirectCallMap[inst]) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
           callee = const_cast<Function *>(mayCallee);
+          LLVM_DEBUG(dbgs() << "Callee: " << callee->getName()
+                            << ", contains collective: "
+                            << mpiCollListperFuncMap[callee].size() << "\n");
           // Is it a function containing collectives?
           if (!mpiCollListperFuncMap[callee]
                    .empty()) { // && mpiCollMap[BB]!="NAVS"){
@@ -860,6 +865,12 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
       continue;
     }
 
+    LLVM_DEBUG({
+      dbgs() << "Running on ";
+      CI->print(dbgs());
+      dbgs() << "\n";
+    });
+
     int OP_color = getCollectiveColor(f);
     Value *OP_com = nullptr;
     int OP_arg_id = -1;
@@ -884,7 +895,7 @@ void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
     // For the summary-based approach, use the following instead of the previous
     // line
     // DG->getCallIntraIPDF(CI, callIPDF);
-
+    LLVM_DEBUG(dbgs() << "callIPDF size: " << callIPDF.size() << "\n");
     if (!callIPDF.empty())
       nbCollectivesCondCalled++;
 

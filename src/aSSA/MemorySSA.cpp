@@ -148,19 +148,19 @@ void MemorySSA::computeMuChi(const Function *F) {
    * function.
    */
   for (MemReg *r : usedRegs) {
-    funToEntryChiMap[F].insert(new MSSAEntryChi(r, F));
+    auto *chi = new MSSAEntryChi(r, F);
+    funToEntryChiMap[F].insert(chi);
+    funRegToEntryChiMap[F][chi->region] = chi;
     regDefToBBMap[r].insert(&F->getEntryBlock());
   }
 
   if (!functionDoesNotRet(F)) {
-    for (MemReg *r : usedRegs)
-      funToReturnMuMap[F].insert(new MSSARetMu(r, F));
+    for (MemReg *r : usedRegs) {
+      auto *mu = new MSSARetMu(r, F);
+      funToReturnMuMap[F].insert(mu);
+      funRegToReturnMuMap[F][mu->region] = mu;
+    }
   }
-
-  for (MSSAChi *chi : funToEntryChiMap[F])
-    funRegToEntryChiMap[F][chi->region] = chi;
-  for (MSSAMu *mu : funToReturnMuMap[F])
-    funRegToReturnMuMap[F][mu->region] = mu;
 }
 
 void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
@@ -173,7 +173,10 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);
     }
-    return;
+    // NOTE (PV): I removed a return here because we want each arg of the
+    // barrier to go through the muchi parameters thingy!
+    // Otherwise a used region may not appear in the mu map and would lead
+    // to breaking an assert!
   }
 
   // If the called function is an OMP barrier, create an artificial CHI
@@ -185,7 +188,10 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);
     }
-    return;
+    // NOTE (PV): I removed a return here because we want each arg of the
+    // barrier to go through the muchi parameters thingy!
+    // Otherwise a used region may not appear in the mu map and would lead
+    // to breaking an assert!
   }
 
   // If the callee is a declaration (external function), we create a Mu

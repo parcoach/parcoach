@@ -175,12 +175,8 @@ void ParcoachInstr::replaceOMPMicroFunctionCalls(
 
     // Operand 2 contains the outlined function
     Value *op2 = ci->getOperand(2);
-    ConstantExpr *op2AsCE = dyn_cast<ConstantExpr>(op2);
-    assert(op2AsCE);
-    Instruction *op2AsInst = op2AsCE->getAsInstruction();
-    Function *outlinedFunc = dyn_cast<Function>(op2AsInst->getOperand(0));
-    assert(outlinedFunc);
-    op2AsInst->deleteValue();
+    Function *outlinedFunc = dyn_cast<Function>(op2);
+    assert(outlinedFunc && "can't cast kmp_fork_call arg");
 
     errs() << outlinedFunc->getName() << "\n";
 

@@ -930,8 +930,8 @@ errs() << pair.first << "{" << pair.second << "}\n";
       DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
       const Instruction *inst = BB->getTerminator();
       DebugLoc loc = inst->getDebugLoc();
-      Warnings.push_back(
-          make_pair(loc.getLine(), loc ? loc->getFilename().str() : "?"));
+      Warnings.push_back(make_pair(loc ? loc.getLine() : 0,
+                                   loc ? loc->getFilename().str() : "?"));
 
       if (optDotTaintPaths) {
         string dotfilename("taintedpath-");

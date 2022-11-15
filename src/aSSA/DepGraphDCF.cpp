@@ -129,7 +129,7 @@ void DepGraphDCF::buildFunction(const llvm::Function *F) {
     if (F->isVarArg()) {
       for (auto I : mssa->extCallSiteToVarArgEntryChi[F]) {
         MSSAChi *entryChi = I.second;
-        assert(entryChi && entryChi->var);
+        assert(entryChi && entryChi->var && "cs to vararg not found");
         funcToSSANodesMap[F].insert(entryChi->var);
       }
       for (auto I : mssa->extCallSiteToVarArgExitChi[F]) {
@@ -150,7 +150,7 @@ void DepGraphDCF::buildFunction(const llvm::Function *F) {
 
       for (auto I : mssa->extCallSiteToArgEntryChi[F]) {
         MSSAChi *entryChi = I.second[argNo];
-        assert(entryChi && entryChi->var);
+        assert(entryChi && entryChi->var && "cs to arg not found");
         funcToSSANodesMap[F].insert(entryChi->var);
       }
       for (auto I : mssa->extCallSiteToArgExitChi[F]) {
@@ -571,7 +571,7 @@ void DepGraphDCF::connectCSMus(llvm::CallInst &I) {
     auto it = mssa->funRegToEntryChiMap.find(called);
     if (it != mssa->funRegToEntryChiMap.end()) {
       MSSAChi *entryChi = it->second[mu->region];
-      assert(entryChi && entryChi->var);
+      assert(entryChi && entryChi->var && "reg to entrychi not found");
       funcToSSANodesMap[called].insert(entryChi->var);
       addEdge(callMu->var, entryChi->var); // rule3
     }

@@ -442,4 +442,9 @@ void ModRefAnalysis::dump() {
 
     ++cgSccIter;
   }
+  errs() << "GlobalKill(";
+  for (MemReg *r : globalKillSet) {
+    errs() << r->getName() << ", ";
+  }
+  errs() << ")\n";
 }

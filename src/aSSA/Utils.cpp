@@ -16,7 +16,7 @@ using namespace llvm;
 using namespace std;
 
 bool isCallSite(const llvm::Instruction *inst) {
-  return llvm::isa<llvm::CallInst>(inst) || llvm::isa<llvm::InvokeInst>(inst);
+  return llvm::isa<llvm::CallBase>(inst);
 }
 
 std::string getValueLabel(const llvm::Value *v) {

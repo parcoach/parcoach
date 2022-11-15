@@ -11,5 +11,7 @@ EXE_OUT=$1.out
 EXPECTED_OUTPUT=$2
 
 export HWLOC_HIDE_ERRORS=2
-@MPI_RUN_BIN@ "${EXE}" >"${EXE_OUT}"
+# The number of process is very arbitrary, and we may need to switch to a
+# per-test value in the future.
+@MPI_RUN_BIN@ -np 2 "${EXE}" >"${EXE_OUT}"
 @Python3_EXECUTABLE@ @PARCOACH_FILE_CONTAINS@ ${EXE_OUT} ${EXPECTED_OUTPUT}

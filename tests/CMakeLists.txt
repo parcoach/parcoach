@@ -5,6 +5,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   include(CMakePolicy)
   include(Variables)
   include(ParcoachCommonOptions)
+  include(Helpers)
   if(NOT CMAKE_CXX_COMPILER_ID STREQUAL Clang
      OR NOT CMAKE_C_COMPILER_ID STREQUAL Clang)
    message(FATAL_ERROR "PARCOACH's tests require clang as a compiler. Please "
@@ -33,6 +34,7 @@ set(PARCOACH_GREP_BIN ${CMAKE_CURRENT_BINARY_DIR}/parcoach_grep)
 configure_file(parcoach_grep.in ${PARCOACH_GREP_BIN})
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+find_program(LIT_BIN lit REQUIRED)
 set(PARCOACH_FILE_CONTAINS ${CMAKE_CURRENT_SOURCE_DIR}/file_contains.py)
 
 # Top-level target for all generated test files.
@@ -41,15 +43,20 @@ add_custom_target(tests-dependencies ALL)
 
 # This provide a "high-level" test target that can be used to depend on running
 # *all* tests even if nested in a folder.
-add_custom_target(run-tests
+add_custom_target(run-tests-ctest
   ${CMAKE_CTEST_COMMAND} --output-on-failure --timeout 30
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   USES_TERMINAL
   DEPENDS ${PARCOACH_BIN} tests-dependencies
   )
+add_custom_target(run-tests DEPENDS run-tests-ctest)
 
 if(PARCOACH_ENABLE_MPI)
   add_subdirectory(MPI)
+endif()
+
+if(PARCOACH_ENABLE_OPENMP)
+  add_subdirectory(OMP)
 endif()
 
 add_subdirectory(interface)

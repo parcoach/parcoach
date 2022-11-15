@@ -4,6 +4,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(CMakePolicy)
 include(Variables)
 include(ParcoachOptions)
+include(Helpers)
 
 message(STATUS "This is PARCOACH ${PACKAGE_VERSION}")
 message(STATUS "You need LLVM ${REQUIRED_LLVM_VERSION} to build this project")

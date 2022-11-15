@@ -71,6 +71,7 @@ build-releases:
     expire_in: 2 days
 
 test-releases:
+  <<: *pipenv_configuration
   <<: *release_matrix
   stage: tests
   image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
@@ -82,12 +83,14 @@ test-releases:
     - mkdir install
     - tar -xf packages/*-${TYPE}-Linux.tar.gz -C install
     - export PARCOACH_INSTALL_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))"
+    - export LLVM_TOOLS_BINARY_DIR="$(dirname $(find /usr/lib -name FileCheck))"
     - mkdir build
     - cmake tests -G Ninja -B build -C caches/Tests-releases.cmake
     - cmake --build build --target run-tests
 
 # This is the default debug+assert build+tests in-tree
 test-asserts:
+  <<: *pipenv_configuration
   stage: tests
   image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
   needs:

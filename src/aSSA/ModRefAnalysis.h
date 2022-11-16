@@ -1,16 +1,16 @@
 #ifndef MODREFANALYSIS
 #define MODREFANALYSIS
 
-#include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "PTACallGraph.h"
 #include "parcoach/andersen/Andersen.h"
+#include "parcoach/ExtInfo.h"
 
 #include "llvm/IR/InstVisitor.h"
 
 class ModRefAnalysis : public llvm::InstVisitor<ModRefAnalysis> {
 public:
-  ModRefAnalysis(PTACallGraph const &CG, Andersen const &PTA, ExtInfo *extInfo);
+  ModRefAnalysis(PTACallGraph const &CG, Andersen const &PTA, parcoach::ExtInfo *extInfo);
   ~ModRefAnalysis();
 
   MemRegSet getFuncMod(const llvm::Function *F);
@@ -32,7 +32,7 @@ private:
   const llvm::Function *curFunc;
   PTACallGraph const &CG;
   Andersen const &PTA;
-  ExtInfo *extInfo;
+  parcoach::ExtInfo *extInfo;
   std::map<const llvm::Function *, MemRegSet> funcModMap;
   std::map<const llvm::Function *, MemRegSet> funcRefMap;
   std::map<const llvm::Function *, MemRegSet> funcLocalMap;

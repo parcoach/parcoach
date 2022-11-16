@@ -7,7 +7,7 @@ using namespace llvm;
 using namespace std;
 
 ModRefAnalysis::ModRefAnalysis(PTACallGraph const &CG, Andersen const &PTA,
-                               ExtInfo *extInfo)
+                               parcoach::ExtInfo *extInfo)
     : CG(CG), PTA(PTA), extInfo(extInfo) {
   analyze();
 }
@@ -143,7 +143,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
 
     // direct call
     if (callee) {
-      const extModInfo *info = extInfo->getExtModInfo(callee);
+      auto const *info = extInfo->getExtModInfo(callee);
       assert(info);
 
       // Variadic argument
@@ -179,7 +179,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
         if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
           continue;
 
-        const extModInfo *info = extInfo->getExtModInfo(mayCallee);
+        auto const *info = extInfo->getExtModInfo(mayCallee);
         assert(info);
 
         // Variadic argument
@@ -211,7 +211,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
 
   // Compute mof/ref for return value if it is a pointer.
   if (callee) {
-    const extModInfo *info = extInfo->getExtModInfo(callee);
+    auto const *info = extInfo->getExtModInfo(callee);
     assert(info);
 
     if (callee->getReturnType()->isPointerTy()) {
@@ -245,7 +245,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
       if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
         continue;
 
-      const extModInfo *info = extInfo->getExtModInfo(mayCallee);
+      auto const *info = extInfo->getExtModInfo(mayCallee);
       assert(info);
 
       if (mayCallee->getReturnType()->isPointerTy()) {

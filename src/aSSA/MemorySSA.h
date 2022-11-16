@@ -1,9 +1,9 @@
 #ifndef MEMORYSSA_H
 #define MEMORYSSA_H
 
-#include "ExtInfo.h"
 #include "MSSAMuChi.h"
 #include "PTACallGraph.h"
+#include "parcoach/ExtInfo.h"
 #include "parcoach/andersen/Andersen.h"
 
 #include "llvm/ADT/DenseMap.h"

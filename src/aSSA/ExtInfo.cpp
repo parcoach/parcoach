@@ -1,14 +1,15 @@
-#include "ExtInfo.h"
+#include "parcoach/ExtInfo.h"
+
 #include "Utils.h"
 
 #include "llvm/IR/Module.h"
 
 using namespace llvm;
-using namespace std;
 
+namespace parcoach {
 struct funcModPair {
   const char *name;
-  const extModInfo modInfo;
+  const ExtInfo::ModInfo modInfo;
 };
 
 static const funcModPair funcModPairs[] = {
@@ -845,7 +846,7 @@ static const funcModPair funcModPairs[] = {
 
 struct funcDepPair {
   const char *name;
-  const extDepInfo depInfo;
+  const ExtInfo::DepInfo depInfo;
 };
 
 // TO DO
@@ -1022,20 +1023,28 @@ ExtInfo::ExtInfo(Module &m) {
 
 ExtInfo::~ExtInfo() {}
 
-const extModInfo *ExtInfo::getExtModInfo(const llvm::Function *F) {
+const ExtInfo::ModInfo *ExtInfo::getExtModInfo(const llvm::Function *F) {
   auto I = extModInfoMap.find(F->getName());
 
   if (I != extModInfoMap.end())
     return extModInfoMap[F->getName()];
 
-  return NULL;
+  return nullptr;
 }
 
-const extDepInfo *ExtInfo::getExtDepInfo(const llvm::Function *F) {
+const ExtInfo::DepInfo *ExtInfo::getExtDepInfo(const llvm::Function *F) {
   auto I = extDepInfoMap.find(F->getName());
 
   if (I != extDepInfoMap.end())
     return extDepInfoMap[F->getName()];
 
-  return NULL;
+  return nullptr;
 }
+
+AnalysisKey ExtInfoAnalysis::Key;
+std::unique_ptr<ExtInfo> ExtInfoAnalysis::run(Module &M,
+                                              ModuleAnalysisManager &) {
+  return std::make_unique<ExtInfo>(M);
+}
+
+} // namespace parcoach

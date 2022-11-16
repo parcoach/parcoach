@@ -201,7 +201,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     const CallInst *CI = cast<CallInst>(inst);
     extFuncToCSMap[callee].insert(inst);
 
-    const extModInfo *info = extInfo->getExtModInfo(callee);
+    auto const *info = extInfo->getExtModInfo(callee);
     assert(info);
 
     // Mu and Chi for parameters

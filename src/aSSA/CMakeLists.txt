@@ -27,7 +27,6 @@ set(ASSA_HEADERS
   CollList.h
   DepGraph.h
   DepGraphDCF.h
-  ExtInfo.h
   Instrumentation.h
   MemoryRegion.h
   MemorySSA.h

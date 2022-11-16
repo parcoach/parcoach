@@ -8,7 +8,6 @@ The project is licensed under the LGPL 2.1 license
 #include "Config.h"
 #include "DepGraph.h"
 #include "DepGraphDCF.h"
-#include "ExtInfo.h"
 #include "MemoryRegion.h"
 #include "MemorySSA.h"
 #include "ModRefAnalysis.h"
@@ -16,6 +15,7 @@ The project is licensed under the LGPL 2.1 license
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
+#include "parcoach/ExtInfo.h"
 #include "parcoach/Passes.h"
 #include "parcoach/StatisticsAnalysis.h"
 #include "parcoach/andersen/Andersen.h"
@@ -320,7 +320,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
     return false;
   }
 
-  ExtInfo extInfo(M);
+  auto &extInfo = MAM.getResult<ExtInfoAnalysis>(M);
 
   // Replace OpenMP Micro Function Calls and compute shared variable for
   // each function.
@@ -386,7 +386,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute MOD/REF analysis
   tstart_modref = gettime();
-  ModRefAnalysis MRA(*PTACG, AA, &extInfo);
+  ModRefAnalysis MRA(*PTACG, AA, extInfo.get());
   tend_modref = gettime();
   if (optDumpModRef)
     MRA.dump();
@@ -395,7 +395,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute all-inclusive SSA.
   tstart_assa = gettime();
-  parcoach::MemorySSA MSSA(&M, AA, *PTACG, &MRA, &extInfo);
+  parcoach::MemorySSA MSSA(&M, AA, *PTACG, &MRA, extInfo.get());
 
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
@@ -514,6 +514,7 @@ void RegisterAnalysis(ModuleAnalysisManager &MAM) {
   // TODO
   // MAM.registerPass([&]() { return InterproceduralAnalysis(); });
   MAM.registerPass([&]() { return StatisticsAnalysis(); });
+  MAM.registerPass([&]() { return ExtInfoAnalysis(); });
   MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
   MAM.registerPass([&]() { return AndersenAA(); });
 }

@@ -38,6 +38,9 @@ following commands:
 
 ```bash
 cd sources
+# This installs necessary python dependencies for tests
+pipenv install
+pipenv shell
 mkdir build && cd build
 cmake .. -G Ninja
 ninja

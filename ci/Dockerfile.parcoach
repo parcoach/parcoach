@@ -29,4 +29,7 @@ RUN useradd -m parcoach
 RUN echo 'parcoach ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 USER parcoach
+ENV SHELL=/bin/bash
 WORKDIR /home/parcoach
+
+RUN echo ". /scripts/welcome.sh" >> /home/parcoach/.bashrc

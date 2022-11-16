@@ -1,1 +1,1 @@
-PARCOACH: tests/MPI/basic/src/CIVL_BcastReduce2.c: warning: MPI_Reduce line 23 possibly not called by all processes because of conditional(s) line(s)  22 (tests/MPI/basic/src/CIVL_BcastReduce2.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/CIVL_BcastReduce2.c: warning: MPI_Reduce line 24 possibly not called by all processes because of conditional(s) line(s)  23 (tests/MPI/basic/src/CIVL_BcastReduce2.c) (full-inter)

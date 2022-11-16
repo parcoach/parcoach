@@ -1,2 +1,2 @@
-PARCOACH: tests/MPI/basic/src/mismatch_barrier4.c: warning: MPI_Barrier line 14 possibly not called by all processes because of conditional(s) line(s)  13 (tests/MPI/basic/src/mismatch_barrier4.c) (full-inter)
-PARCOACH: tests/MPI/basic/src/mismatch_barrier4.c: warning: MPI_Barrier line 22 possibly not called by all processes because of conditional(s) line(s)  21 (tests/MPI/basic/src/mismatch_barrier4.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/mismatch_barrier4.c: warning: MPI_Barrier line 12 possibly not called by all processes because of conditional(s) line(s)  11 (tests/MPI/basic/src/mismatch_barrier4.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/mismatch_barrier4.c: warning: MPI_Barrier line 20 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/mismatch_barrier4.c) (full-inter)

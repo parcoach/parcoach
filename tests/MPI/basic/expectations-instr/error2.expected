@@ -1,3 +1,3 @@
 PARCOACH DYNAMIC-CHECK : Error detected on rank 0
-PARCOACH DYNAMIC-CHECK : Abort is invoking line 14 before calling MPI_Finalize in tests/MPI/basic/src/error2.c
+PARCOACH DYNAMIC-CHECK : Abort is invoking line 13 before calling MPI_Finalize in tests/MPI/basic/src/error2.c
 PARCOACH DYNAMIC-CHECK : see warnings  

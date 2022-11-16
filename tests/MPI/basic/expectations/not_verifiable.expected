@@ -1,2 +1,2 @@
-PARCOACH: tests/MPI/basic/src/not_verifiable.c: warning: MPI_Barrier line 20 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/not_verifiable.c) (full-inter)
-PARCOACH: tests/MPI/basic/src/not_verifiable.c: warning: MPI_Barrier line 23 possibly not called by all processes because of conditional(s) line(s)  22 (tests/MPI/basic/src/not_verifiable.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/not_verifiable.c: warning: MPI_Barrier line 19 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/not_verifiable.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/not_verifiable.c: warning: MPI_Barrier line 22 possibly not called by all processes because of conditional(s) line(s)  21 (tests/MPI/basic/src/not_verifiable.c) (full-inter)

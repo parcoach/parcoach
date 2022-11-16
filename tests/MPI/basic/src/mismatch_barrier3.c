@@ -1,27 +1,23 @@
-#include <stdio.h>
 #include "mpi.h"
+#include <stdio.h>
 
+void f() { MPI_Barrier(MPI_COMM_WORLD); }
 
-void f(){
-	MPI_Barrier(MPI_COMM_WORLD);
-}
+int main(int argc, char **argv) {
 
+  MPI_Init(&argc, &argv);
+  int s = 0, r = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &s);
+  MPI_Comm_rank(MPI_COMM_WORLD, &r);
 
-int main(int argc, char **argv){
+  if (r % 2)
+    f();
+  else
+    MPI_Barrier(MPI_COMM_WORLD);
 
-	MPI_Init(&argc,&argv);
-	int s=0, r=0;
-	MPI_Comm_size(MPI_COMM_WORLD,&s);
-	MPI_Comm_rank(MPI_COMM_WORLD,&r);
+  if (r % 2)
+    f();
 
-	if(r%2)
-		f();
-	else
-		MPI_Barrier(MPI_COMM_WORLD);
-
-	if(r%2)
-		f();
-
-	MPI_Finalize();
-	return 0;
+  MPI_Finalize();
+  return 0;
 }

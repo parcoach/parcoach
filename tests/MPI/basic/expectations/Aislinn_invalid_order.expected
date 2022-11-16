@@ -1,4 +1,4 @@
-PARCOACH: tests/MPI/basic/src/Aislinn_invalid_order.c: warning: MPI_Scatter line 17 possibly not called by all processes because of conditional(s) line(s)  16 (tests/MPI/basic/src/Aislinn_invalid_order.c) (full-inter)
-PARCOACH: tests/MPI/basic/src/Aislinn_invalid_order.c: warning: MPI_Gather line 18 possibly not called by all processes because of conditional(s) line(s)  16 (tests/MPI/basic/src/Aislinn_invalid_order.c) (full-inter)
-PARCOACH: tests/MPI/basic/src/Aislinn_invalid_order.c: warning: MPI_Gather line 21 possibly not called by all processes because of conditional(s) line(s)  20 (tests/MPI/basic/src/Aislinn_invalid_order.c) (full-inter)
-PARCOACH: tests/MPI/basic/src/Aislinn_invalid_order.c: warning: MPI_Scatter line 22 possibly not called by all processes because of conditional(s) line(s)  20 (tests/MPI/basic/src/Aislinn_invalid_order.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/Aislinn_invalid_order.c: warning: MPI_Scatter line 16 possibly not called by all processes because of conditional(s) line(s)  15 (tests/MPI/basic/src/Aislinn_invalid_order.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/Aislinn_invalid_order.c: warning: MPI_Gather line 17 possibly not called by all processes because of conditional(s) line(s)  15 (tests/MPI/basic/src/Aislinn_invalid_order.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/Aislinn_invalid_order.c: warning: MPI_Gather line 20 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/Aislinn_invalid_order.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/Aislinn_invalid_order.c: warning: MPI_Scatter line 21 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/Aislinn_invalid_order.c) (full-inter)

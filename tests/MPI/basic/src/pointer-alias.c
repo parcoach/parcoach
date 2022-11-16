@@ -1,8 +1,8 @@
-#include <stdio.h>
 #include "mpi.h"
+#include <stdio.h>
 
 int main(int argc, char **argv) {
-  MPI_Init(&argc,&argv);
+  MPI_Init(&argc, &argv);
 
   int a = 1;
   int *b = &a;
@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
   if (a > 0)
     MPI_Barrier(MPI_COMM_WORLD);
 
-  MPI_Comm_rank(MPI_COMM_WORLD,b);
+  MPI_Comm_rank(MPI_COMM_WORLD, b);
 
   if (a > 0)
     MPI_Barrier(MPI_COMM_WORLD);

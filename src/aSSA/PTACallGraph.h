@@ -57,7 +57,6 @@ public:
   using const_iterator = FunctionMapTy::const_iterator;
 
 private:
-  llvm::Module const &M;
   Andersen const &AA;
 
   /// \brief A map from \c Function* to \c CallGraphNode*.
@@ -95,9 +94,6 @@ public:
   ~PTACallGraph();
 
   PTACallGraphNode *getEntry() const { return Root; }
-
-  /// \brief Returns the module the call graph corresponds to.
-  llvm::Module const &getModule() const { return M; }
 
   inline const_iterator begin() const { return FunctionMap.begin(); }
   inline const_iterator end() const { return FunctionMap.end(); }

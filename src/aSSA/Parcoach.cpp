@@ -6,12 +6,11 @@ The project is licensed under the LGPL 2.1 license
 #include "Parcoach.h"
 #include "Collectives.h"
 #include "Config.h"
-#include "DepGraph.h"
-#include "DepGraphDCF.h"
 #include "Options.h"
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
+#include "parcoach/DepGraphDCF.h"
 #include "parcoach/ExtInfo.h"
 #include "parcoach/MemoryRegion.h"
 #include "parcoach/MemorySSA.h"
@@ -116,7 +115,7 @@ bool ParcoachInstr::doFinalization(Module &M,
     errs() << "AA time : " << format("%.3f", (tend_aa - tstart_aa) * 1.0e3)
            << " ms\n";
     errs() << "Dep Analysis time : "
-           << format("%.3f", (tend_flooding - tstart_pta) * 1.0e3) << " ms\n";
+           << format("%.3f", (tend_depgraph - tstart_pta) * 1.0e3) << " ms\n";
     errs() << "Parcoach time : "
            << format("%.3f", (tend_parcoach - tstart_parcoach) * 1.0e3)
            << " ms\n";
@@ -135,9 +134,6 @@ bool ParcoachInstr::doFinalization(Module &M,
            << format("%.3f", (tend_assa - tstart_assa) * 1.0e3) << " ms\n";
     errs() << "Dep graph generation time : "
            << format("%.3f", (tend_depgraph - tstart_depgraph) * 1.0e3)
-           << " ms\n";
-    errs() << "Flooding time : "
-           << format("%.3f", (tend_flooding - tstart_flooding) * 1.0e3)
            << " ms\n";
   }
 
@@ -320,8 +316,6 @@ bool ParcoachInstr::runOnModule(Module &M) {
     return false;
   }
 
-  auto &extInfo = MAM.getResult<ExtInfoAnalysis>(M);
-
   // Replace OpenMP Micro Function Calls and compute shared variable for
   // each function.
   map<const Function *, set<const Value *>> func2SharedOmpVar;
@@ -397,31 +391,18 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute all-inclusive SSA.
   tstart_assa = gettime();
-  MemorySSA MSSA(M, AA, *PTACG, MRA.get(), extInfo.get(), MAM);
+  auto &MSSA = MAM.getResult<MemorySSAAnalysis>(M);
   tend_assa = gettime();
   errs() << "* SSA done\n";
 
   // Compute dep graph.
   tstart_depgraph = gettime();
-  DepGraph *DG = NULL;
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  DG = new DepGraphDCF(&MSSA, *PTACG, FAM);
-  DG->build();
+  auto &DG = MAM.getResult<DepGraphDCFAnalysis>(M);
 
   errs() << "* Dep graph done\n";
 
   tend_depgraph = gettime();
-
-  tstart_flooding = gettime();
-
-  // Compute tainted values
-  if (optContextInsensitive)
-    DG->computeTaintedValuesContextInsensitive();
-  else
-    DG->computeTaintedValuesContextSensitive();
-
-  tend_flooding = gettime();
-  errs() << "* value contamination  done\n";
 
   // Dot dep graph.
   if (optDotGraph) {
@@ -433,7 +414,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
   tstart_parcoach = gettime();
   // Parcoach analysis
 
-  ParcoachAnalysisInter PAInter(M, DG, *PTACG, FAM, !optInstrumInter);
+  ParcoachAnalysisInter PAInter(M, DG.get(), *PTACG, FAM, !optInstrumInter);
   PAInter.run();
 
   tend_parcoach = gettime();
@@ -460,8 +441,6 @@ double ParcoachInstr::tstart_assa = 0;
 double ParcoachInstr::tend_assa = 0;
 double ParcoachInstr::tstart_depgraph = 0;
 double ParcoachInstr::tend_depgraph = 0;
-double ParcoachInstr::tstart_flooding = 0;
-double ParcoachInstr::tend_flooding = 0;
 double ParcoachInstr::tstart_parcoach = 0;
 double ParcoachInstr::tend_parcoach = 0;
 
@@ -485,6 +464,8 @@ void RegisterAnalysis(ModuleAnalysisManager &MAM) {
   MAM.registerPass([&]() { return ExtInfoAnalysis(); });
   MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
   MAM.registerPass([&]() { return ModRefAnalysis(); });
+  MAM.registerPass([&]() { return MemorySSAAnalysis(); });
+  MAM.registerPass([&]() { return DepGraphDCFAnalysis(); });
   MAM.registerPass([&]() { return AndersenAA(); });
 }
 

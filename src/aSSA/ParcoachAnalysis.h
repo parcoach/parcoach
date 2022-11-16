@@ -1,12 +1,22 @@
 #ifndef PARCOACHANALYSIS_H
 #define PARCOACHANALYSIS_H
 
-#include "DepGraph.h"
 #include <map>
+#include <set>
+
+namespace parcoach {
+class DepGraphDCF;
+}
+namespace llvm {
+class Module;
+class BasicBlock;
+class Instruction;
+} // namespace llvm
 
 class ParcoachAnalysis {
 public:
-  ParcoachAnalysis(llvm::Module &M, DepGraph *DG, bool disableInstru = false)
+  ParcoachAnalysis(llvm::Module &M, parcoach::DepGraphDCF *DG,
+                   bool disableInstru = false)
       : M(M), DG(DG), nbCollectivesFound(0), nbCollectivesCondCalled(0),
         nbCollectivesFoundParcoachOnly(0), nbCC(0),
         disableInstru(disableInstru) {}
@@ -58,7 +68,7 @@ public:
 
 protected:
   llvm::Module &M;
-  DepGraph *DG;
+  parcoach::DepGraphDCF *DG;
 
   unsigned nbCollectivesFound;
   unsigned nbCollectivesCondCalled;

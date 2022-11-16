@@ -3,6 +3,7 @@
 #include "Instrumentation.h"
 #include "Options.h"
 #include "Utils.h"
+#include "parcoach/DepGraphDCF.h"
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SetVector.h"

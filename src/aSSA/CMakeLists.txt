@@ -1,7 +1,6 @@
 set(ASSA_SOURCES
   Collectives.cpp
   CollList.cpp
-  DepGraph.cpp
   DepGraphDCF.cpp
   Debug.cpp
   ExtInfo.cpp
@@ -25,8 +24,6 @@ set(ASSA_SOURCES
 set(ASSA_HEADERS
   Collectives.h
   CollList.h
-  DepGraph.h
-  DepGraphDCF.h
   Instrumentation.h
   MSSAMuChi.h
   Options.h

@@ -173,4 +173,14 @@ public:
   auto const &getExtCSToArgExitChi() const { return extCallSiteToArgExitChi; }
   auto const &getExtFuncToCSMap() const { return extFuncToCSMap; }
 };
+
+class MemorySSAAnalysis : public llvm::AnalysisInfoMixin<MemorySSAAnalysis> {
+  friend llvm::AnalysisInfoMixin<MemorySSAAnalysis>;
+  static llvm::AnalysisKey Key;
+
+public:
+  // We return a unique_ptr to ensure stability of the analysis' internal state.
+  using Result = std::unique_ptr<MemorySSA>;
+  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+};
 } // namespace parcoach

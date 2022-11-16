@@ -19,6 +19,7 @@ set(SHARED_HEADERS
   include/parcoach/andersen/PtsSet.h
   include/parcoach/andersen/SparseBitVectorGraph.h
   include/parcoach/Analysis.h
+  include/parcoach/DepGraphDCF.h
   include/parcoach/ExtInfo.h
   include/parcoach/MemoryRegion.h
   include/parcoach/MemorySSA.h

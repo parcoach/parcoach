@@ -17,7 +17,7 @@ PTACallGraphAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 PTACallGraph::PTACallGraph(llvm::Module const &M, Andersen const &AA)
-    : M(M), AA(AA), Root(nullptr), ProgEntry(nullptr),
+    : AA(AA), Root(nullptr), ProgEntry(nullptr),
       ExternalCallingNode(getOrInsertFunction(nullptr)),
       CallsExternalNode(std::make_unique<PTACallGraphNode>(nullptr)) {
 
@@ -149,7 +149,6 @@ PTACallGraphNode *PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
   if (CGN)
     return CGN.get();
 
-  assert((!F || F->getParent() == &M) && "Function not in current module!");
   CGN = std::make_unique<PTACallGraphNode>(const_cast<Function *>(F));
   // LLVM10: CGN = std::make_unique<PTACallGraphNode>(const_cast<Function
   // *>(F));

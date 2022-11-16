@@ -30,7 +30,7 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
   using CollperFuncMap = std::map<const llvm::Function *, CollSet>;
 
 public:
-  ParcoachAnalysisInter(llvm::Module &M, DepGraph *DG,
+  ParcoachAnalysisInter(llvm::Module &M, DepGraphDCF *DG,
                         PTACallGraph const &PTACG,
                         llvm::FunctionAnalysisManager &AM,
                         bool disableInstru = false)

@@ -21,8 +21,8 @@ public:
   /* timers */
   static double tstart, tend, tstart_aa, tend_aa, tstart_pta, tend_pta,
       tstart_regcreation, tend_regcreation, tstart_modref, tend_modref,
-      tstart_assa, tend_assa, tstart_depgraph, tend_depgraph, tstart_flooding,
-      tend_flooding, tstart_parcoach, tend_parcoach;
+      tstart_assa, tend_assa, tstart_depgraph, tend_depgraph, tstart_parcoach,
+      tend_parcoach;
   ParcoachInstr(llvm::ModuleAnalysisManager &AM);
 
   virtual bool runOnModule(llvm::Module &M);

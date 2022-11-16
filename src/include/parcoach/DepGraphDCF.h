@@ -1,33 +1,37 @@
-#ifndef DEPGRAPHDCF_H
-#define DEPGRAPHDCF_H
+#pragma once
 
-#include "DepGraph.h"
-#include "MSSAMuChi.h"
-#include "PTACallGraph.h"
 #include "parcoach/MemorySSA.h"
 
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include <optional>
 
-class DepGraphDCF : public llvm::InstVisitor<DepGraphDCF>, public DepGraph {
+class PTACallGraphNode;
+namespace llvm {
+class raw_fd_ostream;
+}
+
+namespace parcoach {
+
+class DepGraphDCF : public llvm::InstVisitor<DepGraphDCF> {
 public:
-  typedef std::set<MSSAVar *> VarSet;
-  typedef std::set<const MSSAVar *> ConstVarSet;
-  typedef std::set<const llvm::Value *> ValueSet;
+  using VarSet = std::set<MSSAVar *>;
+  using ConstVarSet = std::set<const MSSAVar *>;
+  using ValueSet = std::set<const llvm::Value *>;
 
   DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph const &CG,
-              llvm::FunctionAnalysisManager &AM, bool noPtrDep = false,
-              bool noPred = false, bool disablePhiElim = false);
+              llvm::FunctionAnalysisManager &AM, llvm::Module &M,
+              bool noPtrDep = false, bool noPred = false,
+              bool disablePhiElim = false);
   virtual ~DepGraphDCF();
 
-  virtual void build();
-  void buildFunction(const llvm::Function *F);
-  void toDot(std::string filename);
-  void dotTaintPath(const llvm::Value *v, std::string filename,
-                    const llvm::Instruction *collective);
+  void toDot(llvm::StringRef filename) const;
+  void dotTaintPath(const llvm::Value *v, llvm::StringRef filename,
+                    const llvm::Instruction *collective) const;
 
+  // FIXME: ideally we would have two classes: one analysis result, and one
+  // visitor constructing this analysis result (so that the user can't "visit"
+  // stuff manually and change the analysis' result).
   void visitBasicBlock(llvm::BasicBlock &BB);
   void visitAllocaInst(llvm::AllocaInst &I);
   void visitCmpInst(llvm::CmpInst &I);
@@ -47,6 +51,18 @@ public:
   void visitTerminator(llvm::Instruction &I);
   void visitInstruction(llvm::Instruction &I);
 
+  void printTimers() const;
+  bool isTaintedValue(const llvm::Value *v) const;
+
+  void getCallInterIPDF(const llvm::CallInst *call,
+                        std::set<const llvm::BasicBlock *> &ipdf) const;
+  // EMMA: used for the summary-based approach
+  void getCallIntraIPDF(const llvm::CallInst *call,
+                        std::set<const llvm::BasicBlock *> &ipdf) const;
+
+private:
+  void build();
+  void buildFunction(const llvm::Function *F);
   // Phi elimination pass.
   // A ssa Phi function can be eliminated if its operands are equivalent.
   // In this case operands are merged into a single node and the phi is replaced
@@ -61,48 +77,39 @@ public:
   void computeTaintedValuesContextInsensitive();
   void computeTaintedValuesContextSensitive();
   void computeTaintedValuesCSForEntry(PTACallGraphNode const *entry);
-  bool isTaintedValue(const llvm::Value *v);
 
-  void getCallInterIPDF(const llvm::CallInst *call,
-                        std::set<const llvm::BasicBlock *> &ipdf);
-  // EMMA: used for the summary-based approach
-  void getCallIntraIPDF(const llvm::CallInst *call,
-                        std::set<const llvm::BasicBlock *> &ipdf);
-
-  void printTimers() const;
-
-private:
   parcoach::MemorySSA *mssa;
   PTACallGraph const &CG;
 
   const llvm::Function *curFunc;
   llvm::FunctionAnalysisManager &FAM;
+  llvm::Module const &M;
   llvm::PostDominatorTree *PDT;
 
   /* Graph nodes */
 
   // Map from a function to all its top-level variables nodes.
-  std::map<const llvm::Function *, ValueSet> funcToLLVMNodesMap;
+  llvm::ValueMap<const llvm::Function *, ValueSet> funcToLLVMNodesMap;
   // Map from a function to all its address taken ssa nodes.
-  std::map<const llvm::Function *, VarSet> funcToSSANodesMap;
+  llvm::ValueMap<const llvm::Function *, VarSet> funcToSSANodesMap;
   std::set<const llvm::Function *> varArgNodes;
 
   /* Graph edges */
 
   // top-level to top-level edges
-  std::map<const llvm::Value *, ValueSet> llvmToLLVMChildren;
-  std::map<const llvm::Value *, ValueSet> llvmToLLVMParents;
+  llvm::ValueMap<const llvm::Value *, ValueSet> llvmToLLVMChildren;
+  llvm::ValueMap<const llvm::Value *, ValueSet> llvmToLLVMParents;
 
   // top-level to address-taken ssa edges
-  std::map<const llvm::Value *, VarSet> llvmToSSAChildren;
-  std::map<const llvm::Value *, VarSet> llvmToSSAParents;
+  llvm::ValueMap<const llvm::Value *, VarSet> llvmToSSAChildren;
+  llvm::ValueMap<const llvm::Value *, VarSet> llvmToSSAParents;
   // address-taken ssa to top-level edges
-  std::map<MSSAVar *, ValueSet> ssaToLLVMChildren;
-  std::map<MSSAVar *, ValueSet> ssaToLLVMParents;
+  llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMChildren;
+  llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMParents;
 
   // address-top ssa to address-taken ssa edges
-  std::map<MSSAVar *, VarSet> ssaToSSAChildren;
-  std::map<MSSAVar *, VarSet> ssaToSSAParents;
+  llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAChildren;
+  llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAParents;
 
   void enableMPI();
   void enableOMP();
@@ -121,16 +128,16 @@ private:
   /* PDF+ call nodes and edges */
 
   // map from a function to all its call instructions
-  std::map<const llvm::Function *, ValueSet> funcToCallNodes;
+  llvm::ValueMap<const llvm::Function *, ValueSet> funcToCallNodes;
   // map from call instructions to called functions
-  std::map<const llvm::Value *, const llvm::Function *> callToFuncEdges;
+  llvm::ValueMap<const llvm::Value *, const llvm::Function *> callToFuncEdges;
   // map from a condition to call instructions depending on that condition.
-  std::map<const llvm::Value *, ValueSet> condToCallEdges;
+  llvm::ValueMap<const llvm::Value *, ValueSet> condToCallEdges;
 
   // map from a function to all the call sites calling this function.
-  std::map<const llvm::Function *, ValueSet> funcToCallSites;
+  llvm::ValueMap<const llvm::Function *, ValueSet> funcToCallSites;
   // map from a callsite to all its conditions.
-  std::map<const llvm::Value *, ValueSet> callsiteToConds;
+  llvm::ValueMap<const llvm::Value *, ValueSet> callsiteToConds;
 
   /* tainted nodes */
   ValueSet taintedLLVMNodes;
@@ -163,12 +170,13 @@ private:
   // This function replaces phi with op1 and removes op2.
   void eliminatePhi(MSSAPhi *phi, std::vector<MSSAVar *> ops);
 
-  void dotFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
-  void dotExtFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F);
-  std::string getNodeStyle(const llvm::Value *v);
-  std::string getNodeStyle(const MSSAVar *v);
-  std::string getNodeStyle(const llvm::Function *f);
-  std::string getCallNodeStyle(const llvm::Value *v);
+  void dotFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F) const;
+  void dotExtFunction(llvm::raw_fd_ostream &stream,
+                      const llvm::Function *F) const;
+  std::string getNodeStyle(const llvm::Value *v) const;
+  std::string getNodeStyle(const MSSAVar *v) const;
+  std::string getNodeStyle(const llvm::Function *f) const;
+  std::string getCallNodeStyle(const llvm::Value *v) const;
 
   struct DGDebugLoc {
     const llvm::Function *F;
@@ -178,13 +186,13 @@ private:
     bool operator<(const DGDebugLoc &o) const { return line < o.line; }
   };
 
-  bool getDGDebugLoc(const llvm::Value *v, DGDebugLoc &DL);
-  bool getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL);
-  std::string getStringMsg(const llvm::Value *v);
-  std::string getStringMsg(MSSAVar *v);
+  bool getDGDebugLoc(const llvm::Value *v, DGDebugLoc &DL) const;
+  bool getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL) const;
+  std::string getStringMsg(const llvm::Value *v) const;
+  std::string getStringMsg(MSSAVar *v) const;
   bool getDebugTrace(std::vector<DGDebugLoc> &DLs, std::string &trace,
-                     const llvm::Instruction *collective);
-  void reorderAndRemoveDup(std::vector<DGDebugLoc> &DLs);
+                     const llvm::Instruction *collective) const;
+  void reorderAndRemoveDup(std::vector<DGDebugLoc> &DLs) const;
 
   /* stats */
   double buildGraphTime;
@@ -199,4 +207,14 @@ private:
   bool disablePhiElim;
 };
 
-#endif /* DEPGRAPHDCF_H */
+class DepGraphDCFAnalysis
+    : public llvm::AnalysisInfoMixin<DepGraphDCFAnalysis> {
+  friend llvm::AnalysisInfoMixin<DepGraphDCFAnalysis>;
+  static llvm::AnalysisKey Key;
+
+public:
+  // We return a unique_ptr to ensure stability of the analysis' internal state.
+  using Result = std::unique_ptr<DepGraphDCF>;
+  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+};
+} // namespace parcoach

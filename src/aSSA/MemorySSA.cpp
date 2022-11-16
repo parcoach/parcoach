@@ -821,4 +821,15 @@ void MemorySSA::printTimers() const {
   errs() << "compute Phi Predicates time : " << computePhiPredicatesTime * 1.0e3
          << " ms\n";
 }
+
+AnalysisKey MemorySSAAnalysis::Key;
+MemorySSAAnalysis::Result MemorySSAAnalysis::run(Module &M,
+                                                 ModuleAnalysisManager &AM) {
+  auto const &AA = AM.getResult<AndersenAA>(M);
+  auto const &extInfo = AM.getResult<ExtInfoAnalysis>(M);
+  auto const &MRA = AM.getResult<ModRefAnalysis>(M);
+  auto const &PTACG = AM.getResult<PTACallGraphAnalysis>(M);
+  return std::make_unique<MemorySSA>(M, AA, *PTACG, MRA.get(), extInfo.get(),
+                                     AM);
+}
 } // namespace parcoach

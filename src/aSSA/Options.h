@@ -1,5 +1,4 @@
-#ifndef OPTIONS_H
-#define OPTIONS_H
+#pragma once
 
 #include <string>
 
@@ -7,7 +6,6 @@ extern bool optDumpSSA;
 extern std::string optDumpSSAFunc;
 extern bool optDotGraph;
 extern bool optDumpRegions;
-extern bool optDumpModRef;
 extern bool optTimeStats;
 extern bool optDotTaintPaths;
 extern bool optStats;
@@ -22,5 +20,6 @@ extern bool optCudaTaint;
 extern bool optMpiTaint;
 extern bool optUpcTaint;
 extern bool optVersion;
-
-#endif /* OPTIONS_H */
+#ifndef NDEBUG
+extern bool optDumpModRef;
+#endif

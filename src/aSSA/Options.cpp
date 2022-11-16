@@ -30,10 +30,6 @@ static cl::opt<bool, true>
                               "Andersen PTA"),
                      cl::cat(ParcoachCategory), cl::location(optDumpRegions));
 
-static cl::opt<bool, true>
-    clOptDumpModRef("dump-modref", cl::desc("Dump the mod/ref analysis"),
-                    cl::cat(ParcoachCategory), cl::location(optDumpModRef));
-
 static cl::opt<bool, true> clOptTimeStats("timer", cl::desc("Print timers"),
                                           cl::cat(ParcoachCategory),
                                           cl::location(optTimeStats));
@@ -97,11 +93,17 @@ static cl::opt<bool, true> clOptVersion("parcoach-version",
                                         cl::cat(ParcoachCategory),
                                         cl::location(optVersion));
 
+#ifndef NDEBUG
+bool optDumpModRef;
+static cl::opt<bool, true>
+    clOptDumpModRef("dump-modref", cl::desc("Dump the mod/ref analysis"),
+                    cl::cat(ParcoachCategory), cl::location(optDumpModRef));
+#endif
+
 bool optDumpSSA;
 string optDumpSSAFunc;
 bool optDotGraph;
 bool optDumpRegions;
-bool optDumpModRef;
 bool optTimeStats;
 bool optDotTaintPaths;
 bool optStats;

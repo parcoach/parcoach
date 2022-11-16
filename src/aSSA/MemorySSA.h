@@ -12,9 +12,13 @@
 #include <map>
 
 class DepGraphDCF;
-class ModRefAnalysis;
+
+namespace llvm {
+class PostDominatorTree;
+}
 
 namespace parcoach {
+class ModRefAnalysisResult;
 class MemorySSA {
   friend class ::DepGraphDCF;
 
@@ -58,7 +62,7 @@ class MemorySSA {
 
 public:
   MemorySSA(llvm::Module *m, Andersen const &PTA, PTACallGraph const &CG,
-            ModRefAnalysis *MRA, ExtInfo *extInfo);
+            ModRefAnalysisResult *MRA, ExtInfo *extInfo);
   virtual ~MemorySSA();
 
   void buildSSA(const llvm::Function *F, llvm::DominatorTree &DT,
@@ -106,7 +110,7 @@ protected:
   llvm::Module *m;
   Andersen const &PTA;
   PTACallGraph const &CG;
-  ModRefAnalysis *MRA;
+  ModRefAnalysisResult *MRA;
   ExtInfo *extInfo;
 
   llvm::DominanceFrontier *curDF;

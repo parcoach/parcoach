@@ -1,6 +1,8 @@
-#include "MemoryRegion.h"
+#include "parcoach/MemoryRegion.h"
 #include "Options.h"
+#include "Utils.h"
 
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <set>

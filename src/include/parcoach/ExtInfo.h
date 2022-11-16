@@ -30,8 +30,8 @@ public:
   ExtInfo(llvm::Module &m);
   ~ExtInfo();
 
-  const ModInfo *getExtModInfo(const llvm::Function *F);
-  const DepInfo *getExtDepInfo(const llvm::Function *F);
+  const ModInfo *getExtModInfo(const llvm::Function *F) const;
+  const DepInfo *getExtDepInfo(const llvm::Function *F) const;
 
 private:
   llvm::StringMap<const ModInfo *> extModInfoMap;

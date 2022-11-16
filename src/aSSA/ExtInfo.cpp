@@ -1023,20 +1023,20 @@ ExtInfo::ExtInfo(Module &m) {
 
 ExtInfo::~ExtInfo() {}
 
-const ExtInfo::ModInfo *ExtInfo::getExtModInfo(const llvm::Function *F) {
+const ExtInfo::ModInfo *ExtInfo::getExtModInfo(const llvm::Function *F) const {
   auto I = extModInfoMap.find(F->getName());
 
   if (I != extModInfoMap.end())
-    return extModInfoMap[F->getName()];
+    return I->second;
 
   return nullptr;
 }
 
-const ExtInfo::DepInfo *ExtInfo::getExtDepInfo(const llvm::Function *F) {
+const ExtInfo::DepInfo *ExtInfo::getExtDepInfo(const llvm::Function *F) const {
   auto I = extDepInfoMap.find(F->getName());
 
   if (I != extDepInfoMap.end())
-    return extDepInfoMap[F->getName()];
+    return I->second;
 
   return nullptr;
 }

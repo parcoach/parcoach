@@ -1,33 +1,36 @@
-#include "ModRefAnalysis.h"
+#include "parcoach/ModRefAnalysis.h"
 #include "Options.h"
+#include "PTACallGraph.h"
+#include "Utils.h"
 
 #include "llvm/ADT/SCCIterator.h"
 
 using namespace llvm;
-using namespace std;
 
-ModRefAnalysis::ModRefAnalysis(PTACallGraph const &CG, Andersen const &PTA,
-                               parcoach::ExtInfo *extInfo)
+namespace parcoach {
+ModRefAnalysisResult::ModRefAnalysisResult(PTACallGraph const &CG,
+                                           Andersen const &PTA,
+                                           ExtInfo const &extInfo, Module &M)
     : CG(CG), PTA(PTA), extInfo(extInfo) {
-  analyze();
+  analyze(M);
 }
 
-ModRefAnalysis::~ModRefAnalysis() {}
+ModRefAnalysisResult::~ModRefAnalysisResult() {}
 
-void ModRefAnalysis::visitAllocaInst(AllocaInst &I) {
+void ModRefAnalysisResult::visitAllocaInst(AllocaInst &I) {
   MemReg *r = MemReg::getValueRegion(&I);
   assert(r);
   funcLocalMap[curFunc].insert(r);
 }
 
-void ModRefAnalysis::visitLoadInst(LoadInst &I) {
-  vector<const Value *> ptsSet;
+void ModRefAnalysisResult::visitLoadInst(LoadInst &I) {
+  std::vector<const Value *> ptsSet;
   bool Found = PTA.getPointsToSet(I.getPointerOperand(), ptsSet);
   // FIXME: should this be an actual error?
   assert(Found && "Load not found");
   if (!Found)
     return;
-  vector<MemReg *> regs;
+  std::vector<MemReg *> regs;
   MemReg::getValuesRegion(ptsSet, regs);
 
   for (MemReg *r : regs) {
@@ -37,14 +40,14 @@ void ModRefAnalysis::visitLoadInst(LoadInst &I) {
   }
 }
 
-void ModRefAnalysis::visitStoreInst(StoreInst &I) {
-  vector<const Value *> ptsSet;
+void ModRefAnalysisResult::visitStoreInst(StoreInst &I) {
+  std::vector<const Value *> ptsSet;
   bool Found = PTA.getPointsToSet(I.getPointerOperand(), ptsSet);
   // FIXME: should this be an actual error?
   assert(Found && "Store not found");
   if (!Found)
     return;
-  vector<MemReg *> regs;
+  std::vector<MemReg *> regs;
   MemReg::getValuesRegion(ptsSet, regs);
 
   for (MemReg *r : regs) {
@@ -54,7 +57,7 @@ void ModRefAnalysis::visitStoreInst(StoreInst &I) {
   }
 }
 
-void ModRefAnalysis::visitCallBase(CallBase &CB) {
+void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
   // For each external function called, add the region of each pointer
   // parameters passed to the function to the ref set of the called
   // function. Regions are added to the Mod set only if the parameter is
@@ -109,14 +112,14 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
   }
 
   for (unsigned i = 0; i < CI->arg_size(); ++i) {
-    const Value *arg = CI->getArgOperand(i);
+    Value *arg = CI->getArgOperand(i);
     if (arg->getType()->isPointerTy() == false)
       continue;
 
     // Case where argument is a inttoptr cast (e.g. MPI_IN_PLACE)
-    const ConstantExpr *ce = dyn_cast<ConstantExpr>(arg);
+    ConstantExpr *ce = dyn_cast<ConstantExpr>(arg);
     if (ce) {
-      Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
+      Instruction *inst = ce->getAsInstruction();
       assert(inst);
       bool isAIntToPtr = isa<IntToPtrInst>(inst);
       inst->deleteValue();
@@ -125,14 +128,14 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
       }
     }
 
-    vector<const Value *> argPtsSet;
+    std::vector<const Value *> argPtsSet;
 
     bool Found = PTA.getPointsToSet(arg, argPtsSet);
-    assert(Found && "arg not found in ModRefAnalysis");
+    assert(Found && "arg not found in ModRefAnalysisResult");
     if (!Found) {
       continue;
     }
-    vector<MemReg *> regs;
+    std::vector<MemReg *> regs;
     MemReg::getValuesRegion(argPtsSet, regs);
 
     for (MemReg *r : regs) {
@@ -143,7 +146,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
 
     // direct call
     if (callee) {
-      auto const *info = extInfo->getExtModInfo(callee);
+      auto const *info = extInfo.getExtModInfo(callee);
       assert(info);
 
       // Variadic argument
@@ -179,7 +182,7 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
         if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
           continue;
 
-        auto const *info = extInfo->getExtModInfo(mayCallee);
+        auto const *info = extInfo.getExtModInfo(mayCallee);
         assert(info);
 
         // Variadic argument
@@ -211,18 +214,18 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
 
   // Compute mof/ref for return value if it is a pointer.
   if (callee) {
-    auto const *info = extInfo->getExtModInfo(callee);
+    auto const *info = extInfo.getExtModInfo(callee);
     assert(info);
 
     if (callee->getReturnType()->isPointerTy()) {
-      vector<const Value *> retPtsSet;
+      std::vector<const Value *> retPtsSet;
       bool Found = PTA.getPointsToSet(CI, retPtsSet);
-      assert(Found && "callee not found in ModRefAnalysis");
+      assert(Found && "callee not found in ModRefAnalysisResult");
       if (!Found) {
         return;
       }
 
-      vector<MemReg *> regs;
+      std::vector<MemReg *> regs;
       MemReg::getValuesRegion(retPtsSet, regs);
       for (MemReg *r : regs) {
         if (globalKillSet.find(r) != globalKillSet.end())
@@ -245,17 +248,17 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
       if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
         continue;
 
-      auto const *info = extInfo->getExtModInfo(mayCallee);
+      auto const *info = extInfo.getExtModInfo(mayCallee);
       assert(info);
 
       if (mayCallee->getReturnType()->isPointerTy()) {
-        vector<const Value *> retPtsSet;
+        std::vector<const Value *> retPtsSet;
         bool Found = PTA.getPointsToSet(CI, retPtsSet);
-        assert(Found && "CI not found in ModRefAnalysis");
+        assert(Found && "CI not found in ModRefAnalysisResult");
         if (!Found) {
           continue;
         }
-        vector<MemReg *> regs;
+        std::vector<MemReg *> regs;
         MemReg::getValuesRegion(retPtsSet, regs);
         for (MemReg *r : regs) {
           if (globalKillSet.find(r) != globalKillSet.end())
@@ -275,13 +278,13 @@ void ModRefAnalysis::visitCallBase(CallBase &CB) {
   }
 }
 
-void ModRefAnalysis::analyze() {
-  unsigned nbFunctions = CG.getModule().getFunctionList().size();
+void ModRefAnalysisResult::analyze(Module &M) {
+  unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
 
   // Compute global kill set containing regions whose allocation sites are
   // in functions not reachable from prog entry.
-  vector<const Value *> allocSites;
+  std::vector<const Value *> allocSites;
   PTA.getAllAllocationSites(allocSites);
   for (const Value *v : allocSites) {
     const Instruction *inst = dyn_cast<Instruction>(v);
@@ -295,14 +298,12 @@ void ModRefAnalysis::analyze() {
   // First compute the mod/ref sets of each function from its load/store
   // instructions and calls to external functions.
 
-  for (Function const &F : CG.getModule()) {
+  for (Function &F : M) {
     if (!CG.isReachableFromEntry(F))
       continue;
 
     curFunc = &F;
-    // FIXME: this const cast will go away once ModRefAnalysis properly uses
-    // llvm analysis.
-    visit(const_cast<Function *>(&F));
+    visit(&F);
   }
 
   // Then iterate through the PTACallGraph with an SCC iterator
@@ -333,7 +334,7 @@ void ModRefAnalysis::analyze() {
           // Here we have to use a vector to store regions we want to add into
           // the funcKillMap because iterators in a DenseMap are invalidated
           // whenever an insertion occurs unlike map.
-          vector<MemReg *> killToAdd;
+          std::vector<MemReg *> killToAdd;
           for (MemReg *r : funcKillMap[callee])
             killToAdd.push_back(r);
           for (MemReg *r : killToAdd)
@@ -343,7 +344,7 @@ void ModRefAnalysis::analyze() {
 
       // Mod(F) = Mod(F) \ kill(F)
       // Ref(F) = Ref(F) \ kill(F)
-      vector<MemReg *> toRemove;
+      std::vector<MemReg *> toRemove;
       for (MemReg *r : funcModMap[F]) {
         if (funcKillMap[F].find(r) != funcKillMap[F].end())
           toRemove.push_back(r);
@@ -383,8 +384,8 @@ void ModRefAnalysis::analyze() {
 
           // Mod(caller) = Mod(caller) U (Mod(callee) \ Kill(caller)
           // Ref(caller) = Ref(caller) U (Ref(callee) \ Kill(caller)
-          set<MemReg *> modToAdd;
-          set<MemReg *> refToAdd;
+          std::set<MemReg *> modToAdd;
+          std::set<MemReg *> refToAdd;
           modToAdd.insert(funcModMap[callee].begin(), funcModMap[callee].end());
           refToAdd.insert(funcRefMap[callee].begin(), funcRefMap[callee].end());
           for (MemReg *r : modToAdd) {
@@ -414,19 +415,24 @@ void ModRefAnalysis::analyze() {
   }
 }
 
-MemRegSet ModRefAnalysis::getFuncMod(const Function *F) {
-  return funcModMap[F];
+MemRegSet ModRefAnalysisResult::getFuncMod(const Function *F) const {
+  return funcModMap.lookup(F);
 }
 
-MemRegSet ModRefAnalysis::getFuncRef(const Function *F) {
-  return funcRefMap[F];
+MemRegSet ModRefAnalysisResult::getFuncRef(const Function *F) const {
+  return funcRefMap.lookup(F);
 }
 
-MemRegSet ModRefAnalysis::getFuncKill(const Function *F) {
-  return funcKillMap[F];
+MemRegSet ModRefAnalysisResult::getFuncKill(const Function *F) const {
+  return funcKillMap.lookup(F);
 }
 
-void ModRefAnalysis::dump() {
+bool ModRefAnalysisResult::inGlobalKillSet(MemReg *R) const {
+  return globalKillSet.count(R) > 0;
+}
+
+#ifndef NDEBUG
+void ModRefAnalysisResult::dump() const {
   scc_iterator<PTACallGraph const *> cgSccIter = scc_begin(&CG);
   while (!cgSccIter.isAtEnd()) {
     auto const &nodeVec = *cgSccIter;
@@ -438,19 +444,19 @@ void ModRefAnalysis::dump() {
 
       errs() << "Mod/Ref for function " << F->getName() << ":\n";
       errs() << "Mod(";
-      for (MemReg *r : funcModMap[F])
+      for (MemReg *r : getFuncMod(F))
         errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Ref(";
-      for (MemReg *r : funcRefMap[F])
+      for (MemReg *r : getFuncRef(F))
         errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Local(";
-      for (MemReg *r : funcLocalMap[F])
+      for (MemReg *r : funcLocalMap.lookup(F))
         errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Kill(";
-      for (MemReg *r : funcKillMap[F])
+      for (MemReg *r : getFuncKill(F))
         errs() << r->getName() << ", ";
       errs() << ")\n";
     }
@@ -463,3 +469,15 @@ void ModRefAnalysis::dump() {
   }
   errs() << ")\n";
 }
+#endif
+
+AnalysisKey ModRefAnalysis::Key;
+ModRefAnalysis::Result ModRefAnalysis::run(Module &M,
+                                           ModuleAnalysisManager &AM) {
+  auto &AA = AM.getResult<AndersenAA>(M);
+  auto &PTA = AM.getResult<PTACallGraphAnalysis>(M);
+  auto &ExtInfo = AM.getResult<ExtInfoAnalysis>(M);
+  return std::make_unique<ModRefAnalysisResult>(*PTA, AA, *ExtInfo, M);
+}
+
+} // namespace parcoach

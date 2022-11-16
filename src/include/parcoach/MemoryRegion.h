@@ -1,10 +1,11 @@
 #ifndef MEMORYREGION_H
 #define MEMORYREGION_H
 
-#include "Utils.h"
-
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Value.h"
+
+#include <map>
+#include <set>
 
 class MemReg;
 

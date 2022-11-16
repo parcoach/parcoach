@@ -8,14 +8,14 @@ The project is licensed under the LGPL 2.1 license
 #include "Config.h"
 #include "DepGraph.h"
 #include "DepGraphDCF.h"
-#include "MemoryRegion.h"
 #include "MemorySSA.h"
-#include "ModRefAnalysis.h"
 #include "Options.h"
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
 #include "parcoach/ExtInfo.h"
+#include "parcoach/MemoryRegion.h"
+#include "parcoach/ModRefAnalysis.h"
 #include "parcoach/Passes.h"
 #include "parcoach/StatisticsAnalysis.h"
 #include "parcoach/andersen/Andersen.h"
@@ -386,16 +386,18 @@ bool ParcoachInstr::runOnModule(Module &M) {
 
   // Compute MOD/REF analysis
   tstart_modref = gettime();
-  ModRefAnalysis MRA(*PTACG, AA, extInfo.get());
+  auto const &MRA = MAM.getResult<ModRefAnalysis>(M);
   tend_modref = gettime();
+#ifndef NDEBUG
   if (optDumpModRef)
-    MRA.dump();
+    MRA->dump();
+#endif
 
   errs() << "* Mod/ref done\n";
 
   // Compute all-inclusive SSA.
   tstart_assa = gettime();
-  parcoach::MemorySSA MSSA(&M, AA, *PTACG, &MRA, extInfo.get());
+  MemorySSA MSSA(&M, AA, *PTACG, MRA.get(), extInfo.get());
 
   unsigned nbFunctions = M.getFunctionList().size();
   unsigned counter = 0;
@@ -507,7 +509,7 @@ void RegisterPasses(ModulePassManager &MPM) {
   // TODO
   // MPM.addPass(ParcoachInstrumentationPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
-  MPM.addPass(parcoach::ParcoachPass());
+  MPM.addPass(ParcoachPass());
 }
 
 void RegisterAnalysis(ModuleAnalysisManager &MAM) {
@@ -516,6 +518,7 @@ void RegisterAnalysis(ModuleAnalysisManager &MAM) {
   MAM.registerPass([&]() { return StatisticsAnalysis(); });
   MAM.registerPass([&]() { return ExtInfoAnalysis(); });
   MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
+  MAM.registerPass([&]() { return ModRefAnalysis(); });
   MAM.registerPass([&]() { return AndersenAA(); });
 }
 

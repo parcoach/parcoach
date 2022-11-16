@@ -1,8 +1,9 @@
 #include "MemorySSA.h"
-#include "MemoryRegion.h"
-#include "ModRefAnalysis.h"
+
 #include "Options.h"
 #include "Utils.h"
+#include "parcoach/MemoryRegion.h"
+#include "parcoach/ModRefAnalysis.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/FileSystem.h"
@@ -13,7 +14,7 @@ using namespace llvm;
 namespace parcoach {
 
 MemorySSA::MemorySSA(Module *m, Andersen const &PTA, PTACallGraph const &CG,
-                     ModRefAnalysis *MRA, ExtInfo *extInfo)
+                     ModRefAnalysisResult *MRA, ExtInfo *extInfo)
     : computeMuChiTime(0), computePhiTime(0), renameTime(0),
       computePhiPredicatesTime(0), m(m), PTA(PTA), CG(CG), MRA(MRA),
       extInfo(extInfo), curDF(NULL), curDT(NULL) {}
@@ -107,7 +108,7 @@ void MemorySSA::computeMuChi(const Function *F) {
       MemReg::getValuesRegion(ptsSet, regs);
 
       for (MemReg *r : regs) {
-        if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+        if (MRA->inGlobalKillSet(r))
           continue;
 
         loadToMuMap[LI].insert(new MSSALoadMu(r, LI));
@@ -132,7 +133,7 @@ void MemorySSA::computeMuChi(const Function *F) {
       MemReg::getValuesRegion(ptsSet, regs);
 
       for (MemReg *r : regs) {
-        if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+        if (MRA->inGlobalKillSet(r))
           continue;
 
         storeToChiMap[SI].insert(new MSSAStoreChi(r, SI));
@@ -235,7 +236,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
 
       // Mus
       for (MemReg *r : regs) {
-        if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+        if (MRA->inGlobalKillSet(r))
           continue;
 
         callSiteToMuMap[inst].insert(new MSSAExtCallMu(r, callee, i));
@@ -247,7 +248,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
         assert(callee->isVarArg());
         if (info->argIsMod[info->nbArgs - 1]) {
           for (MemReg *r : regs) {
-            if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+            if (MRA->inGlobalKillSet(r))
               continue;
 
             callSiteToChiMap[inst].insert(
@@ -258,7 +259,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
       } else {
         if (info->argIsMod[i]) {
           for (MemReg *r : regs) {
-            if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+            if (MRA->inGlobalKillSet(r))
               continue;
 
             callSiteToChiMap[inst].insert(
@@ -281,7 +282,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
       MemReg::getValuesRegion(ptsSet, regs);
 
       for (MemReg *r : regs) {
-        if (MRA->globalKillSet.find(r) != MRA->globalKillSet.end())
+        if (MRA->inGlobalKillSet(r))
           continue;
 
         extCallSiteToCallerRetChi[inst].insert(

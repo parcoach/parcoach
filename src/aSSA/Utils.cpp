@@ -10,10 +10,11 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <map>
+
 #define DEBUG_TYPE "hello"
 
 using namespace llvm;
-using namespace std;
 
 bool isCallSite(const llvm::Instruction *inst) {
   return llvm::isa<llvm::CallBase>(inst);
@@ -47,14 +48,14 @@ std::string getCallValueLabel(const llvm::Value *v) {
  * POSTDOMINANCE
  */
 
-static map<BasicBlock *, set<BasicBlock *> *> pdfCache;
+static std::map<BasicBlock *, std::set<BasicBlock *> *> pdfCache;
 
 // PDF computation
-vector<BasicBlock *> postdominance_frontier(PostDominatorTree &PDT,
-                                            BasicBlock *BB) {
-  vector<BasicBlock *> PDF;
+std::vector<BasicBlock *> postdominance_frontier(PostDominatorTree &PDT,
+                                                 BasicBlock *BB) {
+  std::vector<BasicBlock *> PDF;
 
-  set<BasicBlock *> *cache = pdfCache[BB];
+  std::set<BasicBlock *> *cache = pdfCache[BB];
   if (cache) {
     for (BasicBlock *b : *cache)
       PDF.push_back(b);
@@ -74,10 +75,10 @@ vector<BasicBlock *> postdominance_frontier(PostDominatorTree &PDT,
   for (DomTreeNode::const_iterator NI = DomNode->begin(), NE = DomNode->end();
        NI != NE; ++NI) {
     DomTreeNode *IDominee = *NI;
-    vector<BasicBlock *> ChildDF =
+    std::vector<BasicBlock *> ChildDF =
         postdominance_frontier(PDT, IDominee->getBlock());
-    vector<BasicBlock *>::const_iterator CDFI = ChildDF.begin(),
-                                         CDFE = ChildDF.end();
+    std::vector<BasicBlock *>::const_iterator CDFI = ChildDF.begin(),
+                                              CDFE = ChildDF.end();
     for (; CDFI != CDFE; ++CDFI) {
       if (PDT[*CDFI]->getIDom() != DomNode && *CDFI != BB) {
         PDF.push_back(*CDFI);
@@ -85,20 +86,20 @@ vector<BasicBlock *> postdominance_frontier(PostDominatorTree &PDT,
     }
   }
 
-  pdfCache[BB] = new set<BasicBlock *>();
+  pdfCache[BB] = new std::set<BasicBlock *>();
   pdfCache[BB]->insert(PDF.begin(), PDF.end());
 
   return PDF;
 }
 
-static map<BasicBlock *, set<BasicBlock *> *> ipdfCache;
+static std::map<BasicBlock *, std::set<BasicBlock *> *> ipdfCache;
 
 // PDF+ computation
-vector<BasicBlock *> iterated_postdominance_frontier(PostDominatorTree &PDT,
-                                                     BasicBlock *BB) {
-  vector<BasicBlock *> iPDF;
+std::vector<BasicBlock *>
+iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB) {
+  std::vector<BasicBlock *> iPDF;
 
-  set<BasicBlock *> *cache = ipdfCache[BB];
+  std::set<BasicBlock *> *cache = ipdfCache[BB];
   if (cache) {
     for (BasicBlock *b : *cache)
       iPDF.push_back(b);
@@ -121,7 +122,7 @@ vector<BasicBlock *> iterated_postdominance_frontier(PostDominatorTree &PDT,
     changed = false;
 
     for (auto I = toCompute.begin(), E = toCompute.end(); I != E; ++I) {
-      vector<BasicBlock *> tmp = postdominance_frontier(PDT, *I);
+      std::vector<BasicBlock *> tmp = postdominance_frontier(PDT, *I);
       for (auto J = tmp.begin(), F = tmp.end(); J != F; ++J) {
         if ((S.insert(*J)).second) {
           toComputeTmp.insert(*J);
@@ -136,14 +137,14 @@ vector<BasicBlock *> iterated_postdominance_frontier(PostDominatorTree &PDT,
 
   iPDF.insert(iPDF.end(), S.begin(), S.end());
 
-  ipdfCache[BB] = new set<BasicBlock *>();
+  ipdfCache[BB] = new std::set<BasicBlock *>();
   ipdfCache[BB]->insert(iPDF.begin(), iPDF.end());
 
   return iPDF;
 }
 
-void print_iPDF(vector<BasicBlock *> iPDF, BasicBlock *BB) {
-  vector<BasicBlock *>::const_iterator Bitr;
+void print_iPDF(std::vector<BasicBlock *> iPDF, BasicBlock *BB) {
+  std::vector<BasicBlock *>::const_iterator Bitr;
   errs() << "iPDF(" << BB->getName().str() << ") = {";
   for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
     errs() << "- " << (*Bitr)->getName().str() << " ";
@@ -176,7 +177,7 @@ computeIPDFPredicates(llvm::PostDominatorTree &PDT, llvm::BasicBlock *BB) {
   std::set<const llvm::Value *> preds;
 
   // Get IPDF
-  vector<BasicBlock *> IPDF = iterated_postdominance_frontier(PDT, BB);
+  std::vector<BasicBlock *> IPDF = iterated_postdominance_frontier(PDT, BB);
 
   for (unsigned n = 0; n < IPDF.size(); ++n) {
     // Push conditions of each BB in the IPDF

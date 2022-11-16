@@ -11,8 +11,6 @@ endif()
 
 include_directories(include)
 set(SHARED_HEADERS
-  include/parcoach/Passes.h
-  include/parcoach/Analysis.h
   include/parcoach/andersen/Andersen.h
   include/parcoach/andersen/Constraint.h
   include/parcoach/andersen/CycleDetector.h
@@ -20,6 +18,12 @@ set(SHARED_HEADERS
   include/parcoach/andersen/NodeFactory.h
   include/parcoach/andersen/PtsSet.h
   include/parcoach/andersen/SparseBitVectorGraph.h
+  include/parcoach/Analysis.h
+  include/parcoach/ExtInfo.h
+  include/parcoach/MemoryRegion.h
+  include/parcoach/ModRefAnalysis.h
+  include/parcoach/Passes.h
+  include/parcoach/StatisticsAnalysis.h
   )
 add_sources_to_format(SOURCES ${SHARED_HEADERS})
 

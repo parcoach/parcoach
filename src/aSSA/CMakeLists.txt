@@ -13,6 +13,7 @@ set(ASSA_SOURCES
   PTACallGraph.cpp
   Parcoach.cpp
   ParcoachAnalysisInter.cpp
+  StatisticsAnalysis.cpp
   Utils.cpp
   andersen/Andersen.cpp
   andersen/ConstraintCollect.cpp

@@ -17,6 +17,7 @@ The project is licensed under the LGPL 2.1 license
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
 #include "parcoach/Passes.h"
+#include "parcoach/StatisticsAnalysis.h"
 #include "parcoach/andersen/Andersen.h"
 
 #include "llvm/Analysis/DependenceAnalysis.h"
@@ -306,7 +307,7 @@ bool ParcoachInstr::runOnModule(Module &M) {
   if (!optContextInsensitive && optDotTaintPaths) {
     errs() << "Error: you cannot use -dot-taint-paths option in context "
            << "sensitive mode.\n";
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   if (optVersion) {
@@ -315,30 +316,8 @@ bool ParcoachInstr::runOnModule(Module &M) {
   }
 
   if (optStats) {
-    unsigned nbFunctions = 0;
-    unsigned nbIndirectCalls = 0;
-    unsigned nbDirectCalls = 0;
-    for (const Function &F : M) {
-      nbFunctions++;
-
-      for (const BasicBlock &BB : F) {
-        for (const Instruction &I : BB) {
-          const CallInst *ci = dyn_cast<CallInst>(&I);
-          if (!ci)
-            continue;
-          if (ci->getCalledFunction())
-            nbDirectCalls++;
-          else
-            nbIndirectCalls++;
-        }
-      }
-    }
-
-    errs() << "nb functions : " << nbFunctions << "\n";
-    errs() << "nb direct calls : " << nbDirectCalls << "\n";
-    errs() << "nb indirect calls : " << nbIndirectCalls << "\n";
-
-    exit(0);
+    MAM.getResult<StatisticsAnalysis>(M).print(outs());
+    return false;
   }
 
   ExtInfo extInfo(M);
@@ -534,6 +513,7 @@ void RegisterPasses(ModulePassManager &MPM) {
 void RegisterAnalysis(ModuleAnalysisManager &MAM) {
   // TODO
   // MAM.registerPass([&]() { return InterproceduralAnalysis(); });
+  MAM.registerPass([&]() { return StatisticsAnalysis(); });
   MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
   MAM.registerPass([&]() { return AndersenAA(); });
 }

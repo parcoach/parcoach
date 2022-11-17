@@ -39,14 +39,12 @@ The project is licensed under the LGPL 2.1 license
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
-using namespace std;
 
 namespace parcoach {
 
 ParcoachInstr::ParcoachInstr(ModuleAnalysisManager &AM) : MAM(AM) {}
 
-void ParcoachInstr::replaceOMPMicroFunctionCalls(
-    Module &M, map<const Function *, set<const Value *>> &func2SharedVarMap) {
+void ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M) {
   // Get all calls to be replaced (only __kmpc_fork_call is handled for now).
   std::vector<CallInst *> callToReplace;
 
@@ -92,7 +90,7 @@ void ParcoachInstr::replaceOMPMicroFunctionCalls(
 
     //  op 3 to nbops-1 are shared variables
     for (unsigned i = 3; i < callNbOps - 1; i++) {
-      func2SharedVarMap[outlinedFunc].insert(ci->getOperand(i));
+      MemReg::func2SharedOmpVar[outlinedFunc].insert(ci->getOperand(i));
       NewArgs.push_back(ci->getOperand(i));
     }
 
@@ -206,61 +204,14 @@ void ParcoachInstr::cudaTransformation(Module &M) {
 bool ParcoachInstr::runOnModule(Module &M) {
   // Replace OpenMP Micro Function Calls and compute shared variable for
   // each function.
-  map<const Function *, set<const Value *>> func2SharedOmpVar;
   if (optOmpTaint) {
-    replaceOMPMicroFunctionCalls(M, func2SharedOmpVar);
+    replaceOMPMicroFunctionCalls(M);
   }
 
 #if 0
   if (optCudaTaint)
     cudaTransformation(M);
 #endif
-
-  // Run Andersen alias analysis.
-  Andersen const &AA = MAM.getResult<AndersenAA>(M);
-
-  errs() << "* AA done\n";
-
-  // Create PTA call graph
-  auto &PTACG = MAM.getResult<PTACallGraphAnalysis>(M);
-  assert(PTACG && "expected a PTACallGraph");
-  errs() << "* PTA Call graph creation done\n";
-
-  // Create regions from allocation sites.
-  vector<const Value *> regions;
-  AA.getAllAllocationSites(regions);
-
-  errs() << regions.size() << " regions\n";
-  unsigned regCounter = 0;
-  for (const Value *r : regions) {
-    if (regCounter % 100 == 0) {
-      errs() << regCounter << " regions created ("
-             << ((float)regCounter) / regions.size() * 100 << "%)\n";
-    }
-    regCounter++;
-    MemReg::createRegion(r);
-  }
-
-  if (optDumpRegions)
-    MemReg::dumpRegions();
-  errs() << "* Regions creation done\n";
-
-  // Compute shared regions for each OMP function.
-  if (optOmpTaint) {
-    map<const Function *, set<MemReg *>> func2SharedOmpReg;
-    for (auto I : func2SharedOmpVar) {
-      const Function *F = I.first;
-
-      for (const Value *v : I.second) {
-        vector<const Value *> ptsSet;
-        if (AA.getPointsToSet(v, ptsSet)) {
-          vector<MemReg *> regs;
-          MemReg::getValuesRegion(ptsSet, regs);
-          MemReg::setOmpSharedRegions(F, regs);
-        }
-      }
-    }
-  }
 
   // Compute dep graph.
   auto &DG = MAM.getResult<DepGraphDCFAnalysis>(M);
@@ -327,6 +278,7 @@ void RegisterAnalysis(ModuleAnalysisManager &MAM) {
   MAM.registerPass([&]() { return ExtInfoAnalysis(); });
   MAM.registerPass([&]() { return InterproceduralAnalysis(); });
   MAM.registerPass([&]() { return MemorySSAAnalysis(); });
+  MAM.registerPass([&]() { return MemRegAnalysis(); });
   MAM.registerPass([&]() { return ModRefAnalysis(); });
   MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
   MAM.registerPass([&]() { return StatisticsAnalysis(); });

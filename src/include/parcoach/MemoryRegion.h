@@ -1,43 +1,60 @@
-#ifndef MEMORYREGION_H
-#define MEMORYREGION_H
+#pragma once
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Passes/PassBuilder.h"
 
 #include <map>
 #include <set>
 
-class MemReg;
+class Andersen;
 
-typedef std::set<MemReg *> MemRegSet;
-
-class MemReg {
-  std::string name;
-  static unsigned count;
-  unsigned id;
-
-protected:
-  MemReg(const llvm::Value *value);
-  ~MemReg() {}
-  static std::map<const llvm::Value *, MemReg *> valueToRegMap;
-  static std::set<MemReg *> sharedCudaRegions;
-  static std::map<const llvm::Function *, std::set<MemReg *>>
-      func2SharedOmpRegs;
-  const llvm::Value *value;
-  bool isCudaShared;
+class MemRegEntry {
+  unsigned id_;
+  bool cudaShared_;
+  std::string name_;
 
 public:
-  std::string getName() const;
-
-  static void createRegion(const llvm::Value *v);
-  static void setOmpSharedRegions(const llvm::Function *F,
-                                  std::vector<MemReg *> &regs);
-  static void dumpRegions();
-  static MemReg *getValueRegion(const llvm::Value *v);
-  static void getValuesRegion(std::vector<const llvm::Value *> &ptsSet,
-                              std::vector<MemReg *> &regs);
-  static const std::set<MemReg *> &getCudaSharedRegions();
-  static const std::set<MemReg *> &getOmpSharedRegions(const llvm::Function *F);
+  llvm::Value const *Val;
+  MemRegEntry(llvm::Value const *V);
+  llvm::StringRef getName() const { return name_; }
+  bool isCudaShared() const { return cudaShared_; }
+  static unsigned generateId();
 };
 
-#endif /* MEMORYREGION_H */
+using MemRegSet = std::set<MemRegEntry *>;
+using MemRegVector = std::vector<MemRegEntry *>;
+using FunctionToMemRegSetMap =
+    llvm::ValueMap<llvm::Function const *, MemRegSet>;
+using FunctionToValueSetMap =
+    llvm::ValueMap<llvm::Function const *, std::set<llvm::Value const *>>;
+
+class MemReg {
+  llvm::ValueMap<const llvm::Value *, MemRegEntry *> valueToRegMap;
+  MemRegSet sharedCudaRegions;
+  FunctionToMemRegSetMap func2SharedOmpRegs;
+  Andersen const &AA;
+
+  void createRegion(const llvm::Value *v);
+  void setOmpSharedRegions(const llvm::Function *F, MemRegVector &regs);
+
+public:
+  void dumpRegions() const;
+  MemRegEntry *getValueRegion(const llvm::Value *v) const;
+  void getValuesRegion(std::vector<const llvm::Value *> &ptsSet,
+                       MemRegVector &regs) const;
+  const MemRegSet &getCudaSharedRegions() const;
+  const FunctionToMemRegSetMap &getOmpSharedRegions() const;
+  MemReg(llvm::Module &M, Andersen const &A);
+  static FunctionToValueSetMap func2SharedOmpVar;
+};
+
+class MemRegAnalysis : public llvm::AnalysisInfoMixin<MemRegAnalysis> {
+  friend llvm::AnalysisInfoMixin<MemRegAnalysis>;
+  static llvm::AnalysisKey Key;
+
+public:
+  using Result = std::unique_ptr<MemReg>;
+
+  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+};

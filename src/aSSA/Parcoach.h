@@ -9,6 +9,7 @@
 
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
+#include "parcoach/MemoryRegion.h"
 
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Function.h"
@@ -33,10 +34,7 @@ private:
 
   void doFinalization(llvm::Module &M, ParcoachAnalysisInter const &);
 
-  void replaceOMPMicroFunctionCalls(
-      llvm::Module &M,
-      std::map<const llvm::Function *, std::set<const llvm::Value *>>
-          &func2SharedVarMap);
+  void replaceOMPMicroFunctionCalls(llvm::Module &M);
   void revertOmpTransformation();
 
   void cudaTransformation(llvm::Module &M);

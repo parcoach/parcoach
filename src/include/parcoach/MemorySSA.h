@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parcoach/ExtInfo.h"
+#include "parcoach/MemoryRegion.h"
 #include "parcoach/andersen/Andersen.h"
 
 #include "llvm/ADT/DenseMap.h"
@@ -15,7 +16,6 @@ class MSSAMu;
 class MSSAChi;
 class MSSAPhi;
 class MSSAVar;
-class MemReg;
 
 namespace llvm {
 class PostDominatorTree;
@@ -31,7 +31,6 @@ class MemorySSA {
   using PhiSet = std::set<MSSAPhi *>;
   using BBSet = std::set<const llvm::BasicBlock *>;
   using ValueSet = std::set<const llvm::Value *>;
-  using MemRegSet = std::set<MemReg *>;
 
   // Chi and Mu annotations
   using LoadToMuMap = llvm::ValueMap<const llvm::LoadInst *, MuSet>;
@@ -47,7 +46,7 @@ class MemorySSA {
 
   // Phis
   using BBToPhiMap = llvm::ValueMap<const llvm::BasicBlock *, PhiSet>;
-  using MemRegToBBMap = std::map<MemReg *, BBSet>;
+  using MemRegToBBMap = std::map<MemRegEntry *, BBSet>;
   using LLVMPhiToPredMap = llvm::ValueMap<const llvm::PHINode *, ValueSet>;
 
   // Map functions to entry Chi set and return Mu set
@@ -55,9 +54,10 @@ class MemorySSA {
   using FunToReturnMuMap = llvm::ValueMap<const llvm::Function *, MuSet>;
 
   using FunRegToEntryChiMap =
-      llvm::ValueMap<const llvm::Function *, std::map<MemReg *, MSSAChi *>>;
+      llvm::ValueMap<const llvm::Function *,
+                     std::map<MemRegEntry *, MSSAChi *>>;
   using FunRegToReturnMuMap =
-      llvm::ValueMap<const llvm::Function *, std::map<MemReg *, MSSAMu *>>;
+      llvm::ValueMap<const llvm::Function *, std::map<MemRegEntry *, MSSAMu *>>;
 
   using FuncToChiMap = llvm::ValueMap<const llvm::Function *, MSSAChi *>;
   using FuncToArgChiMap =
@@ -67,7 +67,7 @@ class MemorySSA {
 
 public:
   MemorySSA(llvm::Module &M, Andersen const &PTA, PTACallGraph const &CG,
-            ModRefAnalysisResult *MRA, ExtInfo *extInfo,
+            MemReg const &Regions, ModRefAnalysisResult *MRA, ExtInfo *extInfo,
             llvm::ModuleAnalysisManager &AM);
   virtual ~MemorySSA();
 
@@ -98,8 +98,8 @@ private:
   void computePhi(const llvm::Function *F);
   void rename(const llvm::Function *F);
   void renameBB(const llvm::Function *F, const llvm::BasicBlock *X,
-                std::map<MemReg *, unsigned> &C,
-                std::map<MemReg *, std::vector<MSSAVar *>> &S);
+                std::map<MemRegEntry *, unsigned> &C,
+                std::map<MemRegEntry *, std::vector<MSSAVar *>> &S);
 
   void computePhiPredicates(const llvm::Function *F);
   void computeLLVMPhiPredicates(const llvm::PHINode *phi);
@@ -116,6 +116,7 @@ private:
 protected:
   Andersen const &PTA;
   PTACallGraph const &CG;
+  MemReg const &Regions;
   ModRefAnalysisResult *MRA;
   ExtInfo *extInfo;
 

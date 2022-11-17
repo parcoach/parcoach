@@ -10,17 +10,16 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/FileSystem.h"
 
-using namespace std;
 using namespace llvm;
 
 namespace parcoach {
 
 MemorySSA::MemorySSA(Module &M, Andersen const &PTA, PTACallGraph const &CG,
-                     ModRefAnalysisResult *MRA, ExtInfo *extInfo,
-                     ModuleAnalysisManager &AM)
+                     MemReg const &Regions, ModRefAnalysisResult *MRA,
+                     ExtInfo *extInfo, ModuleAnalysisManager &AM)
     : computeMuChiTime(0), computePhiTime(0), renameTime(0),
-      computePhiPredicatesTime(0), PTA(PTA), CG(CG), MRA(MRA), extInfo(extInfo),
-      curDF(NULL), curDT(NULL) {
+      computePhiPredicatesTime(0), PTA(PTA), CG(CG), Regions(Regions), MRA(MRA),
+      extInfo(extInfo), curDF(NULL), curDT(NULL) {
   buildSSA(M, AM);
 }
 
@@ -141,15 +140,15 @@ void MemorySSA::computeMuChi(const Function *F) {
      */
     if (isa<LoadInst>(inst)) {
       const LoadInst *LI = cast<LoadInst>(inst);
-      vector<const Value *> ptsSet;
+      std::vector<const Value *> ptsSet;
       bool Found = PTA.getPointsToSet(LI->getPointerOperand(), ptsSet);
       assert(Found && "Load not found in MSSA");
       if (!Found)
         continue;
-      vector<MemReg *> regs;
-      MemReg::getValuesRegion(ptsSet, regs);
+      MemRegVector regs;
+      Regions.getValuesRegion(ptsSet, regs);
 
-      for (MemReg *r : regs) {
+      for (auto *r : regs) {
         if (MRA->inGlobalKillSet(r))
           continue;
 
@@ -166,15 +165,15 @@ void MemorySSA::computeMuChi(const Function *F) {
      */
     if (isa<StoreInst>(inst)) {
       const StoreInst *SI = cast<StoreInst>(inst);
-      vector<const Value *> ptsSet;
+      std::vector<const Value *> ptsSet;
       bool Found = PTA.getPointsToSet(SI->getPointerOperand(), ptsSet);
       assert(Found && "Store not found in MSSA");
       if (!Found)
         continue;
-      vector<MemReg *> regs;
-      MemReg::getValuesRegion(ptsSet, regs);
+      MemRegVector regs;
+      Regions.getValuesRegion(ptsSet, regs);
 
-      for (MemReg *r : regs) {
+      for (auto *r : regs) {
         if (MRA->inGlobalKillSet(r))
           continue;
 
@@ -190,7 +189,7 @@ void MemorySSA::computeMuChi(const Function *F) {
   /* Create an EntryChi and a ReturnMu for each memory region used by the
    * function.
    */
-  for (MemReg *r : usedRegs) {
+  for (auto *r : usedRegs) {
     auto *chi = new MSSAEntryChi(r, F);
     funToEntryChiMap[F].insert(chi);
     funRegToEntryChiMap[F][chi->region] = chi;
@@ -198,7 +197,7 @@ void MemorySSA::computeMuChi(const Function *F) {
   }
 
   if (!functionDoesNotRet(F)) {
-    for (MemReg *r : usedRegs) {
+    for (auto *r : usedRegs) {
       auto *mu = new MSSARetMu(r, F);
       funToReturnMuMap[F].insert(mu);
       funRegToReturnMuMap[F][mu->region] = mu;
@@ -211,7 +210,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
   // If the called function is a CUDA synchronization, create an artificial CHI
   // for each shared region.
   if (optCudaTaint && callee->getName().equals("llvm.nvvm.barrier0")) {
-    for (MemReg *r : MemReg::getCudaSharedRegions()) {
+    for (auto *r : Regions.getCudaSharedRegions()) {
       callSiteToSyncChiMap[inst].insert(new MSSASyncChi(r, inst));
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);
@@ -225,8 +224,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
   // If the called function is an OMP barrier, create an artificial CHI
   // for each shared region.
   if (optOmpTaint && callee->getName().equals("__kmpc_barrier")) {
-    for (MemReg *r :
-         MemReg::getOmpSharedRegions(inst->getParent()->getParent())) {
+    for (auto *r :
+         getRange(Regions.getOmpSharedRegions(), inst->getFunction())) {
       callSiteToSyncChiMap[inst].insert(new MSSASyncChi(r, inst));
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);
@@ -265,19 +264,19 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
         }
       }
 
-      vector<const Value *> ptsSet;
-      vector<const Value *> argPtsSet;
+      std::vector<const Value *> ptsSet;
+      std::vector<const Value *> argPtsSet;
       bool Found = PTA.getPointsToSet(arg, argPtsSet);
       assert(Found && "arg not found in MSSA");
       if (!Found)
         continue;
       ptsSet.insert(ptsSet.end(), argPtsSet.begin(), argPtsSet.end());
 
-      vector<MemReg *> regs;
-      MemReg::getValuesRegion(ptsSet, regs);
+      MemRegVector regs;
+      Regions.getValuesRegion(ptsSet, regs);
 
       // Mus
-      for (MemReg *r : regs) {
+      for (auto *r : regs) {
         if (MRA->inGlobalKillSet(r))
           continue;
 
@@ -289,7 +288,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
       if (i >= info->nbArgs) {
         assert(callee->isVarArg());
         if (info->argIsMod[info->nbArgs - 1]) {
-          for (MemReg *r : regs) {
+          for (auto *r : regs) {
             if (MRA->inGlobalKillSet(r))
               continue;
 
@@ -300,7 +299,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
         }
       } else {
         if (info->argIsMod[i]) {
-          for (MemReg *r : regs) {
+          for (auto *r : regs) {
             if (MRA->inGlobalKillSet(r))
               continue;
 
@@ -314,16 +313,16 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
 
     // Chi for return value if it is a pointer
     if (CI->getType()->isPointerTy() && info->retIsMod) {
-      vector<const Value *> ptsSet;
+      std::vector<const Value *> ptsSet;
       bool Found = PTA.getPointsToSet(CI, ptsSet);
       assert(Found && "CI not found in MSSA");
       if (!Found)
         return;
 
-      vector<MemReg *> regs;
-      MemReg::getValuesRegion(ptsSet, regs);
+      MemRegVector regs;
+      Regions.getValuesRegion(ptsSet, regs);
 
-      for (MemReg *r : regs) {
+      for (auto *r : regs) {
         if (MRA->inGlobalKillSet(r))
           continue;
 
@@ -339,10 +338,10 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
   // in Ref(Mod) callee.
   else {
     const Function *caller = inst->getParent()->getParent();
-    set<MemReg *> killSet = MRA->getFuncKill(caller);
+    MemRegSet killSet = MRA->getFuncKill(caller);
 
     // Create Mu for each region \in ref(callee)
-    for (MemReg *r : MRA->getFuncRef(callee)) {
+    for (auto *r : MRA->getFuncRef(callee)) {
       if (killSet.find(r) == killSet.end()) {
         callSiteToMuMap[inst].insert(new MSSACallMu(r, callee));
         usedRegs.insert(r);
@@ -350,7 +349,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     }
 
     // Create Chi for each region \in mod(callee)
-    for (MemReg *r : MRA->getFuncMod(callee)) {
+    for (auto *r : MRA->getFuncMod(callee)) {
       if (killSet.find(r) == killSet.end()) {
         callSiteToChiMap[inst].insert(new MSSACallChi(r, callee, inst));
         regDefToBBMap[r].insert(inst->getParent());
@@ -363,10 +362,10 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
 void MemorySSA::computePhi(const Function *F) {
   // For each memory region used, compute basic blocks where phi must be
   // inserted.
-  for (MemReg *r : usedRegs) {
-    vector<const BasicBlock *> worklist;
-    set<const BasicBlock *> domFronPlus;
-    set<const BasicBlock *> work;
+  for (auto *r : usedRegs) {
+    std::vector<const BasicBlock *> worklist;
+    std::set<const BasicBlock *> domFronPlus;
+    std::set<const BasicBlock *> work;
 
     for (const BasicBlock *X : regDefToBBMap[r]) {
       worklist.push_back(X);
@@ -403,13 +402,13 @@ void MemorySSA::computePhi(const Function *F) {
 }
 
 void MemorySSA::rename(const Function *F) {
-  map<MemReg *, unsigned> C;
-  map<MemReg *, vector<MSSAVar *>> S;
+  std::map<MemRegEntry *, unsigned> C;
+  std::map<MemRegEntry *, std::vector<MSSAVar *>> S;
 
   // Initialization:
 
   // C(*) <- 0
-  for (MemReg *r : usedRegs) {
+  for (auto *r : usedRegs) {
     C[r] = 0;
   }
 
@@ -425,11 +424,11 @@ void MemorySSA::rename(const Function *F) {
 }
 
 void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
-                         map<MemReg *, unsigned> &C,
-                         map<MemReg *, vector<MSSAVar *>> &S) {
+                         std::map<MemRegEntry *, unsigned> &C,
+                         std::map<MemRegEntry *, std::vector<MSSAVar *>> &S) {
   // Compute LHS for PHI
   for (MSSAPhi *phi : bbToPhiMap[X]) {
-    MemReg *V = phi->region;
+    auto *V = phi->region;
     unsigned i = C[V];
     phi->var = new MSSAVar(phi, i, X);
     S[V].push_back(phi->var);
@@ -454,7 +453,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
         mu->var = S[mu->region].back();
 
       for (MSSAChi *chi : callSiteToSyncChiMap[cs]) {
-        MemReg *V = chi->region;
+        auto *V = chi->region;
         unsigned i = C[V];
         chi->var = new MSSAVar(chi, i, inst->getParent());
         chi->opVar = S[V].back();
@@ -463,7 +462,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
       }
 
       for (MSSAChi *chi : callSiteToChiMap[cs]) {
-        MemReg *V = chi->region;
+        auto *V = chi->region;
         unsigned i = C[V];
         chi->var = new MSSAVar(chi, i, inst->getParent());
         chi->opVar = S[V].back();
@@ -472,7 +471,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
       }
 
       for (MSSAChi *chi : extCallSiteToCallerRetChi[cs]) {
-        MemReg *V = chi->region;
+        auto *V = chi->region;
         unsigned i = C[V];
         chi->var = new MSSAVar(chi, i, inst->getParent());
         chi->opVar = S[V].back();
@@ -484,7 +483,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     if (isa<StoreInst>(inst)) {
       const StoreInst *SI = cast<StoreInst>(inst);
       for (MSSAChi *chi : storeToChiMap[SI]) {
-        MemReg *V = chi->region;
+        auto *V = chi->region;
         unsigned i = C[V];
         chi->var = new MSSAVar(chi, i, inst->getParent());
         chi->opVar = S[V].back();
@@ -528,7 +527,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
   // For each assignment of A in X
   //   pop(S(A))
   for (MSSAPhi *phi : bbToPhiMap[X]) {
-    MemReg *V = phi->region;
+    auto *V = phi->region;
     S[V].pop_back();
   }
   for (auto I = X->begin(), E = X->end(); I != E; ++I) {
@@ -538,17 +537,17 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
       CallBase *cs(const_cast<CallBase *>(cast<CallBase>(inst)));
 
       for (MSSAChi *chi : callSiteToSyncChiMap[cs]) {
-        MemReg *V = chi->region;
+        auto *V = chi->region;
         S[V].pop_back();
       }
 
       for (MSSAChi *chi : callSiteToChiMap[cs]) {
-        MemReg *V = chi->region;
+        auto *V = chi->region;
         S[V].pop_back();
       }
 
       for (MSSAChi *chi : extCallSiteToCallerRetChi[cs]) {
-        MemReg *V = chi->region;
+        auto *V = chi->region;
         S[V].pop_back();
       }
     }
@@ -556,7 +555,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     if (isa<StoreInst>(inst)) {
       const StoreInst *SI = cast<StoreInst>(inst);
       for (MSSAChi *chi : storeToChiMap[SI]) {
-        MemReg *V = chi->region;
+        auto *V = chi->region;
         S[V].pop_back();
       }
     }
@@ -584,7 +583,7 @@ void MemorySSA::computeLLVMPhiPredicates(const llvm::PHINode *phi) {
   // For each argument of the PHINode
   for (unsigned i = 0; i < phi->getNumIncomingValues(); ++i) {
     // Get IPDF
-    vector<BasicBlock *> IPDF =
+    std::vector<BasicBlock *> IPDF =
         iterated_postdominance_frontier(*curPDT, phi->getIncomingBlock(i));
 
     for (unsigned n = 0; n < IPDF.size(); ++n) {
@@ -617,7 +616,7 @@ void MemorySSA::computeMSSAPhiPredicates(MSSAPhi *phi) {
   for (auto I : phi->opsVar) {
     MSSAVar *op = I.second;
     // Get IPDF
-    vector<BasicBlock *> IPDF = iterated_postdominance_frontier(
+    std::vector<BasicBlock *> IPDF = iterated_postdominance_frontier(
         *curPDT, const_cast<BasicBlock *>(op->bb));
 
     for (unsigned n = 0; n < IPDF.size(); ++n) {
@@ -657,10 +656,10 @@ unsigned MemorySSA::whichPred(const BasicBlock *pred,
 }
 
 void MemorySSA::dumpMSSA(const llvm::Function *F) {
-  string filename = F->getName().str();
+  std::string filename = F->getName().str();
   filename.append("-assa.ll");
   errs() << "Writing '" << filename << "' ...\n";
-  error_code EC;
+  std::error_code EC;
   raw_fd_ostream stream(filename, EC, sys::fs::OF_Text);
 
   // Function header
@@ -829,7 +828,8 @@ MemorySSAAnalysis::Result MemorySSAAnalysis::run(Module &M,
   auto const &extInfo = AM.getResult<ExtInfoAnalysis>(M);
   auto const &MRA = AM.getResult<ModRefAnalysis>(M);
   auto const &PTACG = AM.getResult<PTACallGraphAnalysis>(M);
-  return std::make_unique<MemorySSA>(M, AA, *PTACG, MRA.get(), extInfo.get(),
-                                     AM);
+  auto const &Regions = AM.getResult<MemRegAnalysis>(M);
+  return std::make_unique<MemorySSA>(M, AA, *PTACG, *Regions, MRA.get(),
+                                     extInfo.get(), AM);
 }
 } // namespace parcoach

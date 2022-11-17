@@ -10,15 +10,16 @@ using namespace llvm;
 namespace parcoach {
 ModRefAnalysisResult::ModRefAnalysisResult(PTACallGraph const &CG,
                                            Andersen const &PTA,
-                                           ExtInfo const &extInfo, Module &M)
-    : CG(CG), PTA(PTA), extInfo(extInfo) {
+                                           ExtInfo const &extInfo,
+                                           MemReg const &Regions, Module &M)
+    : CG(CG), PTA(PTA), extInfo(extInfo), Regions(Regions) {
   analyze(M);
 }
 
 ModRefAnalysisResult::~ModRefAnalysisResult() {}
 
 void ModRefAnalysisResult::visitAllocaInst(AllocaInst &I) {
-  MemReg *r = MemReg::getValueRegion(&I);
+  auto *r = Regions.getValueRegion(&I);
   assert(r);
   funcLocalMap[curFunc].insert(r);
 }
@@ -30,10 +31,10 @@ void ModRefAnalysisResult::visitLoadInst(LoadInst &I) {
   assert(Found && "Load not found");
   if (!Found)
     return;
-  std::vector<MemReg *> regs;
-  MemReg::getValuesRegion(ptsSet, regs);
+  MemRegVector regs;
+  Regions.getValuesRegion(ptsSet, regs);
 
-  for (MemReg *r : regs) {
+  for (auto *r : regs) {
     if (globalKillSet.find(r) != globalKillSet.end())
       continue;
     funcRefMap[curFunc].insert(r);
@@ -47,10 +48,10 @@ void ModRefAnalysisResult::visitStoreInst(StoreInst &I) {
   assert(Found && "Store not found");
   if (!Found)
     return;
-  std::vector<MemReg *> regs;
-  MemReg::getValuesRegion(ptsSet, regs);
+  MemRegVector regs;
+  Regions.getValuesRegion(ptsSet, regs);
 
-  for (MemReg *r : regs) {
+  for (auto *r : regs) {
     if (globalKillSet.find(r) != globalKillSet.end())
       continue;
     funcModMap[curFunc].insert(r);
@@ -69,7 +70,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
   // In CUDA after a synchronization, all region in shared memory are written.
   if (optCudaTaint) {
     if (callee && callee->getName().equals("llvm.nvvm.barrier0")) {
-      for (MemReg *r : MemReg::getCudaSharedRegions()) {
+      for (auto *r : Regions.getCudaSharedRegions()) {
         if (globalKillSet.find(r) != globalKillSet.end())
           continue;
         funcModMap[curFunc].insert(r);
@@ -80,8 +81,8 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
   // In OpenMP after a synchronization, all region in shared memory are written.
   if (optOmpTaint) {
     if (callee && callee->getName().equals("__kmpc_barrier")) {
-      for (MemReg *r :
-           MemReg::getOmpSharedRegions(CI->getParent()->getParent())) {
+      for (auto *r :
+           getRange(Regions.getOmpSharedRegions(), CI->getFunction())) {
         if (globalKillSet.find(r) != globalKillSet.end())
           continue;
         funcModMap[curFunc].insert(r);
@@ -135,10 +136,10 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
     if (!Found) {
       continue;
     }
-    std::vector<MemReg *> regs;
-    MemReg::getValuesRegion(argPtsSet, regs);
+    MemRegVector regs;
+    Regions.getValuesRegion(argPtsSet, regs);
 
-    for (MemReg *r : regs) {
+    for (auto *r : regs) {
       if (globalKillSet.find(r) != globalKillSet.end())
         continue;
       funcRefMap[curFunc].insert(r);
@@ -156,7 +157,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         assert(callee->isVarArg());
 
         if (info->argIsMod[info->nbArgs - 1]) {
-          for (MemReg *r : regs) {
+          for (auto *r : regs) {
             if (globalKillSet.find(r) != globalKillSet.end())
               continue;
             funcModMap[curFunc].insert(r);
@@ -167,7 +168,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
       // Normal argument
       else {
         if (info->argIsMod[i]) {
-          for (MemReg *r : regs) {
+          for (auto *r : regs) {
             if (globalKillSet.find(r) != globalKillSet.end())
               continue;
             funcModMap[curFunc].insert(r);
@@ -190,7 +191,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
           assert(mayCallee->isVarArg());
 
           if (info->argIsMod[info->nbArgs - 1]) {
-            for (MemReg *r : regs) {
+            for (auto *r : regs) {
               if (globalKillSet.find(r) != globalKillSet.end())
                 continue;
               funcModMap[curFunc].insert(r);
@@ -201,7 +202,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         // Normal argument
         else {
           if (info->argIsMod[i]) {
-            for (MemReg *r : regs) {
+            for (auto *r : regs) {
               if (globalKillSet.find(r) != globalKillSet.end())
                 continue;
               funcModMap[curFunc].insert(r);
@@ -225,16 +226,16 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         return;
       }
 
-      std::vector<MemReg *> regs;
-      MemReg::getValuesRegion(retPtsSet, regs);
-      for (MemReg *r : regs) {
+      MemRegVector regs;
+      Regions.getValuesRegion(retPtsSet, regs);
+      for (auto *r : regs) {
         if (globalKillSet.find(r) != globalKillSet.end())
           continue;
         funcRefMap[curFunc].insert(r);
       }
 
       if (info->retIsMod) {
-        for (MemReg *r : regs) {
+        for (auto *r : regs) {
           if (globalKillSet.find(r) != globalKillSet.end())
             continue;
           funcModMap[curFunc].insert(r);
@@ -258,16 +259,16 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         if (!Found) {
           continue;
         }
-        std::vector<MemReg *> regs;
-        MemReg::getValuesRegion(retPtsSet, regs);
-        for (MemReg *r : regs) {
+        MemRegVector regs;
+        Regions.getValuesRegion(retPtsSet, regs);
+        for (auto *r : regs) {
           if (globalKillSet.find(r) != globalKillSet.end())
             continue;
           funcRefMap[curFunc].insert(r);
         }
 
         if (info->retIsMod) {
-          for (MemReg *r : regs) {
+          for (auto *r : regs) {
             if (globalKillSet.find(r) != globalKillSet.end())
               continue;
             funcModMap[curFunc].insert(r);
@@ -292,7 +293,7 @@ void ModRefAnalysisResult::analyze(Module &M) {
       continue;
     if (CG.isReachableFromEntry(*inst->getParent()->getParent()))
       continue;
-    globalKillSet.insert(MemReg::getValueRegion(v));
+    globalKillSet.insert(Regions.getValueRegion(v));
   }
 
   // First compute the mod/ref sets of each function from its load/store
@@ -328,36 +329,39 @@ void ModRefAnalysisResult::analyze(Module &M) {
         // If callee is not in the scc
         // kill(F) = kill(F) U kill(callee) U local(callee)
         if (find(nodeVec.begin(), nodeVec.end(), it.second) == nodeVec.end()) {
-          for (MemReg *r : funcLocalMap[callee])
+          for (auto *r : funcLocalMap[callee]) {
             funcKillMap[F].insert(r);
+          }
 
           // Here we have to use a vector to store regions we want to add into
           // the funcKillMap because iterators in a DenseMap are invalidated
           // whenever an insertion occurs unlike map.
-          std::vector<MemReg *> killToAdd;
-          for (MemReg *r : funcKillMap[callee])
+          MemRegVector killToAdd;
+          for (auto *r : funcKillMap[callee]) {
             killToAdd.push_back(r);
-          for (MemReg *r : killToAdd)
+          }
+          for (auto *r : killToAdd) {
             funcKillMap[F].insert(r);
+          }
         }
       }
 
       // Mod(F) = Mod(F) \ kill(F)
       // Ref(F) = Ref(F) \ kill(F)
-      std::vector<MemReg *> toRemove;
-      for (MemReg *r : funcModMap[F]) {
+      MemRegVector toRemove;
+      for (auto *r : funcModMap[F]) {
         if (funcKillMap[F].find(r) != funcKillMap[F].end())
           toRemove.push_back(r);
       }
-      for (MemReg *r : toRemove) {
+      for (auto *r : toRemove) {
         funcModMap[F].erase(r);
       }
       toRemove.clear();
-      for (MemReg *r : funcRefMap[F]) {
+      for (auto *r : funcRefMap[F]) {
         if (funcKillMap[F].find(r) != funcKillMap[F].end())
           toRemove.push_back(r);
       }
-      for (MemReg *r : toRemove) {
+      for (auto *r : toRemove) {
         funcRefMap[F].erase(r);
       }
     }
@@ -384,15 +388,15 @@ void ModRefAnalysisResult::analyze(Module &M) {
 
           // Mod(caller) = Mod(caller) U (Mod(callee) \ Kill(caller)
           // Ref(caller) = Ref(caller) U (Ref(callee) \ Kill(caller)
-          std::set<MemReg *> modToAdd;
-          std::set<MemReg *> refToAdd;
+          MemRegSet modToAdd;
+          MemRegSet refToAdd;
           modToAdd.insert(funcModMap[callee].begin(), funcModMap[callee].end());
           refToAdd.insert(funcRefMap[callee].begin(), funcRefMap[callee].end());
-          for (MemReg *r : modToAdd) {
+          for (auto *r : modToAdd) {
             if (funcKillMap[F].find(r) == funcKillMap[F].end())
               funcModMap[F].insert(r);
           }
-          for (MemReg *r : refToAdd) {
+          for (auto *r : refToAdd) {
             if (funcKillMap[F].find(r) == funcKillMap[F].end())
               funcRefMap[F].insert(r);
           }
@@ -427,7 +431,7 @@ MemRegSet ModRefAnalysisResult::getFuncKill(const Function *F) const {
   return funcKillMap.lookup(F);
 }
 
-bool ModRefAnalysisResult::inGlobalKillSet(MemReg *R) const {
+bool ModRefAnalysisResult::inGlobalKillSet(MemRegEntry *R) const {
   return globalKillSet.count(R) > 0;
 }
 
@@ -444,19 +448,19 @@ void ModRefAnalysisResult::dump() const {
 
       errs() << "Mod/Ref for function " << F->getName() << ":\n";
       errs() << "Mod(";
-      for (MemReg *r : getFuncMod(F))
+      for (auto *r : getFuncMod(F))
         errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Ref(";
-      for (MemReg *r : getFuncRef(F))
+      for (auto *r : getFuncRef(F))
         errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Local(";
-      for (MemReg *r : funcLocalMap.lookup(F))
+      for (auto *r : funcLocalMap.lookup(F))
         errs() << r->getName() << ", ";
       errs() << ")\n";
       errs() << "Kill(";
-      for (MemReg *r : getFuncKill(F))
+      for (auto *r : getFuncKill(F))
         errs() << r->getName() << ", ";
       errs() << ")\n";
     }
@@ -464,7 +468,7 @@ void ModRefAnalysisResult::dump() const {
     ++cgSccIter;
   }
   errs() << "GlobalKill(";
-  for (MemReg *r : globalKillSet) {
+  for (auto *r : globalKillSet) {
     errs() << r->getName() << ", ";
   }
   errs() << ")\n";
@@ -477,7 +481,9 @@ ModRefAnalysis::Result ModRefAnalysis::run(Module &M,
   auto &AA = AM.getResult<AndersenAA>(M);
   auto &PTA = AM.getResult<PTACallGraphAnalysis>(M);
   auto &ExtInfo = AM.getResult<ExtInfoAnalysis>(M);
-  auto MRA = std::make_unique<ModRefAnalysisResult>(*PTA, AA, *ExtInfo, M);
+  auto &Regions = AM.getResult<MemRegAnalysis>(M);
+  auto MRA =
+      std::make_unique<ModRefAnalysisResult>(*PTA, AA, *ExtInfo, *Regions, M);
 #ifndef NDEBUG
   // FIXME: migrating this anywhere should work, we should make
   // the omp thingy an analysis pass.

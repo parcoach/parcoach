@@ -13,13 +13,14 @@ namespace parcoach {
 class ModRefAnalysisResult : public llvm::InstVisitor<ModRefAnalysisResult> {
 public:
   ModRefAnalysisResult(PTACallGraph const &CG, Andersen const &PTA,
-                       ExtInfo const &extInfo, llvm::Module &M);
+                       ExtInfo const &extInfo, MemReg const &Regions,
+                       llvm::Module &M);
   ~ModRefAnalysisResult();
 
   MemRegSet getFuncMod(const llvm::Function *F) const;
   MemRegSet getFuncRef(const llvm::Function *F) const;
   MemRegSet getFuncKill(const llvm::Function *F) const;
-  bool inGlobalKillSet(MemReg *R) const;
+  bool inGlobalKillSet(MemRegEntry *R) const;
 
   void visitAllocaInst(llvm::AllocaInst &I);
   void visitLoadInst(llvm::LoadInst &I);
@@ -37,6 +38,7 @@ private:
   PTACallGraph const &CG;
   Andersen const &PTA;
   ExtInfo const &extInfo;
+  MemReg const &Regions;
   llvm::ValueMap<const llvm::Function *, MemRegSet> funcModMap;
   llvm::ValueMap<const llvm::Function *, MemRegSet> funcRefMap;
   llvm::ValueMap<const llvm::Function *, MemRegSet> funcLocalMap;

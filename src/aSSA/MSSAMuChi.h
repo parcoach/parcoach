@@ -28,12 +28,13 @@ public:
     EXTRETCALL
   };
 
-  MSSADef(MemReg *region, TYPE type) : region(region), var(NULL), type(type) {}
+  MSSADef(MemRegEntry *region, TYPE type)
+      : region(region), var(NULL), type(type) {}
 
   virtual ~MSSADef() {}
-  virtual std::string getName() const { return region->getName(); }
+  virtual std::string getName() const { return region->getName().str(); }
 
-  MemReg *region;
+  MemRegEntry *region;
   MSSAVar *var;
   TYPE type;
 };
@@ -54,7 +55,7 @@ public:
 
 class MSSAPhi : public MSSADef {
 public:
-  MSSAPhi(MemReg *region) : MSSADef(region, PHI) {}
+  MSSAPhi(MemRegEntry *region) : MSSADef(region, PHI) {}
 
   std::map<int, MSSAVar *> opsVar;
   std::set<const llvm::Value *> preds;
@@ -64,7 +65,8 @@ public:
 
 class MSSAChi : public MSSADef {
 public:
-  MSSAChi(MemReg *region, TYPE type) : MSSADef(region, type), opVar(NULL) {}
+  MSSAChi(MemRegEntry *region, TYPE type)
+      : MSSADef(region, type), opVar(NULL) {}
 
   MSSAVar *opVar;
 
@@ -112,7 +114,7 @@ public:
 
 class MSSAEntryChi : public MSSAChi {
 public:
-  MSSAEntryChi(MemReg *region, const llvm::Function *func)
+  MSSAEntryChi(MemRegEntry *region, const llvm::Function *func)
       : MSSAChi(region, ENTRY), func(func) {}
   const llvm::Function *func;
 
@@ -121,7 +123,7 @@ public:
 
 class MSSAStoreChi : public MSSAChi {
 public:
-  MSSAStoreChi(MemReg *region, const llvm::StoreInst *inst)
+  MSSAStoreChi(MemRegEntry *region, const llvm::StoreInst *inst)
       : MSSAChi(region, STORE), inst(inst) {}
   const llvm::StoreInst *inst;
 
@@ -130,7 +132,7 @@ public:
 
 class MSSASyncChi : public MSSAChi {
 public:
-  MSSASyncChi(MemReg *region, const llvm::Instruction *inst)
+  MSSASyncChi(MemRegEntry *region, const llvm::Instruction *inst)
       : MSSAChi(region, SYNC), inst(inst) {}
   const llvm::Instruction *inst;
 
@@ -139,7 +141,7 @@ public:
 
 class MSSACallChi : public MSSAChi {
 public:
-  MSSACallChi(MemReg *region, const llvm::Function *called,
+  MSSACallChi(MemRegEntry *region, const llvm::Function *called,
               const llvm::Instruction *inst)
       : MSSAChi(region, CALL), called(called), inst(inst) {}
   const llvm::Function *called;
@@ -150,8 +152,8 @@ public:
 
 class MSSAExtCallChi : public MSSAChi {
 public:
-  MSSAExtCallChi(MemReg *region, const llvm::Function *called, unsigned argNo,
-                 const llvm::Instruction *inst)
+  MSSAExtCallChi(MemRegEntry *region, const llvm::Function *called,
+                 unsigned argNo, const llvm::Instruction *inst)
       : MSSAChi(region, EXTCALL), called(called), argNo(argNo), inst(inst) {}
   const llvm::Function *called;
   unsigned argNo;
@@ -162,7 +164,7 @@ public:
 
 class MSSAExtRetCallChi : public MSSAChi {
 public:
-  MSSAExtRetCallChi(MemReg *region, const llvm::Function *called)
+  MSSAExtRetCallChi(MemRegEntry *region, const llvm::Function *called)
       : MSSAChi(region, EXTRETCALL), called(called) {}
   const llvm::Function *called;
 
@@ -173,16 +175,17 @@ class MSSAMu {
 public:
   enum TYPE { LOAD, CALL, RET, EXTCALL };
 
-  MSSAMu(MemReg *region, TYPE type) : region(region), var(NULL), type(type) {}
+  MSSAMu(MemRegEntry *region, TYPE type)
+      : region(region), var(NULL), type(type) {}
   virtual ~MSSAMu() {}
-  MemReg *region;
+  MemRegEntry *region;
   MSSAVar *var;
   TYPE type;
 };
 
 class MSSALoadMu : public MSSAMu {
 public:
-  MSSALoadMu(MemReg *region, const llvm::LoadInst *inst)
+  MSSALoadMu(MemRegEntry *region, const llvm::LoadInst *inst)
       : MSSAMu(region, LOAD), inst(inst) {}
   const llvm::LoadInst *inst;
 
@@ -191,7 +194,7 @@ public:
 
 class MSSACallMu : public MSSAMu {
 public:
-  MSSACallMu(MemReg *region, const llvm::Function *called)
+  MSSACallMu(MemRegEntry *region, const llvm::Function *called)
       : MSSAMu(region, CALL), called(called) {}
   const llvm::Function *called;
 
@@ -200,7 +203,8 @@ public:
 
 class MSSAExtCallMu : public MSSAMu {
 public:
-  MSSAExtCallMu(MemReg *region, const llvm::Function *called, unsigned argNo)
+  MSSAExtCallMu(MemRegEntry *region, const llvm::Function *called,
+                unsigned argNo)
       : MSSAMu(region, EXTCALL), called(called), argNo(argNo) {}
   const llvm::Function *called;
 
@@ -211,7 +215,7 @@ public:
 
 class MSSARetMu : public MSSAMu {
 public:
-  MSSARetMu(MemReg *region, const llvm::Function *func)
+  MSSARetMu(MemRegEntry *region, const llvm::Function *func)
       : MSSAMu(region, RET), func(func) {}
 
   const llvm::Function *func;

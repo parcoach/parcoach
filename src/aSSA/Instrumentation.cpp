@@ -141,7 +141,7 @@ ParcoachInstrumentationPass::run(llvm::Module &M,
   for (Function &F : M) {
     Instrum.run(F);
   }
-  return PreservedAnalyses::none();
+  return PreservedAnalyses::all();
 }
 
 } // namespace parcoach

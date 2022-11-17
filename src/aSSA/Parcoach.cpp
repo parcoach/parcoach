@@ -3,10 +3,10 @@ This is PARCOACH
 The project is licensed under the LGPL 2.1 license
 */
 
-#include "Parcoach.h"
 #include "Collectives.h"
 #include "Config.h"
 #include "Instrumentation.h"
+#include "OpenMPInstr.h"
 #include "Options.h"
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
@@ -42,73 +42,68 @@ using namespace llvm;
 
 namespace parcoach {
 
-ParcoachInstr::ParcoachInstr(ModuleAnalysisManager &AM) : MAM(AM) {}
+namespace {
+struct ShowStats : public PassInfoMixin<ShowStats> {
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    AM.getResult<StatisticsAnalysis>(M).print(outs());
+    return PreservedAnalyses::all();
+  }
+};
+struct EmitDG : public PassInfoMixin<EmitDG> {
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    AM.getResult<DepGraphDCFAnalysis>(M)->toDot("dg.dot");
+    return PreservedAnalyses::all();
+  }
+};
+} // namespace
 
-void ParcoachInstr::replaceOMPMicroFunctionCalls(Module &M) {
-  // Get all calls to be replaced (only __kmpc_fork_call is handled for now).
-  std::vector<CallInst *> callToReplace;
-
-  for (const Function &F : M) {
-    for (const BasicBlock &BB : F) {
-      for (const Instruction &I : BB) {
-        const CallInst *ci = dyn_cast<CallInst>(&I);
-        if (!ci)
-          continue;
-
-        const Function *called = ci->getCalledFunction();
-        if (!called)
-          continue;
-
-        if (called->getName().equals("__kmpc_fork_call")) {
-          callToReplace.push_back(const_cast<CallInst *>(ci));
-        }
-      }
-    }
+void RegisterPasses(ModulePassManager &MPM) {
+  if (optVersion) {
+    outs() << "PARCOACH version " << PARCOACH_VERSION << "\n";
+    return;
   }
 
-  // Replace each call to __kmpc_fork_call with a call to the outlined function.
-  for (unsigned n = 0; n < callToReplace.size(); n++) {
-    CallInst *ci = callToReplace[n];
-
-    // Operand 2 contains the outlined function
-    Value *op2 = ci->getOperand(2);
-    Function *outlinedFunc = dyn_cast<Function>(op2);
-    assert(outlinedFunc && "can't cast kmp_fork_call arg");
-
-    errs() << outlinedFunc->getName() << "\n";
-
-    unsigned callNbOps = ci->getNumOperands();
-
-    SmallVector<Value *, 8> NewArgs;
-
-    // map 2 firsts operands of CI to null
-    for (unsigned i = 0; i < 2; i++) {
-      Type *ArgTy = getFunctionArgument(outlinedFunc, i)->getType();
-      Value *val = Constant::getNullValue(ArgTy);
-      NewArgs.push_back(val);
-    }
-
-    //  op 3 to nbops-1 are shared variables
-    for (unsigned i = 3; i < callNbOps - 1; i++) {
-      MemReg::func2SharedOmpVar[outlinedFunc].insert(ci->getOperand(i));
-      NewArgs.push_back(ci->getOperand(i));
-    }
-
-    CallInst *NewCI =
-        CallInst::Create(const_cast<Function *>(outlinedFunc), NewArgs);
-    NewCI->setCallingConv(outlinedFunc->getCallingConv());
-    ompNewInst2oldInst[NewCI] = ci->clone();
-    ReplaceInstWithInst(const_cast<CallInst *>(ci), NewCI);
+  if (!optContextInsensitive && optDotTaintPaths) {
+    errs() << "Error: you cannot use -dot-taint-paths option in context "
+           << "sensitive mode.\n";
+    exit(EXIT_FAILURE);
   }
+
+  initCollectives();
+
+  // Let's make sure we have a single exit node in all our functions.
+  MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
+
+  if (optStats) {
+    MPM.addPass(ShowStats());
+    return;
+  }
+  if (optOmpTaint) {
+    // Replace OpenMP Micro Function Calls and compute shared variable for
+    // each function.
+    MPM.addPass(PrepareOpenMPInstr());
+  }
+  if (optDotGraph) {
+    // We want to print the dot *after* the preparation pass.
+    MPM.addPass(EmitDG());
+  }
+  MPM.addPass(ParcoachInstrumentationPass());
+  MPM.addPass(ShowPAInterResult());
 }
 
-void ParcoachInstr::revertOmpTransformation() {
-  for (auto I : ompNewInst2oldInst) {
-    Instruction *newInst = I.first;
-    Instruction *oldInst = I.second;
-    ReplaceInstWithInst(newInst, oldInst);
-  }
+void RegisterAnalysis(ModuleAnalysisManager &MAM) {
+  MAM.registerPass([&]() { return AndersenAA(); });
+  MAM.registerPass([&]() { return DepGraphDCFAnalysis(); });
+  MAM.registerPass([&]() { return ExtInfoAnalysis(); });
+  MAM.registerPass([&]() { return InterproceduralAnalysis(); });
+  MAM.registerPass([&]() { return MemorySSAAnalysis(); });
+  MAM.registerPass([&]() { return MemRegAnalysis(); });
+  MAM.registerPass([&]() { return ModRefAnalysis(); });
+  MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
+  MAM.registerPass([&]() { return StatisticsAnalysis(); });
 }
+
+} // namespace parcoach
 
 // FIXME: this is currently deactivated as it needs to be adapted to support
 // opaque pointers.
@@ -200,88 +195,3 @@ void ParcoachInstr::cudaTransformation(Module &M) {
   }
 }
 #endif
-
-bool ParcoachInstr::runOnModule(Module &M) {
-  // Replace OpenMP Micro Function Calls and compute shared variable for
-  // each function.
-  if (optOmpTaint) {
-    replaceOMPMicroFunctionCalls(M);
-  }
-
-#if 0
-  if (optCudaTaint)
-    cudaTransformation(M);
-#endif
-
-  // Compute dep graph.
-  auto &DG = MAM.getResult<DepGraphDCFAnalysis>(M);
-
-  errs() << "* Dep graph done\n";
-
-  // Dot dep graph.
-  if (optDotGraph) {
-    DG->toDot("dg.dot");
-  }
-
-  errs() << "* Starting Parcoach analysis ...\n";
-  // Parcoach analysis
-
-  ParcoachInstrumentationPass P;
-  P.run(M, MAM);
-
-  // Revert OMP transformation.
-  if (optOmpTaint)
-    revertOmpTransformation();
-  return false;
-}
-
-PreservedAnalyses ParcoachPass::run(Module &M, ModuleAnalysisManager &AM) {
-  ParcoachInstr P(AM);
-  return P.runOnModule(M) ? PreservedAnalyses::none()
-                          : PreservedAnalyses::all();
-}
-
-namespace {
-struct ShowStats : public PassInfoMixin<ShowStats> {
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
-    AM.getResult<StatisticsAnalysis>(M).print(outs());
-    return PreservedAnalyses::all();
-  }
-};
-} // namespace
-
-void RegisterPasses(ModulePassManager &MPM) {
-  if (optVersion) {
-    outs() << "PARCOACH version " << PARCOACH_VERSION << "\n";
-    return;
-  }
-
-  if (!optContextInsensitive && optDotTaintPaths) {
-    errs() << "Error: you cannot use -dot-taint-paths option in context "
-           << "sensitive mode.\n";
-    exit(EXIT_FAILURE);
-  }
-
-  initCollectives();
-  if (optStats) {
-    MPM.addPass(ShowStats());
-    return;
-  }
-  MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
-  MPM.addPass(ParcoachPass());
-  MPM.addPass(ShowPAInterResult());
-}
-
-void RegisterAnalysis(ModuleAnalysisManager &MAM) {
-  MAM.registerPass([&]() { return AndersenAA(); });
-  MAM.registerPass([&]() { return DepGraphDCFAnalysis(); });
-  MAM.registerPass([&]() { return ExtInfoAnalysis(); });
-  MAM.registerPass([&]() { return InterproceduralAnalysis(); });
-  MAM.registerPass([&]() { return MemorySSAAnalysis(); });
-  MAM.registerPass([&]() { return MemRegAnalysis(); });
-  MAM.registerPass([&]() { return ModRefAnalysis(); });
-  MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
-  MAM.registerPass([&]() { return StatisticsAnalysis(); });
-}
-
-} // namespace parcoach

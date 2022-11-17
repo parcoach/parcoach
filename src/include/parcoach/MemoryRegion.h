@@ -33,7 +33,6 @@ class MemReg {
   llvm::ValueMap<const llvm::Value *, MemRegEntry *> valueToRegMap;
   MemRegSet sharedCudaRegions;
   FunctionToMemRegSetMap func2SharedOmpRegs;
-  Andersen const &AA;
 
   void createRegion(const llvm::Value *v);
   void setOmpSharedRegions(const llvm::Function *F, MemRegVector &regs);

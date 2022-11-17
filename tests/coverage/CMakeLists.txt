@@ -64,3 +64,4 @@ add_custom_command(
 add_custom_target(coverage
   DEPENDS ${LCOV_OUTPUT} show-test-coverage ${HTML_OUTPUT}
   )
+set_property(TARGET coverage APPEND PROPERTY ADDITIONAL_CLEAN_FILES ${HTML_OUTPUT})

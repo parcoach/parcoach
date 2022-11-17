@@ -8,6 +8,7 @@ set(ASSA_SOURCES
   MemoryRegion.cpp
   MemorySSA.cpp
   ModRefAnalysis.cpp
+  OpenMPInstr.cpp
   Options.cpp
   PTACallGraph.cpp
   Parcoach.cpp
@@ -27,8 +28,8 @@ set(ASSA_HEADERS
   CollList.h
   Instrumentation.h
   MSSAMuChi.h
+  OpenMPInstr.h
   Options.h
-  Parcoach.h
   ParcoachAnalysis.h
   ParcoachAnalysisInter.h
   PTACallGraph.h

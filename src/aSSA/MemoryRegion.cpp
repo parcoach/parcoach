@@ -41,7 +41,7 @@ MemRegEntry::MemRegEntry(Value const *V)
   }
 }
 
-MemReg::MemReg(Module &M, Andersen const &AA) : AA(AA) {
+MemReg::MemReg(Module &M, Andersen const &AA) {
   // Create regions from allocation sites.
   std::vector<const Value *> regions;
   AA.getAllAllocationSites(regions);

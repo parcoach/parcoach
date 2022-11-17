@@ -15,7 +15,6 @@ struct Warning {
   llvm::DebugLoc Where;
   ConditionalsContainerTy Conditionals;
   std::string toString() const;
-  operator bool() const;
 };
 
 using CallToWarningMapTy = llvm::ValueMap<llvm::CallBase *, Warning>;

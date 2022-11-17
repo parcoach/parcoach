@@ -35,7 +35,7 @@ Warning::Warning(Function const *F, DebugLoc &DL, ConditionalsContainerTy &&C)
 }
 
 std::string Warning::toString() const {
-  assert(this->operator bool() && "toString called on an invalid Warning");
+  assert(Missed != nullptr && "toString called on an invalid Warning");
 
   std::string Res;
   raw_string_ostream OS(Res);
@@ -51,8 +51,6 @@ std::string Warning::toString() const {
   OS << " (full-inter)";
   return Res;
 }
-
-Warning::operator bool() const { return Missed != nullptr; }
 
 void ParcoachAnalysisInter::run() {
   // Parcoach analysis

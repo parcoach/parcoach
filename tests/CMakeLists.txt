@@ -35,6 +35,12 @@ configure_file(parcoach_grep.in ${PARCOACH_GREP_BIN})
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_program(LIT_BIN lit REQUIRED)
+find_program(FILECHECK_BIN FileCheck
+  REQUIRED
+  HINTS ${LLVM_TOOLS_BINARY_DIR})
+set(LIT_ARGS_DEFAULT "-v")
+set(PARCOACH_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for lit")
+
 set(PARCOACH_FILE_CONTAINS ${CMAKE_CURRENT_SOURCE_DIR}/file_contains.py)
 
 # Top-level target for all generated test files.
@@ -43,13 +49,32 @@ add_custom_target(tests-dependencies ALL)
 
 # This provide a "high-level" test target that can be used to depend on running
 # *all* tests even if nested in a folder.
-add_custom_target(run-tests-ctest
+add_custom_target(run-ctest
   ${CMAKE_CTEST_COMMAND} --output-on-failure --timeout 30
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   USES_TERMINAL
   DEPENDS ${PARCOACH_BIN} tests-dependencies
   )
-add_custom_target(run-tests DEPENDS run-tests-ctest)
+
+add_custom_target(run-lit
+  ${LIT_BIN} ${PARCOACH_LIT_ARGS} ${CMAKE_CURRENT_BINARY_DIR}
+  USES_TERMINAL
+  DEPENDS ${PARCOACH_BIN}
+  )
+add_custom_target(run-tests DEPENDS run-ctest run-lit)
+
+parcoach_canonicalize_cmake_booleans(
+  PARCOACH_ENABLE_COVERAGE
+  )
+set(DEFAULT_LIT_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/default.cfg")
+
+# This lit config simply tells to look into nested folders for discovering
+# other test suites.
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg" @ONLY)
+# This sets up default configuration and substitutions for our lit tests.
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/default.cfg.in"
+  ${DEFAULT_LIT_CONFIG} @ONLY)
 
 if(PARCOACH_ENABLE_MPI)
   add_subdirectory(MPI)
@@ -59,7 +84,7 @@ if(PARCOACH_ENABLE_OPENMP)
   add_subdirectory(OMP)
 endif()
 
-add_subdirectory(interface)
+add_subdirectory(features)
 
 if(PARCOACH_ENABLE_COVERAGE)
   add_subdirectory(coverage)

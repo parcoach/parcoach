@@ -13,10 +13,12 @@ set(LLVM_COV_ARGS
   ${CMAKE_SOURCE_DIR}/src
   )
 
+# FIXME: a configure step before registering actual tests target so that this
+# can simply depend on them!
 add_custom_target(run-tests-coverage
   ${CMAKE_COMMAND} -E remove_directory ${PROFILE_FOLDER}
   COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${PROFILE_FOLDER}/%p.profraw" ${CMAKE_CTEST_COMMAND} --output-on-failure --timeout 30
-  COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${PROFILE_FOLDER}/%p.profraw" ${LIT_BIN} tests/OMP -v
+  COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${PROFILE_FOLDER}/%p.profraw" ${LIT_BIN} ${PARCOACH_LIT_ARGS} tests
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   USES_TERMINAL
   DEPENDS ${PARCOACH_BIN} tests-dependencies

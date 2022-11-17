@@ -1,0 +1,22 @@
+# -*- Python -*-
+
+# Configuration file for the 'lit' test runner.
+
+import os
+import sys
+import re
+import platform
+import subprocess
+
+import lit.formats
+
+# name: The name of this test suite.
+
+# testFormat: The test format to use to interpret tests.
+config.test_format = lit.formats.ShTest(True)
+
+# suffixes: A list of file extensions to treat as test files. This is overriden
+# by individual lit.local.cfg files in the test subdirectories.
+config.suffixes = ['.ll', '.c', '.cpp']
+
+config.excludes = ['CMakeFiles', 'MPI', 'third_party']

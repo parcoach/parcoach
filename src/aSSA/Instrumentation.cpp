@@ -1,6 +1,7 @@
 #include "Instrumentation.h"
 
 #include "Collectives.h"
+#include "Options.h"
 #include "parcoach/Analysis.h"
 #include "parcoach/Passes.h"
 
@@ -66,8 +67,9 @@ void insertCC(llvm::Instruction *I, int OP_color, llvm::StringRef OP_name,
 }
 } // namespace
 
-CollectiveInstrumentation::CollectiveInstrumentation(IAResult const &Result)
-    : AR(Result) {}
+CollectiveInstrumentation::CollectiveInstrumentation(
+    CallToWarningMapTy const &Warnings)
+    : Warnings(Warnings) {}
 
 bool CollectiveInstrumentation::run(Function &F) {
   bool Changed = false;
@@ -82,8 +84,8 @@ bool CollectiveInstrumentation::run(Function &F) {
   for (Instruction &I : Candidates) {
     CallInst &CI = cast<CallInst>(I);
     std::string WarningStr = " ";
-    auto It = AR.Warnings.find(&CI);
-    if (It != AR.Warnings.end()) {
+    auto It = Warnings.find(&CI);
+    if (It != Warnings.end()) {
       WarningStr = It->second.toString();
     }
 
@@ -126,10 +128,20 @@ bool CollectiveInstrumentation::run(Function &F) {
 PreservedAnalyses
 ParcoachInstrumentationPass::run(llvm::Module &M,
                                  llvm::ModuleAnalysisManager &AM) {
-  IAResult Res = AM.getResult<InterproceduralAnalysis>(M);
-  // TODO
-  LLVM_DEBUG(dbgs() << "Got a result :)\n");
-  return PreservedAnalyses::all();
+  auto const &PAInter = AM.getResult<InterproceduralAnalysis>(M);
+  if (PAInter->getWarnings().empty() || !optInstrumInter) {
+    LLVM_DEBUG(dbgs() << "Skipping instrumentation: no warnings detected"
+                      << " or instrumentation disabled.");
+    return PreservedAnalyses::all();
+  }
+  parcoach::CollectiveInstrumentation Instrum(PAInter->getWarnings());
+  LLVM_DEBUG(
+      dbgs()
+      << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n");
+  for (Function &F : M) {
+    Instrum.run(F);
+  }
+  return PreservedAnalyses::none();
 }
 
 } // namespace parcoach

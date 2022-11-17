@@ -13,6 +13,7 @@ set(ASSA_SOURCES
   Parcoach.cpp
   ParcoachAnalysisInter.cpp
   StatisticsAnalysis.cpp
+  ShowPAInterResults.cpp
   Utils.cpp
   andersen/Andersen.cpp
   andersen/ConstraintCollect.cpp
@@ -31,6 +32,7 @@ set(ASSA_HEADERS
   ParcoachAnalysis.h
   ParcoachAnalysisInter.h
   PTACallGraph.h
+  ShowPAInterResults.h
   Utils.h
   )
 add_sources_to_format(SOURCES ${ASSA_SOURCES})

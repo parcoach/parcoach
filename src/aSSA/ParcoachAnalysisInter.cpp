@@ -118,16 +118,6 @@ void ParcoachAnalysisInter::run() {
           }
           }
   */
-  if (!warningSet.empty() && !disableInstru) {
-    parcoach::CollectiveInstrumentation Instrum(Output_);
-    LLVM_DEBUG(
-        dbgs()
-        << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n");
-    for (Function &F : M) {
-      Instrum.run(F);
-    }
-  }
-  //	errs() << "Number of collectives to instrument = " << nbColNI << "\n";
   LLVM_DEBUG(dbgs() << " ... Parcoach analysis done\n");
 }
 
@@ -503,6 +493,7 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
 
   // BFS ON EACH LOOP IN F
   // DEBUG//errs() << "-- BFS IN EACH LOOP --\n";
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(*const_cast<Function *>(F));
   for (Loop *L : LI) {
     Unvisited.push_back(L->getHeader());
@@ -703,6 +694,7 @@ void ParcoachAnalysisInter::BFS(llvm::Function *F) {
 
   // BFS ON EACH LOOP IN F
   LLVM_DEBUG(dbgs() << "-- BFS IN EACH LOOP --\n");
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   LoopInfo &LI = FAM.getResult<LoopAnalysis>(*const_cast<Function *>(F));
   for (Loop *L : LI) {
     Unvisited.push_back(L->getHeader());
@@ -853,7 +845,7 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
 #endif
 
 // CHECK COLLECTIVES FUNCTION
-void ParcoachAnalysisInter::checkCollectives(llvm::Function *F) {
+void ParcoachAnalysisInter::checkCollectives(Function *F) {
   auto IsaDirectCallToCollective = [](Instruction const &I) {
     if (CallInst const *CI = dyn_cast<CallInst>(&I)) {
       Function const *F = CI->getCalledFunction();
@@ -966,8 +958,8 @@ errs() << pair.first << "{" << pair.second << "}\n";}*/
 
     warningSet.insert(&CI);
     DebugLoc DLoc = CI.getDebugLoc();
-    auto [Entry, _] = Output_.Warnings.insert(
-        {&CI, Warning(&F, DLoc, std::move(Conditionals))});
+    auto [Entry, _] =
+        Warnings.insert({&CI, Warning(&F, DLoc, std::move(Conditionals))});
 
     Diag = SMDiagnostic(DLoc ? DLoc->getFilename() : "", SourceMgr::DK_Warning,
                         Entry->second.toString());
@@ -977,11 +969,15 @@ errs() << pair.first << "{" << pair.second << "}\n";}*/
 
 AnalysisKey InterproceduralAnalysis::Key;
 
-IAResult InterproceduralAnalysis::run(Module &M, ModuleAnalysisManager &) {
-  IAResult R;
-  // TODO
+InterproceduralAnalysis::Result
+InterproceduralAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  auto const &PTACG = AM.getResult<PTACallGraphAnalysis>(M);
+  auto &DG = AM.getResult<DepGraphDCFAnalysis>(M);
   LLVM_DEBUG(dbgs() << "Running PARCOACH InterproceduralAnalysis\n");
-  return R;
+  auto PAInter = std::make_unique<ParcoachAnalysisInter>(M, DG.get(), *PTACG,
+                                                         AM, !optInstrumInter);
+  PAInter->run();
+  return PAInter;
 }
 
 /*

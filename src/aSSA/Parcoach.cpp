@@ -6,9 +6,11 @@ The project is licensed under the LGPL 2.1 license
 #include "Parcoach.h"
 #include "Collectives.h"
 #include "Config.h"
+#include "Instrumentation.h"
 #include "Options.h"
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
+#include "ShowPAInterResults.h"
 #include "Utils.h"
 #include "parcoach/DepGraphDCF.h"
 #include "parcoach/ExtInfo.h"
@@ -42,103 +44,6 @@ using namespace std;
 namespace parcoach {
 
 ParcoachInstr::ParcoachInstr(ModuleAnalysisManager &AM) : MAM(AM) {}
-
-bool ParcoachInstr::doInitialization(Module &M) {
-  initCollectives();
-
-  tstart = gettime();
-
-  return true;
-}
-
-bool ParcoachInstr::doFinalization(Module &M,
-                                   ParcoachAnalysisInter const &PAInter) {
-  tend = gettime();
-
-  unsigned intersectionSize;
-  int WnbAdded = 0, CnbAdded = 0;
-  int WnbRemoved = 0, CnbRemoved = 0;
-  auto CyanErr = []() { return WithColor(errs(), raw_ostream::Colors::CYAN); };
-  if (!optNoDataFlow) {
-    CyanErr() << "==========================================\n";
-    CyanErr() << "===  PARCOACH INTER WITH DEP ANALYSIS  ===\n";
-    CyanErr() << "==========================================\n";
-    errs() << "Module name: " << M.getModuleIdentifier() << "\n";
-    errs() << PAInter.getNbCollectivesFound() << " collective(s) found\n";
-    errs() << PAInter.getNbCollectivesCondCalled()
-           << " collective(s) conditionally called\n";
-    errs() << PAInter.getNbWarnings() << " warning(s) issued\n";
-    errs() << PAInter.getNbConds() << " cond(s) \n";
-    errs() << PAInter.getConditionSet().size() << " different cond(s)\n";
-    errs() << PAInter.getNbCC() << " CC functions inserted \n";
-
-    intersectionSize = getBBSetIntersectionSize(
-        PAInter.getConditionSet(), PAInter.getConditionSetParcoachOnly());
-
-    CnbAdded = PAInter.getConditionSet().size() - intersectionSize;
-    CnbRemoved =
-        PAInter.getConditionSetParcoachOnly().size() - intersectionSize;
-    errs() << CnbAdded << " condition(s) added and " << CnbRemoved
-           << " condition(s) removed with dep analysis.\n";
-
-    intersectionSize = getInstSetIntersectionSize(
-        PAInter.getWarningSet(), PAInter.getWarningSetParcoachOnly());
-
-    WnbAdded = PAInter.getWarningSet().size() - intersectionSize;
-    WnbRemoved = PAInter.getWarningSetParcoachOnly().size() - intersectionSize;
-    errs() << WnbAdded << " warning(s) added and " << WnbRemoved
-           << " warning(s) removed with dep analysis.\n";
-  } else {
-
-    CyanErr() << "================================================\n";
-    CyanErr() << "===== PARCOACH INTER WITHOUT DEP ANALYSIS ======\n";
-    CyanErr() << "================================================\n";
-    errs() << PAInter.getNbCollectivesFound() << " collective(s) found\n";
-    errs() << PAInter.getNbWarningsParcoachOnly() << " warning(s) issued\n";
-    errs() << PAInter.getNbCondsParcoachOnly() << " cond(s) \n";
-    errs() << PAInter.getConditionSetParcoachOnly().size()
-           << " different cond(s)\n";
-    errs() << PAInter.getNbCC() << " CC functions inserted \n";
-  }
-
-  /* if (!optNoDataFlow) {
-     errs() << "app," << PAInter->getNbCollectivesFound() << ","
-       << PAInter->getNbWarnings() << ","
-       << PAInter->getConditionSet().size() << "," << WnbAdded << ","
-       << WnbRemoved << "," << CnbAdded << "," << CnbRemoved << ","
-       << PAInter->getNbWarningsParcoachOnly() << ","
-       << PAInter->getConditionSetParcoachOnly().size() << "\n";
-   }*/
-  CyanErr() << "==========================================\n";
-
-  if (optTimeStats) {
-    errs() << "AA time : " << format("%.3f", (tend_aa - tstart_aa) * 1.0e3)
-           << " ms\n";
-    errs() << "Dep Analysis time : "
-           << format("%.3f", (tend_depgraph - tstart_pta) * 1.0e3) << " ms\n";
-    errs() << "Parcoach time : "
-           << format("%.3f", (tend_parcoach - tstart_parcoach) * 1.0e3)
-           << " ms\n";
-    errs() << "Total time : " << format("%.3f", (tend - tstart) * 1.0e3)
-           << " ms\n\n";
-
-    errs() << "detailed timers:\n";
-    errs() << "PTA time : " << format("%.3f", (tend_pta - tstart_pta) * 1.0e3)
-           << " ms\n";
-    errs() << "Region creation time : "
-           << format("%.3f", (tend_regcreation - tstart_regcreation) * 1.0e3)
-           << " ms\n";
-    errs() << "Modref time : "
-           << format("%.3f", (tend_modref - tstart_modref) * 1.0e3) << " ms\n";
-    errs() << "ASSA generation time : "
-           << format("%.3f", (tend_assa - tstart_assa) * 1.0e3) << " ms\n";
-    errs() << "Dep graph generation time : "
-           << format("%.3f", (tend_depgraph - tstart_depgraph) * 1.0e3)
-           << " ms\n";
-  }
-
-  return true;
-}
 
 void ParcoachInstr::replaceOMPMicroFunctionCalls(
     Module &M, map<const Function *, set<const Value *>> &func2SharedVarMap) {
@@ -207,10 +112,10 @@ void ParcoachInstr::revertOmpTransformation() {
   }
 }
 
-void ParcoachInstr::cudaTransformation(Module &M) {
-  // FIXME: this is currently deactivated as it needs to be adapted to support
-  // opaque pointers.
+// FIXME: this is currently deactivated as it needs to be adapted to support
+// opaque pointers.
 #if 0
+void ParcoachInstr::cudaTransformation(Module &M) {
   // Compute list of kernels
   set<Function *> kernels;
 
@@ -295,27 +200,10 @@ void ParcoachInstr::cudaTransformation(Module &M) {
     Builder.CreateCall(kernel, callArgs);
     Builder.CreateRetVoid();
   }
-#endif
 }
+#endif
 
 bool ParcoachInstr::runOnModule(Module &M) {
-  doInitialization(M);
-  if (!optContextInsensitive && optDotTaintPaths) {
-    errs() << "Error: you cannot use -dot-taint-paths option in context "
-           << "sensitive mode.\n";
-    exit(EXIT_FAILURE);
-  }
-
-  if (optVersion) {
-    outs() << "PARCOACH version " << PARCOACH_VERSION << "\n";
-    return false;
-  }
-
-  if (optStats) {
-    MAM.getResult<StatisticsAnalysis>(M).print(outs());
-    return false;
-  }
-
   // Replace OpenMP Micro Function Calls and compute shared variable for
   // each function.
   map<const Function *, set<const Value *>> func2SharedOmpVar;
@@ -323,25 +211,22 @@ bool ParcoachInstr::runOnModule(Module &M) {
     replaceOMPMicroFunctionCalls(M, func2SharedOmpVar);
   }
 
+#if 0
   if (optCudaTaint)
     cudaTransformation(M);
+#endif
 
   // Run Andersen alias analysis.
-  tstart_aa = gettime();
   Andersen const &AA = MAM.getResult<AndersenAA>(M);
-  tend_aa = gettime();
 
   errs() << "* AA done\n";
 
   // Create PTA call graph
-  tstart_pta = gettime();
   auto &PTACG = MAM.getResult<PTACallGraphAnalysis>(M);
   assert(PTACG && "expected a PTACallGraph");
-  tend_pta = gettime();
   errs() << "* PTA Call graph creation done\n";
 
   // Create regions from allocation sites.
-  tstart_regcreation = gettime();
   vector<const Value *> regions;
   AA.getAllAllocationSites(regions);
 
@@ -355,7 +240,6 @@ bool ParcoachInstr::runOnModule(Module &M) {
     regCounter++;
     MemReg::createRegion(r);
   }
-  tend_regcreation = gettime();
 
   if (optDumpRegions)
     MemReg::dumpRegions();
@@ -378,31 +262,10 @@ bool ParcoachInstr::runOnModule(Module &M) {
     }
   }
 
-  // Compute MOD/REF analysis
-  tstart_modref = gettime();
-  auto const &MRA = MAM.getResult<ModRefAnalysis>(M);
-  tend_modref = gettime();
-#ifndef NDEBUG
-  if (optDumpModRef)
-    MRA->dump();
-#endif
-
-  errs() << "* Mod/ref done\n";
-
-  // Compute all-inclusive SSA.
-  tstart_assa = gettime();
-  auto &MSSA = MAM.getResult<MemorySSAAnalysis>(M);
-  tend_assa = gettime();
-  errs() << "* SSA done\n";
-
   // Compute dep graph.
-  tstart_depgraph = gettime();
-  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto &DG = MAM.getResult<DepGraphDCFAnalysis>(M);
 
   errs() << "* Dep graph done\n";
-
-  tend_depgraph = gettime();
 
   // Dot dep graph.
   if (optDotGraph) {
@@ -410,39 +273,16 @@ bool ParcoachInstr::runOnModule(Module &M) {
   }
 
   errs() << "* Starting Parcoach analysis ...\n";
-
-  tstart_parcoach = gettime();
   // Parcoach analysis
 
-  ParcoachAnalysisInter PAInter(M, DG.get(), *PTACG, FAM, !optInstrumInter);
-  PAInter.run();
-
-  tend_parcoach = gettime();
+  ParcoachInstrumentationPass P;
+  P.run(M, MAM);
 
   // Revert OMP transformation.
   if (optOmpTaint)
     revertOmpTransformation();
-
-  doFinalization(M, PAInter);
   return false;
 }
-
-double ParcoachInstr::tstart = 0;
-double ParcoachInstr::tend = 0;
-double ParcoachInstr::tstart_aa = 0;
-double ParcoachInstr::tend_aa = 0;
-double ParcoachInstr::tstart_pta = 0;
-double ParcoachInstr::tend_pta = 0;
-double ParcoachInstr::tstart_regcreation = 0;
-double ParcoachInstr::tend_regcreation = 0;
-double ParcoachInstr::tstart_modref = 0;
-double ParcoachInstr::tend_modref = 0;
-double ParcoachInstr::tstart_assa = 0;
-double ParcoachInstr::tend_assa = 0;
-double ParcoachInstr::tstart_depgraph = 0;
-double ParcoachInstr::tend_depgraph = 0;
-double ParcoachInstr::tstart_parcoach = 0;
-double ParcoachInstr::tend_parcoach = 0;
 
 PreservedAnalyses ParcoachPass::run(Module &M, ModuleAnalysisManager &AM) {
   ParcoachInstr P(AM);
@@ -450,23 +290,46 @@ PreservedAnalyses ParcoachPass::run(Module &M, ModuleAnalysisManager &AM) {
                           : PreservedAnalyses::all();
 }
 
+namespace {
+struct ShowStats : public PassInfoMixin<ShowStats> {
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    AM.getResult<StatisticsAnalysis>(M).print(outs());
+    return PreservedAnalyses::all();
+  }
+};
+} // namespace
+
 void RegisterPasses(ModulePassManager &MPM) {
-  // TODO
-  // MPM.addPass(ParcoachInstrumentationPass());
+  if (optVersion) {
+    outs() << "PARCOACH version " << PARCOACH_VERSION << "\n";
+    return;
+  }
+
+  if (!optContextInsensitive && optDotTaintPaths) {
+    errs() << "Error: you cannot use -dot-taint-paths option in context "
+           << "sensitive mode.\n";
+    exit(EXIT_FAILURE);
+  }
+
+  initCollectives();
+  if (optStats) {
+    MPM.addPass(ShowStats());
+    return;
+  }
   MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
   MPM.addPass(ParcoachPass());
+  MPM.addPass(ShowPAInterResult());
 }
 
 void RegisterAnalysis(ModuleAnalysisManager &MAM) {
-  // TODO
-  // MAM.registerPass([&]() { return InterproceduralAnalysis(); });
-  MAM.registerPass([&]() { return StatisticsAnalysis(); });
-  MAM.registerPass([&]() { return ExtInfoAnalysis(); });
-  MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
-  MAM.registerPass([&]() { return ModRefAnalysis(); });
-  MAM.registerPass([&]() { return MemorySSAAnalysis(); });
-  MAM.registerPass([&]() { return DepGraphDCFAnalysis(); });
   MAM.registerPass([&]() { return AndersenAA(); });
+  MAM.registerPass([&]() { return DepGraphDCFAnalysis(); });
+  MAM.registerPass([&]() { return ExtInfoAnalysis(); });
+  MAM.registerPass([&]() { return InterproceduralAnalysis(); });
+  MAM.registerPass([&]() { return MemorySSAAnalysis(); });
+  MAM.registerPass([&]() { return ModRefAnalysis(); });
+  MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
+  MAM.registerPass([&]() { return StatisticsAnalysis(); });
 }
 
 } // namespace parcoach

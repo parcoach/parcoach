@@ -4,6 +4,8 @@
 
 namespace parcoach {
 
+class ParcoachAnalysisInter;
+
 struct Warning {
   using ConditionalsContainerTy = llvm::SmallVector<llvm::DebugLoc, 2>;
   Warning(llvm::Function const *, llvm::DebugLoc &, ConditionalsContainerTy &&);
@@ -16,9 +18,7 @@ struct Warning {
   operator bool() const;
 };
 
-struct IAResult {
-  llvm::DenseMap<llvm::CallBase *, Warning> Warnings;
-};
+using CallToWarningMapTy = llvm::ValueMap<llvm::CallBase *, Warning>;
 
 class InterproceduralAnalysis
     : public llvm::AnalysisInfoMixin<InterproceduralAnalysis> {
@@ -26,9 +26,9 @@ class InterproceduralAnalysis
   static llvm::AnalysisKey Key;
 
 public:
-  using Result = IAResult;
+  using Result = std::unique_ptr<parcoach::ParcoachAnalysisInter>;
 
-  IAResult run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 
 } // namespace parcoach

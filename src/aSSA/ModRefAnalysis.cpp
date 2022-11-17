@@ -477,7 +477,15 @@ ModRefAnalysis::Result ModRefAnalysis::run(Module &M,
   auto &AA = AM.getResult<AndersenAA>(M);
   auto &PTA = AM.getResult<PTACallGraphAnalysis>(M);
   auto &ExtInfo = AM.getResult<ExtInfoAnalysis>(M);
-  return std::make_unique<ModRefAnalysisResult>(*PTA, AA, *ExtInfo, M);
+  auto MRA = std::make_unique<ModRefAnalysisResult>(*PTA, AA, *ExtInfo, M);
+#ifndef NDEBUG
+  // FIXME: migrating this anywhere should work, we should make
+  // the omp thingy an analysis pass.
+  if (optDumpModRef) {
+    MRA->dump();
+  }
+#endif
+  return MRA;
 }
 
 } // namespace parcoach

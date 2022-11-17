@@ -18,11 +18,6 @@
 namespace parcoach {
 class ParcoachInstr {
 public:
-  /* timers */
-  static double tstart, tend, tstart_aa, tend_aa, tstart_pta, tend_pta,
-      tstart_regcreation, tend_regcreation, tstart_modref, tend_modref,
-      tstart_assa, tend_assa, tstart_depgraph, tend_depgraph, tstart_parcoach,
-      tend_parcoach;
   ParcoachInstr(llvm::ModuleAnalysisManager &AM);
 
   virtual bool runOnModule(llvm::Module &M);
@@ -36,8 +31,7 @@ private:
 
   std::map<llvm::Instruction *, llvm::Instruction *> ompNewInst2oldInst;
 
-  bool doInitialization(llvm::Module &M);
-  bool doFinalization(llvm::Module &M, ParcoachAnalysisInter const &);
+  void doFinalization(llvm::Module &M, ParcoachAnalysisInter const &);
 
   void replaceOMPMicroFunctionCalls(
       llvm::Module &M,

@@ -32,22 +32,21 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
 public:
   ParcoachAnalysisInter(llvm::Module &M, DepGraphDCF *DG,
                         PTACallGraph const &PTACG,
-                        llvm::FunctionAnalysisManager &AM,
+                        llvm::ModuleAnalysisManager &AM,
                         bool disableInstru = false)
-      : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG), FAM(AM) {
+      : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG), MAM(AM) {
     id++;
   }
 
   virtual ~ParcoachAnalysisInter() { CollList::freeAll(); }
 
-  virtual void run();
-
-  // FIXME: this should be const, or simply be returned by run!
-  IAResult &getResult() { return Output_; };
+  void run() override;
+  CallToWarningMapTy const &getWarnings() { return Warnings; };
 
 private:
   PTACallGraph const &PTACG;
-  llvm::FunctionAnalysisManager &FAM;
+  llvm::ModuleAnalysisManager &MAM;
+  CallToWarningMapTy Warnings;
 
   void setCollSet(llvm::BasicBlock *BB);
   void setMPICollSet(llvm::BasicBlock *BB);
@@ -63,8 +62,6 @@ private:
   void instrumentFunction(llvm::Function *F);
   void insertCC(llvm::Instruction *I, int OP_color, std::string OP_name,
                 int OP_line, llvm::StringRef WarningMsg, llvm::StringRef File);
-
-  IAResult Output_;
 
   static int id;
 

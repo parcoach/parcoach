@@ -40,7 +40,7 @@ public:
     rc = 0;
     navs = (coll == "NAVS");
     names.push_back(coll);
-    if (from) {
+    if (next) {
       from->incRef();
       navs |= from->isNAVS();
       depth = from->getDepth() + 1;
@@ -57,7 +57,7 @@ public:
       : source(src), next(from) {
     // nb_alloc += 1;
     rc = 0;
-    if (from) {
+    if (next) {
       from->incRef();
       navs |= from->isNAVS();
       depth = from->getDepth() + 1;
@@ -114,8 +114,6 @@ public:
     std::string o = cl2.toCollMap();
     return (t == o);
   }
-
-  bool operator!=(const CollList &cl2) { return !(*this == cl2); }
 };
 
 #endif /* COLLLIST_H */

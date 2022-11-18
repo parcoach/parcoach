@@ -70,10 +70,8 @@ void PTACallGraph::addToCallGraph(Function const &F) {
 
     // Found the entry point?
     if (F.getName() == "main") {
-      if (Root) // Found multiple external mains?  Don't pick one.
-        Root = ExternalCallingNode;
-      else
-        Root = Node; // Found a main, keep track of it!
+      assert(!Root && "there should be at most one main");
+      Root = Node; // Found a main, keep track of it!
 
       ProgEntry = Node;
     }
@@ -109,32 +107,25 @@ void PTACallGraph::addToCallGraph(Function const &F) {
           assert(calledValue);
 
           std::vector<const Value *> ptsSet;
-          if (!AA.getPointsToSet(calledValue, ptsSet)) {
-            errs() << "coult not compute points to set for call inst : " << I
-                   << "\n";
-            continue;
+
+          bool Found = AA.getPointsToSet(calledValue, ptsSet);
+          assert(Found && "coult not compute points to set for call inst");
+
+          Found = false;
+          auto IsCandidateF = [&](Value const *V) {
+            auto *CandidateF = dyn_cast<Function>(V);
+            return CandidateF && CI->arg_size() == CandidateF->arg_size();
+          };
+          for (const Value *v : make_filter_range(ptsSet, IsCandidateF)) {
+            auto *LocalCallee = cast<Function>(v);
+            Found = true;
+
+            indirectCallMap[CI].insert(LocalCallee);
+
+            if (Intrinsic::isLeaf(LocalCallee->getIntrinsicID()))
+              Node->addCalledFunction(CI, getOrInsertFunction(LocalCallee));
           }
-
-          bool found = false;
-          for (const Value *v : ptsSet) {
-            Callee = dyn_cast<Function>(v);
-            if (!Callee)
-              continue;
-
-            if (CI->arg_size() != Callee->arg_size())
-              continue;
-
-            found = true;
-
-            indirectCallMap[CI].insert(Callee);
-
-            if (Intrinsic::isLeaf(Callee->getIntrinsicID()))
-              Node->addCalledFunction(CI, getOrInsertFunction(Callee));
-          }
-
-          if (!found)
-            errs() << "could not find called function for call inst : " << I
-                   << "\n";
+          assert(Found && "could not find called function for call inst");
         }
       }
     }

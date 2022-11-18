@@ -1,24 +1,12 @@
 // RUN: %clang %openmp -g -S -emit-llvm %s -o %t.ll
 // RUN: %parcoach --disable-output %t.ll -check-omp 2>&1 | %filecheck %s
-// CHECK: warning: __kmpc_barrier line 35 possibly not called by all processes because of conditional(s) line(s)  33
+// CHECK: warning: __kmpc_barrier line 23 possibly not called by all processes because of conditional(s) line(s)  21
+// For this test, also generate some dots
+// RUN: %parcoach --disable-output %t.ll -check-omp -dot-depgraph
+// RUN: %parcoach --disable-output %t.ll -check-omp -dot-depgraph -dot-taint-paths -context-insensitive=true
 #include "omp.h"
 #include <stdio.h>
 #include <stdlib.h>
-
-/*
- * DESCRIPTION: depending of the verbosity level, a warning is issued or not
- */
-
-/*
-void f(int r){
-
-        if(r==0){
-                printf("Thread %d in conditional\n",omp_get_thread_num());
-                #pragma omp barrier
-        }
-
-}
-*/
 
 int main(int argc, char **argv) {
 

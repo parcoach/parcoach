@@ -36,9 +36,8 @@ configure_file(parcoach_grep.in ${PARCOACH_GREP_BIN})
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_program(LIT_BIN lit REQUIRED)
-find_program(FILECHECK_BIN FileCheck
-  REQUIRED
-  HINTS ${LLVM_TOOLS_BINARY_DIR})
+find_llvm_program(FILECHECK_BIN FileCheck)
+find_llvm_program(NOT_BIN not)
 set(LIT_ARGS_DEFAULT "-v")
 set(PARCOACH_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for lit")
 

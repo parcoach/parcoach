@@ -1,7 +1,7 @@
 set(LCOV_OUTPUT ${CMAKE_BINARY_DIR}/parcoach.lcov)
 set(HTML_OUTPUT ${CMAKE_BINARY_DIR}/html)
-set(PROFDATA_OUTPUT parcoach.profdata)
-set(JSON_OUTPUT parcoach.json)
+set(PROFDATA_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/parcoach.profdata)
+set(JSON_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/parcoach.json)
 
 # These are common args to llvm-cov; they set the instr profile to use,
 # the binary to cover, and the sources files used for that binary.
@@ -11,19 +11,24 @@ set(LLVM_COV_ARGS
   ${CMAKE_SOURCE_DIR}/src
   )
 
-add_custom_target(clean-coverage-files
-  ${CMAKE_COMMAND} -E remove_directory ${PROFILE_FOLDER}
-  COMMAND ${CMAKE_COMMAND} -E remove_directory ${HTML_OUTPUT}
-  COMMAND ${CMAKE_COMMAND} -E remove -f ${LCOV_OUTPUT}
+add_custom_target(clean-coverage
+  ${CMAKE_COMMAND} -E rm -rf ${HTML_OUTPUT}
+  COMMAND ${CMAKE_COMMAND} -E rm -rf ${LCOV_OUTPUT}
+  COMMAND ${CMAKE_COMMAND} -E rm -rf ${CMAKE_CURRENT_BINARY_DIR}
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   USES_TERMINAL
   )
-add_dependencies(tests-ready clean-coverage-files)
+
+add_custom_target(run-coverage
+  # Cleaning this automatically is actually a bit buggy,
+  # you're better off running clean-coverage manually first.
+  DEPENDS run-tests
+  )
 
 add_custom_command(
   OUTPUT ${PROFDATA_OUTPUT}
   COMMAND ${LLVM_PROFDATA_BIN} merge -sparse -o ${PROFDATA_OUTPUT} ${PROFILE_FOLDER}/*.profraw
-  DEPENDS run-tests
+  DEPENDS run-coverage
   )
 
 add_custom_command(
@@ -40,16 +45,16 @@ add_custom_command(
   VERBATIM
   )
 
-add_custom_target(show-test-coverage
-  ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/extract_coverage.py ${JSON_OUTPUT}
-  VERBATIM
-  DEPENDS ${JSON_OUTPUT}
-  )
-
 add_custom_command(
   OUTPUT ${HTML_OUTPUT}
   COMMAND ${LLVM_COV_BIN} show ${LLVM_COV_ARGS} -format html -output-dir=${HTML_OUTPUT}
   MAIN_DEPENDENCY ${PROFDATA_OUTPUT}
+  )
+
+add_custom_target(show-test-coverage
+  ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/extract_coverage.py ${JSON_OUTPUT}
+  VERBATIM
+  DEPENDS ${JSON_OUTPUT}
   )
 
 # For coverage we want to:

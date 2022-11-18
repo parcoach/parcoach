@@ -26,6 +26,18 @@ int ParcoachAnalysisInter::id = 0;
 
 int nbColNI = 0;
 
+namespace {
+template <typename T>
+void push(std::unique_ptr<CollList> &List, T Collective, BasicBlock const *BB,
+          bool Force = false) {
+  if (List) {
+    List->push(Collective, BB, Force);
+  } else {
+    List = std::make_unique<CollList>(Collective, BB);
+  }
+}
+} // namespace
+
 Warning::Warning(Function const *F, DebugLoc &DL, ConditionalsContainerTy &&C)
     : Missed(F), Where(DL), Conditionals(C) {
   // Make sure lines are displayed in order.
@@ -101,6 +113,7 @@ void ParcoachAnalysisInter::run() {
 
 // Get the sequence of collectives in a BB
 void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
+  LLVM_DEBUG(dbgs() << "setCollSet " << BB << "\n");
   for (auto i = BB->rbegin(), e = BB->rend(); i != e; ++i) {
     const Instruction *inst = &*i;
 
@@ -134,27 +147,57 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
         //// Direct calls
       } else {
         // Is it a function containing collectives?
+        errs() << BB << " Direct to " << callee->getName() << "\n";
         if (!collperFuncMap[callee].empty()) {
-          if (collperFuncMap[callee] == "NAVS" || collMap[BB] == "NAVS")
+          errs() << "contains (" << collperFuncMap[callee] << ", "
+                 << collMap[BB] << ")\n";
+          if (collperFuncMap[callee] == "NAVS" && collMap[BB] == "NAVS") {
             collMap[BB] = "NAVS";
-          else
+          } else {
             collMap[BB] = collperFuncMap[callee] + " " + collMap[BB];
+          }
         }
         // Is it a collective operation?
         if (isCollective(*callee)) {
           std::string OP_name = callee->getName().str();
+          errs() << "collective\n";
           if (collMap[BB].empty())
             collMap[BB] = OP_name;
           else
             collMap[BB] = OP_name + " " + collMap[BB];
         }
+        errs() << "collmap for BB: " << collMap[BB] << "\n";
       }
     }
   }
+  LLVM_DEBUG(dbgs() << "Result: " << collMap[BB] << "\n");
 }
+
+#ifndef NDEBUG
+void ParcoachAnalysisInter::dump() {
+  errs() << "=== Dumping MPI map\n";
+  for (auto &[BB, Map] : mpiCollListMap) {
+    errs() << " - BB " << BB << "\n";
+    for (auto &[Val, List] : Map) {
+      errs() << "   - Val " << Val << ", {"
+             << (List ? List->toString() : "nullptr") << "}"
+             << "\n";
+    }
+    errs() << "\n--------\n";
+  }
+  errs() << "=== Dumping map\n";
+  for (auto &[BB, Coll] : collMap) {
+    errs() << " - BB " << BB << ", " << BB->getName() << ": " << Coll << "\n";
+    BB->print(errs());
+    errs() << "\n--------\n";
+  }
+  errs() << "=== done\n";
+}
+#endif
 
 // Get the sequence of collectives in a BB, per MPI communicator
 void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
+  LLVM_DEBUG(dbgs() << "== setMPICollSet on " << BB << "\n");
   for (auto i = BB->rbegin(), e = BB->rend(); i != e; ++i) {
     const Instruction *inst = &*i;
     if (const CallInst *CI = dyn_cast<CallInst>(inst)) {
@@ -169,88 +212,65 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
              PTACG.getIndirectCallMap().lookup(inst)) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
-          callee = const_cast<Function *>(mayCallee);
-          LLVM_DEBUG(dbgs() << "Callee: " << callee->getName()
+          auto const &CollListForCallee =
+              mpiCollListMap[&mayCallee->getEntryBlock()];
+          LLVM_DEBUG(dbgs() << "Callee: " << mayCallee->getName()
                             << ", contains collective: "
-                            << mpiCollListperFuncMap[callee].size() << "\n");
+                            << CollListForCallee.size() << "\n");
           // Is it a function containing collectives?
-          if (!mpiCollListperFuncMap[callee]
-                   .empty()) { // && mpiCollMap[BB]!="NAVS"){
+          if (!CollListForCallee.empty()) { // && mpiCollMap[BB]!="NAVS"){
             // auto &BBcollMap = mpiCollMap[BB];
 
-            for (auto &[Val, List] : mpiCollListperFuncMap[callee]) {
-              CollList *cl = mpiCollListMap[BB][Val];
-
-              if (cl && cl->isSource(BB))
-                cl->pushColl(List);
-              else if (!cl || !cl->isNAVS())
-                mpiCollListMap[BB][Val] = new CollList(List, cl, BB);
+            for (auto &[Val, List] : CollListForCallee) {
+              push(mpiCollListMap[BB][Val], List.get(), BB);
             }
           }
           // Is it a collective operation?
-          if (isCollective(*callee)) {
-            std::string OP_name = callee->getName().str();
-            int OP_color = getCollectiveColor(*callee);
+          if (isCollective(*mayCallee)) {
+            StringRef OP_name = mayCallee->getName();
+            int OP_color = getCollectiveColor(*mayCallee);
             int OP_arg_id = Com_arg_id(OP_color);
             Value *OP_com = nullptr;
 
             if (OP_arg_id >= 0) {
               OP_com = CI->getArgOperand(OP_arg_id);
-              CollList *cl = mpiCollListMap[BB][OP_com];
-
-              if (cl && cl->isSource(BB))
-                cl->pushColl(OP_name);
-              else if (!cl || !cl->isNAVS())
-                mpiCollListMap[BB][OP_com] = new CollList(OP_name, cl, BB);
+              push(mpiCollListMap[BB][OP_com], OP_name, BB);
             } else {
               // Case of collective are effect on all com (ex: MPI_Finalize)
               for (auto &[Val, List] : mpiCollListMap[BB]) {
-                if (List && List->isSource(BB))
-                  List->pushColl(OP_name);
-                else if (!List || !List->isNAVS())
-                  List = new CollList(OP_name, List, BB);
+                push(List, OP_name, BB);
               }
             }
           }
         }
         //// Direct calls
       } else {
+        auto const &CollListForF = mpiCollListMap[&callee->getEntryBlock()];
         // Is it a function containing collectives?
-        for (auto &[Val, List] : mpiCollListperFuncMap[callee]) {
-          CollList *cl = mpiCollListMap[BB][Val];
-          if (cl && cl->isSource(BB))
-            cl->pushColl(List);
-          else if (!cl || !cl->isNAVS())
-            mpiCollListMap[BB][Val] = new CollList(List, cl, BB);
+        for (auto &[Val, List] : CollListForF) {
+          push(mpiCollListMap[BB][Val], List.get(), BB);
         }
         // Is it a collective operation?
         if (isCollective(*callee)) {
-          std::string OP_name = callee->getName().str();
+          StringRef OP_name = callee->getName();
           int OP_color = getCollectiveColor(*callee);
           int OP_arg_id = Com_arg_id(OP_color);
           Value *OP_com = nullptr;
 
           if (OP_arg_id >= 0) {
             OP_com = CI->getArgOperand(OP_arg_id);
-            CollList *cl = mpiCollListMap[BB][OP_com];
-
-            if (cl && cl->isSource(BB))
-              cl->pushColl(OP_name);
-            else
-              mpiCollListMap[BB][OP_com] = new CollList(OP_name, cl, BB);
+            push(mpiCollListMap[BB][OP_com], OP_name, BB);
           } else {
             // Case of collective are effect on all com (ex: MPI_Finalize)
             for (auto &[Val, List] : mpiCollListMap[BB]) {
-              if (List && List->isSource(BB))
-                List->pushColl(OP_name);
-              else if (!List || !List->isNAVS())
-                List = new CollList(OP_name, List, BB);
+              push(List, OP_name, BB);
             }
           }
         }
       }
     }
   }
+  LLVM_DEBUG(dbgs() << "== end setMPICollSet\n");
 }
 
 // Return true if the basic block is an exit node
@@ -285,6 +305,8 @@ bool ParcoachAnalysisInter::isExitNode(llvm::BasicBlock *BB) {
 
 void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
                                                    llvm::BasicBlock *pred) {
+  LLVM_DEBUG(dbgs() << "----- cmpAndUpdate -----\n");
+  LLVM_DEBUG(dbgs() << "Pred: " << pred << ", Header: " << header << "\n");
   SetVector<const Value *> comm;
 
   for (auto &com : mpiCollListMap[pred])
@@ -294,30 +316,25 @@ void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
     comm.insert(com.first);
 
   for (auto &com : comm) {
-    bool pred_owner = false;
-    CollList *pred_cl = mpiCollListMap[pred][com];
-    CollList *old_header_cl = pred_cl;
-    CollList *header_cl = mpiCollListMap[header][com];
+    auto &pred_cl = mpiCollListMap[pred][com];
+    auto &header_cl = mpiCollListMap[header][com];
 
     // Header and old_header are nullptr
-    if (!old_header_cl && !header_cl) {
+    if (!pred_cl && !header_cl) {
       continue;
     }
 
     // Update old_header if pred is the source of the list
-    if (pred_cl && pred_cl->isSource(pred)) {
-      old_header_cl = old_header_cl->getNext();
-      pred_owner = true;
-    }
 
     LLVM_DEBUG({
       dbgs() << " ** (oh == h) = "
-             << ((old_header_cl && header_cl && (*old_header_cl == *header_cl))
+             << ((pred_cl && !pred_cl->isSource(pred) && header_cl &&
+                  (*pred_cl == *header_cl))
                      ? "true"
                      : "false")
              << "\n"
              << "     p = " << (pred_cl ? pred_cl->toCollMap() : "") << "\n"
-             << "    oh = " << (old_header_cl ? old_header_cl->toCollMap() : "")
+             << " IsSrc = " << (pred_cl ? pred_cl->isSource(pred) : false)
              << "\n"
              << "     h = " << (header_cl ? header_cl->toCollMap() : "") << "\n"
              << "   fun = "
@@ -327,17 +344,19 @@ void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
     });
 
     // Equals
-    if (old_header_cl && header_cl && (*old_header_cl == *header_cl))
+    // FIXME: maybe compare sources in operator<?
+    if (pred_cl && !pred_cl->isSource(pred) && header_cl &&
+        (*pred_cl == *header_cl)) {
+      LLVM_DEBUG(dbgs() << "----- end cmpAndUpdate -----\n");
       return;
+    }
 
     // Not equals
     if (pred_cl && !pred_cl->isNAVS()) {
-      if (pred_owner)
-        pred_cl->pushColl("NAVS");
-      else
-        mpiCollListMap[pred][com] = new CollList("NAVS", pred_cl, pred);
+      pred_cl->push("NAVS", pred);
     }
   }
+  LLVM_DEBUG(dbgs() << "----- end cmpAndUpdate -----\n");
 }
 
 void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
@@ -407,7 +426,9 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
       // BB NOT SEEN BEFORE
       if (bbVisitedMap[Pred] == white) {
         for (auto &[Val, List] : mpiCollListMap[header]) {
-          mpiCollListMap[Pred][Val] = List;
+          if (List) {
+            mpiCollListMap[Pred][Val] = std::make_unique<CollList>(*List);
+          }
         }
 
         setMPICollSet(Pred);
@@ -429,11 +450,7 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
 
   // Loop with collective are alaways NAVS
   for (auto &[Val, List] : mpiCollListMap[Lheader]) {
-    if (List && List->isSource(Lheader)) {
-      List->pushColl("NAVS");
-    } else {
-      List = new CollList("NAVS", List, Lheader);
-    }
+    push(List, "NAVS", Lheader, true);
   }
 }
 
@@ -486,7 +503,9 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
       // BB NOT SEEN BEFORE
       if (bbVisitedMap[Pred] == white) {
         for (auto &[Val, List] : mpiCollListMap[header]) {
-          mpiCollListMap[Pred][Val] = List;
+          if (List) {
+            mpiCollListMap[Pred][Val] = std::make_unique<CollList>(*List);
+          }
         }
 
         setMPICollSet(Pred);
@@ -501,11 +520,6 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
 
     bbVisitedMap[header] = black;
   } // END WHILE
-
-  BasicBlock &entry = F->getEntryBlock();
-  for (auto &[Val, List] : mpiCollListMap[&entry]) {
-    mpiCollListperFuncMap[F][Val] = List;
-  }
 }
 
 // FOR BFS: Returns true if all successors are not black
@@ -553,7 +567,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
     // Is exit node
     if (isExitNode(BB[i]) && bbVisitedMap[BB[i]] != black) {
       Unvisited.push_back(BB[i]);
-      setMPICollSet(BB[i]);
+      setCollSet(BB[i]);
       bbVisitedMap[BB[i]] = grey;
     }
 
@@ -566,7 +580,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
       if (isExitNode(Succ) && !L->contains(Succ) &&
           bbVisitedMap[Succ] != black) {
         Unvisited.push_back(Succ);
-        setMPICollSet(Succ);
+        setCollSet(Succ);
         bbVisitedMap[Succ] = grey;
       }
     }
@@ -804,6 +818,8 @@ void ParcoachAnalysisInter::countCollectivesToInst(llvm::Function *F) {
 
 // CHECK COLLECTIVES FUNCTION
 void ParcoachAnalysisInter::checkCollectives(Function *F) {
+  LLVM_DEBUG(dbgs() << "Running on " << F->getName() << "\n");
+  LLVM_DEBUG(dump());
   auto IsaDirectCallToCollective = [](Instruction const &I) {
     if (CallInst const *CI = dyn_cast<CallInst>(&I)) {
       Function const *F = CI->getCalledFunction();

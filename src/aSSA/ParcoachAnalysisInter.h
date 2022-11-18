@@ -20,10 +20,10 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
 
   using BBVisitedMap = std::map<const llvm::BasicBlock *, Visited>;
 
-  using VCollListMap = std::map<const llvm::Value *, CollList *>;
+  // FIXME: if we have a way to represent an empty "CollList", we don't
+  // event need the unique_ptr.
+  using VCollListMap = std::map<const llvm::Value *, std::unique_ptr<CollList>>;
   using CollListMap = std::map<const llvm::BasicBlock *, VCollListMap>;
-
-  using CollListperFuncMap = std::map<const llvm::Function *, VCollListMap>;
 
   using CollMap = std::map<const llvm::BasicBlock *, CollSet>;
 
@@ -38,7 +38,7 @@ public:
     id++;
   }
 
-  virtual ~ParcoachAnalysisInter() { CollList::freeAll(); }
+  virtual ~ParcoachAnalysisInter() = default;
 
   void run() override;
   CallToWarningMapTy const &getWarnings() { return Warnings; };
@@ -62,14 +62,15 @@ private:
   void instrumentFunction(llvm::Function *F);
   void insertCC(llvm::Instruction *I, int OP_color, std::string OP_name,
                 int OP_line, llvm::StringRef WarningMsg, llvm::StringRef File);
-
+#ifndef NDEBUG
+  void dump();
+#endif
   static int id;
 
 protected:
   BBVisitedMap bbVisitedMap;
   CollListMap mpiCollListMap;
   CollMap collMap;
-  CollListperFuncMap mpiCollListperFuncMap;
   CollperFuncMap collperFuncMap;
 };
 

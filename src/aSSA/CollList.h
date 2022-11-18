@@ -6,113 +6,53 @@
 
 #include "llvm/IR/Module.h"
 
+// FIXME: leaks -> unique_ptr somewhere
 class CollList {
-private:
-  // Set of CollList head
-  static std::set<CollList *> listsHeads;
-  static int nb_alloc;
+  bool navs;
 
-  unsigned rc = 0; // Ref Counter
-
-  inline void incRef() { this->rc++; }
-  inline void decRef() { this->rc--; }
-
-protected:
-  bool navs = false;
-  unsigned depth = 0;
-
-  const llvm::BasicBlock *source;
+  llvm::SmallVector<llvm::BasicBlock const *, 4> Sources;
   std::vector<std::string> names;
-  CollList *next = nullptr;
 
 public:
-  CollList() {
-    // nb_alloc += 1;
-    rc = 0;
-    depth = 0;
-    next = nullptr;
-  }
-
   // Construct new list node
-  CollList(std::string coll, CollList *from, const llvm::BasicBlock *src)
-      : source(src), next(from) {
-    // nb_alloc += 1;
-    rc = 0;
-    navs = (coll == "NAVS");
-    names.push_back(coll);
-    if (next) {
-      from->incRef();
-      navs |= from->isNAVS();
-      depth = from->getDepth() + 1;
-      // Update list head
-      if (listsHeads.find(from) != listsHeads.end())
-        listsHeads.erase(from);
-      listsHeads.insert(this);
-    } else {
-      next = new CollList();
-    }
+  CollList(llvm::StringRef coll, const llvm::BasicBlock *src);
+  CollList(CollList const *coll, const llvm::BasicBlock *src);
+  CollList() = default;
+  CollList(CollList const &) = default;
+  ~CollList() = default;
+
+  bool isNAVS() const { return navs; }
+  bool isEmpty() const { return names.empty(); }
+  bool isSource(const llvm::BasicBlock *src) const {
+    return Sources.front() == src;
   }
+  // bool isSource(const llvm::BasicBlock *src) const { return true; }
+  llvm::BasicBlock const *getSrc() const { return Sources.front(); }
 
-  CollList(CollList *coll, CollList *from, const llvm::BasicBlock *src)
-      : source(src), next(from) {
-    // nb_alloc += 1;
-    rc = 0;
-    if (next) {
-      from->incRef();
-      navs |= from->isNAVS();
-      depth = from->getDepth() + 1;
-      // Update list head
-      if (listsHeads.find(from) != listsHeads.end())
-        listsHeads.erase(from);
-      listsHeads.insert(this);
-    } else {
-      next = new CollList();
-    }
+  unsigned getDepth() const { return Sources.size(); };
+  const std::vector<std::string> &getNames() const { return names; }
 
-    this->pushColl(coll);
-  }
+  void push(llvm::StringRef Collective, llvm::BasicBlock const *Source,
+            bool ForcePush = false);
+  void push(CollList const *CL, llvm::BasicBlock const *Source,
+            bool ForcePush = false);
 
-  ~CollList() {
-    // nb_alloc--;
-    if (next) {
-      next->decRef();
-      if (next->rc == 0) {
-        delete next;
-      }
-    }
-  }
-
-  static void freeAll() {
-    for (auto &lh : listsHeads)
-      delete lh;
-  }
-
-  bool isNAVS() const;
-  bool isEmpty() const;
-  bool isSource(const llvm::BasicBlock *src) const;
-
-  unsigned getDepth() const;
-  CollList *getNext() const;
-  const std::vector<std::string> getNames() const;
-
-  void pushColl(std::string coll);
-  void pushColl(CollList *l);
-
-  std::string toString();
   std::string toCollMap() const;
+#ifndef NDEBUG
+  std::string toString() const;
+#endif
 
-  bool operator==(const CollList &cl2) {
-    const CollList &cl1 = *this;
+  bool operator<(const CollList &O) const {
+    std::string CollMap = toCollMap();
+    std::string OCollMap = O.toCollMap();
+    unsigned d1 = getDepth();
+    unsigned d2 = O.getDepth();
+    return std::tie(d1, navs, CollMap) < std::tie(d2, O.navs, OCollMap);
+    // return std::tie(navs, CollMap) < std::tie(O.navs, OCollMap);
+  }
 
-    if (cl1.depth != cl2.depth)
-      return false;
-
-    if (cl1.navs != cl2.navs)
-      return false;
-
-    std::string t = cl1.toCollMap();
-    std::string o = cl2.toCollMap();
-    return (t == o);
+  bool operator==(const CollList &O) const {
+    return !(*this < O) && !(O < *this);
   }
 };
 

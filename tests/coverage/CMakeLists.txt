@@ -1,5 +1,3 @@
-set(PROFILE_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/raw")
-
 set(LCOV_OUTPUT ${CMAKE_BINARY_DIR}/parcoach.lcov)
 set(HTML_OUTPUT ${CMAKE_BINARY_DIR}/html)
 set(PROFDATA_OUTPUT parcoach.profdata)
@@ -13,28 +11,25 @@ set(LLVM_COV_ARGS
   ${CMAKE_SOURCE_DIR}/src
   )
 
-# FIXME: a configure step before registering actual tests target so that this
-# can simply depend on them!
-add_custom_target(run-tests-coverage
+add_custom_target(clean-coverage-files
   ${CMAKE_COMMAND} -E remove_directory ${PROFILE_FOLDER}
-  COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${PROFILE_FOLDER}/%p.profraw" ${CMAKE_CTEST_COMMAND} --output-on-failure --timeout 30
-  COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${PROFILE_FOLDER}/%p.profraw" ${LIT_BIN} ${PARCOACH_LIT_ARGS} tests
+  COMMAND ${CMAKE_COMMAND} -E remove_directory ${HTML_OUTPUT}
+  COMMAND ${CMAKE_COMMAND} -E remove -f ${LCOV_OUTPUT}
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   USES_TERMINAL
-  DEPENDS ${PARCOACH_BIN} tests-dependencies
   )
+add_dependencies(tests-ready clean-coverage-files)
 
 add_custom_command(
   OUTPUT ${PROFDATA_OUTPUT}
-  COMMAND ${LLVM_PROFDATA_BIN} merge -sparse -o ${PROFDATA_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/raw/*.profraw
-  DEPENDS run-tests-coverage
+  COMMAND ${LLVM_PROFDATA_BIN} merge -sparse -o ${PROFDATA_OUTPUT} ${PROFILE_FOLDER}/*.profraw
+  DEPENDS run-tests
   )
 
 add_custom_command(
   OUTPUT ${LCOV_OUTPUT}
   COMMAND ${LLVM_COV_BIN} export ${LLVM_COV_ARGS} -format lcov > ${LCOV_OUTPUT}
   MAIN_DEPENDENCY ${PROFDATA_OUTPUT}
-  DEPENDS parcoach
   VERBATIM
   )
 
@@ -42,7 +37,6 @@ add_custom_command(
   OUTPUT ${JSON_OUTPUT}
   COMMAND ${LLVM_COV_BIN} export ${LLVM_COV_ARGS} -summary-only > ${JSON_OUTPUT}
   MAIN_DEPENDENCY ${PROFDATA_OUTPUT}
-  DEPENDS parcoach
   VERBATIM
   )
 
@@ -56,7 +50,6 @@ add_custom_command(
   OUTPUT ${HTML_OUTPUT}
   COMMAND ${LLVM_COV_BIN} show ${LLVM_COV_ARGS} -format html -output-dir=${HTML_OUTPUT}
   MAIN_DEPENDENCY ${PROFDATA_OUTPUT}
-  DEPENDS parcoach
   )
 
 # For coverage we want to:

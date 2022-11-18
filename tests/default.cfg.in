@@ -8,4 +8,4 @@ config.substitutions.append(('%clang', '@CMAKE_C_COMPILER@'))
 config.substitutions.append(('%filecheck', '@FILECHECK_BIN@'))
 
 if @PARCOACH_ENABLE_COVERAGE@:
-  config.environment['LLVM_PROFILE_FILE'] = os.environ['LLVM_PROFILE_FILE']
+  config.environment['LLVM_PROFILE_FILE'] = '@PROFILE_FILE@'

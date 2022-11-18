@@ -30,6 +30,7 @@ else()
   endif()
 endif()
 
+set(PARCOACH_FILE_CONTAINS ${CMAKE_CURRENT_SOURCE_DIR}/file_contains.py)
 set(PARCOACH_GREP_BIN ${CMAKE_CURRENT_BINARY_DIR}/parcoach_grep)
 configure_file(parcoach_grep.in ${PARCOACH_GREP_BIN})
 
@@ -41,32 +42,19 @@ find_program(FILECHECK_BIN FileCheck
 set(LIT_ARGS_DEFAULT "-v")
 set(PARCOACH_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for lit")
 
-set(PARCOACH_FILE_CONTAINS ${CMAKE_CURRENT_SOURCE_DIR}/file_contains.py)
-
-# Top-level target for all generated test files.
-# This makes it easy for jobs like coverage to have a single tests dependencies.
-add_custom_target(tests-dependencies ALL)
-
-# This provide a "high-level" test target that can be used to depend on running
-# *all* tests even if nested in a folder.
-add_custom_target(run-ctest
-  ${CMAKE_CTEST_COMMAND} --output-on-failure --timeout 30
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  USES_TERMINAL
-  DEPENDS ${PARCOACH_BIN} tests-dependencies
-  )
-
-add_custom_target(run-lit
-  ${LIT_BIN} ${PARCOACH_LIT_ARGS} ${CMAKE_CURRENT_BINARY_DIR}
-  USES_TERMINAL
-  DEPENDS ${PARCOACH_BIN}
-  )
-add_custom_target(run-tests DEPENDS run-ctest run-lit)
-
 parcoach_canonicalize_cmake_booleans(
   PARCOACH_ENABLE_COVERAGE
   )
 set(DEFAULT_LIT_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/default.cfg")
+
+if(PARCOACH_ENABLE_COVERAGE)
+  set(PROFILE_FOLDER "${CMAKE_CURRENT_BINARY_DIR}/raw")
+  set(PROFILE_FILE "${PROFILE_FOLDER}/%p.profraw")
+  set(CTEST_COMMAND
+    ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE="${PROFILE_FILE}" ${CMAKE_CTEST_COMMAND})
+else()
+  set(CTEST_COMMAND ${CMAKE_CTEST_COMMAND})
+endif()
 
 # This lit config simply tells to look into nested folders for discovering
 # other test suites.
@@ -75,6 +63,28 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in"
 # This sets up default configuration and substitutions for our lit tests.
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/default.cfg.in"
   ${DEFAULT_LIT_CONFIG} @ONLY)
+
+# Top-level target for all generated test files.
+add_custom_target(tests-dependencies ALL)
+add_custom_target(tests-ready
+  DEPENDS tests-dependencies ${PARCOACH_BIN})
+
+add_custom_target(run-ctest
+  ${CTEST_COMMAND} --output-on-failure --timeout 30
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+  USES_TERMINAL
+  DEPENDS tests-ready
+  )
+
+add_custom_target(run-lit
+  ${LIT_BIN} ${PARCOACH_LIT_ARGS} ${CMAKE_CURRENT_BINARY_DIR}
+  USES_TERMINAL
+  DEPENDS tests-ready
+  )
+
+# This provide a "high-level" test target that can be used to depend on running
+# *all* tests even if nested in a folder.
+add_custom_target(run-tests DEPENDS run-ctest run-lit)
 
 if(PARCOACH_ENABLE_MPI)
   add_subdirectory(MPI)

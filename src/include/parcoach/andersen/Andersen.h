@@ -90,11 +90,13 @@ private:
   NodeIndex getRefNodeIndex(NodeIndex n) const;
   NodeIndex getAdrNodeIndex(NodeIndex n) const;
 
+#ifndef NDEBUG
   // For debugging
   void dumpConstraint(const AndersConstraint &) const;
   void dumpConstraints() const;
   void dumpConstraintsPlainVanilla() const;
   void dumpPtsGraphPlainVanilla() const;
+#endif
 
 public:
   //	static char ID;

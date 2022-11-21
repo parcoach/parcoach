@@ -8,6 +8,7 @@
 
 using namespace llvm;
 
+#ifndef NDEBUG
 cl::opt<bool> DumpDebugInfo("dump-debug",
                             cl::desc("Dump debug info into stderr"),
                             cl::init(false), cl::Hidden);
@@ -17,6 +18,7 @@ cl::opt<bool> DumpResultInfo("dump-result",
 cl::opt<bool> DumpConstraintInfo("dump-cons",
                                  cl::desc("Dump constraint info into stderr"),
                                  cl::init(false), cl::Hidden);
+#endif
 
 AnalysisKey AndersenAA::Key;
 
@@ -64,18 +66,23 @@ bool Andersen::getPointsToSet(const llvm::Value *v,
 bool Andersen::runOnModule(const Module &M) {
   collectConstraints(M);
 
+#ifndef NDEBUG
   if (DumpDebugInfo)
     dumpConstraintsPlainVanilla();
+#endif
 
 #ifdef ANDERSEN_ENABLE_OPTIMIZATIONS
   optimizeConstraints();
 #endif
 
+#ifndef NDEBUG
   if (DumpConstraintInfo)
     dumpConstraints();
+#endif
 
   solveConstraints();
 
+#ifndef NDEBUG
   if (DumpDebugInfo) {
     errs() << "\n";
     dumpPtsGraphPlainVanilla();
@@ -86,10 +93,12 @@ bool Andersen::runOnModule(const Module &M) {
     errs() << "\n";
     dumpPtsGraphPlainVanilla();
   }
+#endif
 
   return false;
 }
 
+#ifndef NDEBUG
 void Andersen::dumpConstraint(const AndersConstraint &item) const {
   NodeIndex dest = item.getDest();
   NodeIndex src = item.getSrc();
@@ -150,3 +159,4 @@ void Andersen::dumpPtsGraphPlainVanilla() const {
     }
   }
 }
+#endif

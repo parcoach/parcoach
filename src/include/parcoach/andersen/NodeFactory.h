@@ -125,11 +125,12 @@ public:
 
   // Size getters
   unsigned getNumNodes() const { return nodes.size(); }
-
+#ifndef NDEBUG
   // For debugging purpose
   void dumpNode(NodeIndex) const;
   void dumpNodeInfo() const;
   void dumpRepInfo() const;
+#endif
 };
 
 #endif

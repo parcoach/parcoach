@@ -14,11 +14,12 @@
 
 using namespace llvm;
 
-cl::opt<bool>
-    EnableHCD("enable-hcd",
-              cl::desc("Enable the hybrid cycle detection algorithm"));
+cl::opt<bool> EnableHCD("enable-hcd",
+                        cl::desc("Enable the hybrid cycle detection algorithm"),
+                        cl::init(true));
 cl::opt<bool> EnableLCD("enable-lcd",
-                        cl::desc("Enable the lazy cycle detection algorithm"));
+                        cl::desc("Enable the lazy cycle detection algorithm"),
+                        cl::init(true));
 
 namespace {
 

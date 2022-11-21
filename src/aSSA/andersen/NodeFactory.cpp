@@ -213,6 +213,7 @@ void AndersNodeFactory::getAllocSites(
     allocSites.push_back(mapping.first);
 }
 
+#ifndef NDEBUG
 void AndersNodeFactory::dumpNode(NodeIndex idx) const {
   const AndersNode &n = nodes.at(idx);
   if (n.type == AndersNode::VALUE_NODE)
@@ -260,3 +261,4 @@ void AndersNodeFactory::dumpRepInfo() const {
   }
   errs() << "----- End of Print -----\n";
 }
+#endif

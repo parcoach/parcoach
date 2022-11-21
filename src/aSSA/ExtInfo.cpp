@@ -197,6 +197,10 @@ static const funcModPair funcModPairs[] = {
     {"lseek64", {3, false, {false, false, false}}},
     {"stat64", {2, false, {false, true}}},
     {"statfs64", {2, false, {false, true}}},
+    /* PARCOACH tests */
+    /* we need a sample variable function which changes its last param */
+    /* FIXME: it's not clean, find a way to change that. */
+    {"parcoach_var_mod", {2, false, {false, true}}},
 
     /* MPI */
     {"MPI_Abort", {2, false, {false, false}}},

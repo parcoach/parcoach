@@ -114,7 +114,12 @@ void PTACallGraph::addToCallGraph(Function const &F) {
           Found = false;
           auto IsCandidateF = [&](Value const *V) {
             auto *CandidateF = dyn_cast<Function>(V);
-            return CandidateF && CI->arg_size() == CandidateF->arg_size();
+            if (!CandidateF) {
+              return false;
+            }
+            return CI->arg_size() == CandidateF->arg_size() ||
+                   (CandidateF->isVarArg() &&
+                    CI->arg_size() > CandidateF->arg_size());
           };
           for (const Value *v : make_filter_range(ptsSet, IsCandidateF)) {
             auto *LocalCallee = cast<Function>(v);

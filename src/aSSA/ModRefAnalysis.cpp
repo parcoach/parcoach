@@ -175,10 +175,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
           }
         }
       }
-    }
-
-    // indirect call
-    else {
+    } else { // indirect call
       for (const Function *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
         if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
           continue;

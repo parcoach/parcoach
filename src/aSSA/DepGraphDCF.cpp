@@ -32,8 +32,8 @@ DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph const &CG,
                          FunctionAnalysisManager &AM, Module &M, bool noPtrDep,
                          bool noPred, bool disablePhiElim)
     : mssa(mssa), CG(CG), FAM(AM), M(M), PDT(nullptr), buildGraphTime(0),
-      phiElimTime(0), floodDepTime(0), floodCallTime(0), dotTime(0),
-      noPtrDep(noPtrDep), noPred(noPred), disablePhiElim(disablePhiElim) {
+      phiElimTime(0), floodDepTime(0), noPtrDep(noPtrDep), noPred(noPred),
+      disablePhiElim(disablePhiElim) {
 
   if (optMpiTaint)
     enableMPI();
@@ -1120,14 +1120,6 @@ void DepGraphDCF::computeTaintedValuesContextInsensitive() {
   assert(callsiteToCondsSize == callsiteToConds.size());
 }
 
-void DepGraphDCF::printTimers() const {
-  errs() << "Build graph time : " << buildGraphTime * 1.0e3 << " ms\n";
-  errs() << "Phi elimination time : " << phiElimTime * 1.0e3 << " ms\n";
-  errs() << "Flood dependencies time : " << floodDepTime * 1.0e3 << " ms\n";
-  errs() << "Flood calls PDF+ time : " << floodCallTime * 1.0e3 << " ms\n";
-  errs() << "Dot graph time : " << dotTime * 1.0e3 << " ms\n";
-}
-
 bool DepGraphDCF::isTaintedValue(const Value *v) const {
   return taintedConditions.find(v) != taintedConditions.end();
 }
@@ -1160,18 +1152,6 @@ void DepGraphDCF::getCallInterIPDF(
       }
     }
   }
-}
-
-// Function used for summary-based approach
-void DepGraphDCF::getCallIntraIPDF(
-    const llvm::CallInst *call,
-    std::set<const llvm::BasicBlock *> &ipdf) const {
-
-  Function *F = const_cast<Function *>(call->getParent()->getParent());
-  BasicBlock *BB = const_cast<BasicBlock *>(call->getParent());
-  PostDominatorTree &PDT = FAM.getResult<PostDominatorTreeAnalysis>(*F);
-  std::vector<BasicBlock *> funcIPDF = iterated_postdominance_frontier(PDT, BB);
-  ipdf.insert(funcIPDF.begin(), funcIPDF.end());
 }
 
 bool DepGraphDCF::areSSANodesEquivalent(MSSAVar *var1, MSSAVar *var2) {

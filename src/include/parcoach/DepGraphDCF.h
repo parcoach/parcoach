@@ -51,13 +51,9 @@ public:
   void visitTerminator(llvm::Instruction &I);
   void visitInstruction(llvm::Instruction &I);
 
-  void printTimers() const;
   bool isTaintedValue(const llvm::Value *v) const;
 
   void getCallInterIPDF(const llvm::CallInst *call,
-                        std::set<const llvm::BasicBlock *> &ipdf) const;
-  // EMMA: used for the summary-based approach
-  void getCallIntraIPDF(const llvm::CallInst *call,
                         std::set<const llvm::BasicBlock *> &ipdf) const;
 
 private:
@@ -198,8 +194,6 @@ private:
   double buildGraphTime;
   double phiElimTime;
   double floodDepTime;
-  double floodCallTime;
-  double dotTime;
 
   /* options */
   bool noPtrDep;

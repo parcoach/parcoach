@@ -280,9 +280,6 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
 }
 
 void ModRefAnalysisResult::analyze(Module &M) {
-  unsigned nbFunctions = M.getFunctionList().size();
-  unsigned counter = 0;
-
   // Compute global kill set containing regions whose allocation sites are
   // in functions not reachable from prog entry.
   std::vector<const Value *> allocSites;
@@ -405,14 +402,6 @@ void ModRefAnalysisResult::analyze(Module &M) {
         if (funcModMap[F].size() > modSize || funcRefMap[F].size() > refSize)
           changed = true;
       }
-    }
-
-    counter += nodeVec.size();
-
-    if (counter % 100 == 0) {
-      errs() << "Mod/Ref: visited " << counter << " functions over "
-             << nbFunctions << " (" << (((float)counter) / nbFunctions * 100)
-             << "%)\n";
     }
 
     ++cgSccIter;

@@ -147,10 +147,7 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
         //// Direct calls
       } else {
         // Is it a function containing collectives?
-        errs() << BB << " Direct to " << callee->getName() << "\n";
         if (!collperFuncMap[callee].empty()) {
-          errs() << "contains (" << collperFuncMap[callee] << ", "
-                 << collMap[BB] << ")\n";
           if (collperFuncMap[callee] == "NAVS" && collMap[BB] == "NAVS") {
             collMap[BB] = "NAVS";
           } else {
@@ -160,13 +157,11 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
         // Is it a collective operation?
         if (isCollective(*callee)) {
           std::string OP_name = callee->getName().str();
-          errs() << "collective\n";
           if (collMap[BB].empty())
             collMap[BB] = OP_name;
           else
             collMap[BB] = OP_name + " " + collMap[BB];
         }
-        errs() << "collmap for BB: " << collMap[BB] << "\n";
       }
     }
   }

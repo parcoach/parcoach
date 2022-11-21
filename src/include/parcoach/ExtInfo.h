@@ -31,7 +31,9 @@ public:
   ~ExtInfo();
 
   const ModInfo *getExtModInfo(const llvm::Function *F) const;
+#if 0
   const DepInfo *getExtDepInfo(const llvm::Function *F) const;
+#endif
 
 private:
   llvm::StringMap<const ModInfo *> extModInfoMap;

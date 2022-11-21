@@ -849,7 +849,8 @@ struct funcDepPair {
   const ExtInfo::DepInfo depInfo;
 };
 
-// TO DO
+// TODO
+#if 0
 static const funcDepPair funcDepPairs[] = {
     /* LLVM intrinsics */
     {"llvm.fabs.f64", {1, {}, {0}}},
@@ -995,12 +996,22 @@ static const funcDepPair funcDepPairs[] = {
 
     {NULL, {0, {}, {}}}};
 
+const ExtInfo::DepInfo *ExtInfo::getExtDepInfo(const llvm::Function *F) const {
+  auto I = extDepInfoMap.find(F->getName());
+
+  if (I != extDepInfoMap.end())
+    return I->second;
+
+  return nullptr;
+}
+#endif
+
 ExtInfo::ExtInfo(Module &m) {
   for (const funcModPair *i = funcModPairs; i->name; ++i)
     extModInfoMap[i->name] = &i->modInfo;
 
-  for (const funcDepPair *i = funcDepPairs; i->name; ++i)
-    extDepInfoMap[i->name] = &i->depInfo;
+  // for (const funcDepPair *i = funcDepPairs; i->name; ++i)
+  // extDepInfoMap[i->name] = &i->depInfo;
 
   bool missingInfo = false;
 
@@ -1027,15 +1038,6 @@ const ExtInfo::ModInfo *ExtInfo::getExtModInfo(const llvm::Function *F) const {
   auto I = extModInfoMap.find(F->getName());
 
   if (I != extModInfoMap.end())
-    return I->second;
-
-  return nullptr;
-}
-
-const ExtInfo::DepInfo *ExtInfo::getExtDepInfo(const llvm::Function *F) const {
-  auto I = extDepInfoMap.find(F->getName());
-
-  if (I != extDepInfoMap.end())
     return I->second;
 
   return nullptr;

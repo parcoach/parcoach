@@ -26,8 +26,6 @@ public:
   bool isSource(const llvm::BasicBlock *src) const {
     return Sources.front() == src;
   }
-  // bool isSource(const llvm::BasicBlock *src) const { return true; }
-  llvm::BasicBlock const *getSrc() const { return Sources.front(); }
 
   unsigned getDepth() const { return Sources.size(); };
   const std::vector<std::string> &getNames() const { return names; }

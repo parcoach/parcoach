@@ -1,6 +1,7 @@
 // RUN: %clang %openmp -g -S -emit-llvm %s -o %t.ll
 // RUN: %parcoach --disable-output %t.ll -check-omp 2>&1 | %filecheck %s
-// CHECK: warning: __kmpc_barrier line 23 possibly not called by all processes because of conditional(s) line(s)  21
+// RUN: %parcoach --disable-output %t.ll -check-omp -no-dataflow 2>&1 | %filecheck %s
+// CHECK: warning: __kmpc_barrier line 24 possibly not called by all processes because of conditional(s) line(s)  22
 // For this test, also generate some dots
 // RUN: %parcoach --disable-output %t.ll -check-omp -dot-depgraph
 // RUN: %parcoach --disable-output %t.ll -check-omp -dot-depgraph -dot-taint-paths -context-insensitive=true

@@ -25,7 +25,6 @@ PreservedAnalyses ShowPAInterResult::run(Module &M, ModuleAnalysisManager &AM) {
     errs() << PAInter->getNbWarnings() << " warning(s) issued\n";
     errs() << PAInter->getNbConds() << " cond(s) \n";
     errs() << PAInter->getConditionSet().size() << " different cond(s)\n";
-    errs() << PAInter->getNbCC() << " CC functions inserted \n";
 
     intersectionSize = getBBSetIntersectionSize(
         PAInter->getConditionSet(), PAInter->getConditionSetParcoachOnly());
@@ -48,22 +47,14 @@ PreservedAnalyses ShowPAInterResult::run(Module &M, ModuleAnalysisManager &AM) {
     CyanErr() << "================================================\n";
     CyanErr() << "===== PARCOACH INTER WITHOUT DEP ANALYSIS ======\n";
     CyanErr() << "================================================\n";
-    errs() << PAInter->getNbCollectivesFound() << " collective(s) found\n";
+    errs() << PAInter->getNbCollectivesFoundParcoachOnly()
+           << " collective(s) found\n";
     errs() << PAInter->getNbWarningsParcoachOnly() << " warning(s) issued\n";
     errs() << PAInter->getNbCondsParcoachOnly() << " cond(s) \n";
     errs() << PAInter->getConditionSetParcoachOnly().size()
            << " different cond(s)\n";
-    errs() << PAInter->getNbCC() << " CC functions inserted \n";
   }
 
-  /* if (!optNoDataFlow) {
-     errs() << "app," << PAInter->getNbCollectivesFound() << ","
-       << PAInter->getNbWarnings() << ","
-       << PAInter->getConditionSet().size() << "," << WnbAdded << ","
-       << WnbRemoved << "," << CnbAdded << "," << CnbRemoved << ","
-       << PAInter->getNbWarningsParcoachOnly() << ","
-       << PAInter->getConditionSetParcoachOnly().size() << "\n";
-   }*/
   CyanErr() << "==========================================\n";
 
 #if 0

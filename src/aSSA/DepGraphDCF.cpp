@@ -225,7 +225,7 @@ void DepGraphDCF::buildFunction(const llvm::Function *F) {
         CallBase *CS = I.first;
 
         MSSAChi *argExitChi = mssa->getExtCSToArgExitChi().lookup(F)[CS][0];
-        addEdge(getFunctionArgument(F, 1), argExitChi->var);
+        addEdge(F->getArg(1), argExitChi->var);
 
         // llvm.memset instrinsic returns void whereas memset returns dst
         if (F->getReturnType()->isPointerTy()) {

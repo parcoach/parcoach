@@ -21,9 +21,7 @@ bool isCallSite(const llvm::Instruction *inst) {
 }
 
 std::string getValueLabel(const llvm::Value *v) {
-  const Function *F = dyn_cast<Function>(v);
-  if (F)
-    return F->getName().str();
+  assert(!isa<Function>(v) && "Use F->getName for functions");
 
   std::string label;
   llvm::raw_string_ostream rso(label);
@@ -143,35 +141,6 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB) {
   return iPDF;
 }
 
-void print_iPDF(std::vector<BasicBlock *> iPDF, BasicBlock *BB) {
-  std::vector<BasicBlock *>::const_iterator Bitr;
-  errs() << "iPDF(" << BB->getName().str() << ") = {";
-  for (Bitr = iPDF.begin(); Bitr != iPDF.end(); Bitr++) {
-    errs() << "- " << (*Bitr)->getName().str() << " ";
-  }
-  errs() << "}\n";
-}
-
-// FIXME: llvm::Function has a 'getArg' method.
-const Argument *getFunctionArgument(const Function *F, unsigned idx) {
-  unsigned i = 0;
-
-  for (const Argument &arg : F->args()) {
-    if (i == idx) {
-      return &arg;
-    }
-
-    i++;
-  }
-
-  if (F->isVarArg())
-    return &*F->arg_end();
-
-  errs() << "returning null, querying arg no " << idx << " on function "
-         << F->getName() << "\n";
-  return NULL;
-}
-
 std::set<const llvm::Value *>
 computeIPDFPredicates(llvm::PostDominatorTree &PDT, llvm::BasicBlock *BB) {
   std::set<const llvm::Value *> preds;
@@ -213,7 +182,7 @@ const llvm::Value *getBasicBlockCond(const BasicBlock *BB) {
     assert(bi);
 
     if (bi->isUnconditional())
-      return NULL;
+      return nullptr;
 
     return bi->getCondition();
   } else if (isa<SwitchInst>(ti)) {
@@ -222,7 +191,7 @@ const llvm::Value *getBasicBlockCond(const BasicBlock *BB) {
     return si->getCondition();
   }
 
-  return NULL;
+  return nullptr;
 }
 
 const llvm::Value *getReturnValue(const llvm::Function *F) {

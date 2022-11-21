@@ -18,8 +18,7 @@ public:
   ParcoachAnalysis(llvm::Module &M, parcoach::DepGraphDCF *DG,
                    bool disableInstru = false)
       : M(M), DG(DG), nbCollectivesFound(0), nbCollectivesCondCalled(0),
-        nbCollectivesFoundParcoachOnly(0), nbCC(0),
-        disableInstru(disableInstru) {}
+        nbCollectivesFoundParcoachOnly(0), disableInstru(disableInstru) {}
 
   virtual ~ParcoachAnalysis() {}
 
@@ -47,8 +46,6 @@ public:
     return conditionSetParcoachOnly.size();
   }
 
-  unsigned getNbCC() const { return nbCC; }
-
   std::set<const llvm::BasicBlock *> const &getConditionSet() const {
     return conditionSet;
   }
@@ -73,7 +70,6 @@ protected:
   unsigned nbCollectivesFound;
   unsigned nbCollectivesCondCalled;
   unsigned nbCollectivesFoundParcoachOnly;
-  unsigned nbCC;
 
   std::set<const llvm::BasicBlock *> conditionSet;
   std::set<const llvm::BasicBlock *> conditionSetParcoachOnly;

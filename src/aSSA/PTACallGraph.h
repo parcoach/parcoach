@@ -84,9 +84,6 @@ private:
   llvm::ValueMap<const llvm::Instruction *, std::set<const llvm::Function *>>
       indirectCallMap;
 
-  inline iterator begin() { return FunctionMap.begin(); }
-  inline iterator end() { return FunctionMap.end(); }
-
   PTACallGraphNode *getOrInsertFunction(const llvm::Function *F);
 
 public:
@@ -95,24 +92,10 @@ public:
 
   PTACallGraphNode *getEntry() const { return Root; }
 
-  inline const_iterator begin() const { return FunctionMap.begin(); }
-  inline const_iterator end() const { return FunctionMap.end(); }
-
-  /// \brief Returns the call graph node for the provided function.
-  inline const PTACallGraphNode *operator[](const llvm::Function *F) const {
-    const_iterator I = FunctionMap.find(F);
-    assert(I != FunctionMap.end() && "Function not in callgraph!");
-    return I->second.get();
-  }
-
   /// \brief Returns the \c CallGraphNode which is used to represent
   /// undetermined calls into the callgraph.
   PTACallGraphNode *getExternalCallingNode() const {
     return ExternalCallingNode;
-  }
-
-  PTACallGraphNode const *getCallsExternalNode() const {
-    return CallsExternalNode.get();
   }
 
   bool isReachableFromEntry(const llvm::Function &F) const;
@@ -148,8 +131,6 @@ template <> struct GraphTraits<const PTACallGraphNode *> {
   typedef std::pointer_to_unary_function<CGNPairTy, const PTACallGraphNode *>
       CGNDerefFun;
 
-  static NodeType *getEntryNode(const PTACallGraphNode *CGN) { return CGN; }
-
   typedef mapped_iterator<NodeType::const_iterator, CGNDerefFun>
       ChildIteratorType;
 
@@ -174,20 +155,6 @@ struct GraphTraits<const PTACallGraph *>
   typedef std::pointer_to_unary_function<const PairTy &,
                                          const PTACallGraphNode &>
       DerefFun;
-
-  // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
-  typedef mapped_iterator<PTACallGraph::const_iterator, DerefFun>
-      nodes_iterator;
-  static nodes_iterator nodes_begin(const PTACallGraph *CG) {
-    return map_iterator(CG->begin(), DerefFun(CGdereference));
-  }
-  static nodes_iterator nodes_end(const PTACallGraph *CG) {
-    return map_iterator(CG->end(), DerefFun(CGdereference));
-  }
-
-  static const PTACallGraphNode &CGdereference(const PairTy &P) {
-    return *P.second;
-  }
 };
 } // namespace llvm
 

@@ -38,7 +38,7 @@ PreservedAnalyses PrepareOpenMPInstr::run(Module &M,
       Function *outlinedFunc = dyn_cast<Function>(op2);
       assert(outlinedFunc && "can't cast kmp_fork_call arg");
 
-      errs() << outlinedFunc->getName() << "\n";
+      LLVM_DEBUG(dbgs() << outlinedFunc->getName() << "\n");
 
       unsigned callNbOps = CI.getNumOperands();
 
@@ -46,7 +46,7 @@ PreservedAnalyses PrepareOpenMPInstr::run(Module &M,
 
       // map 2 firsts operands of CI to null
       for (unsigned i = 0; i < 2; i++) {
-        Type *ArgTy = getFunctionArgument(outlinedFunc, i)->getType();
+        Type *ArgTy = outlinedFunc->getArg(i)->getType();
         Value *val = Constant::getNullValue(ArgTy);
         NewArgs.push_back(val);
       }
@@ -59,7 +59,6 @@ PreservedAnalyses PrepareOpenMPInstr::run(Module &M,
 
       CallInst *NewCI = CallInst::Create(outlinedFunc, NewArgs);
       NewCI->setCallingConv(outlinedFunc->getCallingConv());
-      // NewInst2oldInst[NewCI] = ci->clone();
       ReplaceInstWithInst(&CI, NewCI);
     }
   }

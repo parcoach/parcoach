@@ -39,6 +39,11 @@ set(ASSA_HEADERS
 add_sources_to_format(SOURCES ${ASSA_SOURCES})
 add_sources_to_format(SOURCES ${ASSA_HEADERS})
 
+# NOTE: Turning on enable-hvn/enable-hu actually breaks PARCOACH at the moment.
+option(ANDERSEN_ENABLE_OPTIMIZATIONS
+  "Enable constraints optimization in Andersen."
+  " Setting this to ON is not yet supported")
+
 configure_file(Config.h.in ${CMAKE_CURRENT_BINARY_DIR}/Config.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 

@@ -1,3 +1,4 @@
+#ifdef ANDERSEN_ENABLE_OPTIMIZATIONS
 #include "parcoach/andersen/Andersen.h"
 #include "parcoach/andersen/CycleDetector.h"
 #include "parcoach/andersen/SparseBitVectorGraph.h"
@@ -586,3 +587,4 @@ void Andersen::optimizeConstraints() {
 
   // errs() << "#constraints = " << constraints.size() << "\n";
 }
+#endif

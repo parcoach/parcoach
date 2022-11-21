@@ -67,7 +67,9 @@ bool Andersen::runOnModule(const Module &M) {
   if (DumpDebugInfo)
     dumpConstraintsPlainVanilla();
 
+#ifdef ANDERSEN_ENABLE_OPTIMIZATIONS
   optimizeConstraints();
+#endif
 
   if (DumpConstraintInfo)
     dumpConstraints();

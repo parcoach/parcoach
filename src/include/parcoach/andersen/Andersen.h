@@ -71,7 +71,9 @@ private:
 
   // Three main phases
   void collectConstraints(const llvm::Module &);
+#ifdef ANDERSEN_ENABLE_OPTIMIZATIONS
   void optimizeConstraints();
+#endif
   void solveConstraints();
 
   // Helper functions for constraint collection

@@ -1,7 +1,9 @@
-#include "parcoach/ModRefAnalysis.h"
 #include "Options.h"
 #include "PTACallGraph.h"
 #include "Utils.h"
+
+#include "parcoach/Collectives.h"
+#include "parcoach/ModRefAnalysis.h"
 
 #include "llvm/ADT/SCCIterator.h"
 
@@ -66,27 +68,24 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
 
   CallInst *CI = cast<CallInst>(&CB);
   const Function *callee = CI->getCalledFunction();
+  Collective const *Coll = callee ? Collective::find(*callee) : nullptr;
 
   // In CUDA after a synchronization, all region in shared memory are written.
-  if (optCudaTaint) {
-    if (callee && callee->getName().equals("llvm.nvvm.barrier0")) {
-      for (auto *r : Regions.getCudaSharedRegions()) {
-        if (globalKillSet.find(r) != globalKillSet.end())
-          continue;
-        funcModMap[curFunc].insert(r);
+  if (Coll && isa<CudaCollective>(Coll) && Coll->Name == "llvm.nvvm.barrier0") {
+    for (auto *r : Regions.getCudaSharedRegions()) {
+      if (globalKillSet.find(r) != globalKillSet.end()) {
+        continue;
       }
+      funcModMap[curFunc].insert(r);
     }
   }
 
   // In OpenMP after a synchronization, all region in shared memory are written.
-  if (optOmpTaint) {
-    if (callee && callee->getName().equals("__kmpc_barrier")) {
-      for (auto *r :
-           getRange(Regions.getOmpSharedRegions(), CI->getFunction())) {
-        if (globalKillSet.find(r) != globalKillSet.end())
-          continue;
-        funcModMap[curFunc].insert(r);
-      }
+  if (Coll && isa<OMPCollective>(Coll) && Coll->Name == "__kmpc_barrier") {
+    for (auto *r : getRange(Regions.getOmpSharedRegions(), CI->getFunction())) {
+      if (globalKillSet.find(r) != globalKillSet.end())
+        continue;
+      funcModMap[curFunc].insert(r);
     }
   }
 

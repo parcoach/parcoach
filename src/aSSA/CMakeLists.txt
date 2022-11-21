@@ -24,7 +24,6 @@ set(ASSA_SOURCES
   andersen/NodeFactory.cpp
   )
 set(ASSA_HEADERS
-  Collectives.h
   CollList.h
   Instrumentation.h
   MSSAMuChi.h

@@ -22,7 +22,6 @@ public:
   ~CollList() = default;
 
   bool isNAVS() const { return navs; }
-  bool isEmpty() const { return names.empty(); }
   bool isSource(const llvm::BasicBlock *src) const {
     return Sources.front() == src;
   }

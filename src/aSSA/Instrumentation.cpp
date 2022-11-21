@@ -1,8 +1,8 @@
 #include "Instrumentation.h"
 
-#include "Collectives.h"
 #include "Options.h"
 #include "parcoach/Analysis.h"
+#include "parcoach/Collectives.h"
 #include "parcoach/Passes.h"
 
 #include "llvm/IR/DebugInfo.h"
@@ -17,13 +17,26 @@ using namespace llvm;
 
 namespace {
 
+std::string getCheckFunctionName(Collective const *C) {
+  if (!C) {
+    return "check_collective_return";
+  } else if (isa<MPICollective>(C)) {
+    return "check_collective_MPI";
+  } else if (isa<OMPCollective>(C)) {
+    return "check_collective_OMP";
+  } else if (isa<UPCCollective>(C)) {
+    return "check_collective_UPC";
+  }
+  llvm_unreachable("unhandled collective type");
+}
+
 // Check Collective function before a collective
 // + Check Collective function before return statements
 // --> check_collective_MPI(int OP_color, const char* OP_name, int OP_line,
 // char* OP_warnings, char *FILE_name)
 // --> void check_collective_UPC(int OP_color, const char* OP_name,
 // int OP_line, char* warnings, char *FILE_name)
-void insertCC(llvm::Instruction *I, int OP_color, llvm::StringRef OP_name,
+void insertCC(Instruction *I, Collective const *C, Function const &F,
               int OP_line, llvm::StringRef WarningMsg, llvm::StringRef File) {
   Module &M = *I->getModule();
   IRBuilder<> builder(I);
@@ -37,33 +50,24 @@ void insertCC(llvm::Instruction *I, int OP_color, llvm::StringRef OP_name,
       I8PtrTy, // OP_warnings
       I8PtrTy, // FILE_name
   };
-  Value *strPtr_NAME = builder.CreateGlobalStringPtr(OP_name);
+  Value *strPtr_NAME = builder.CreateGlobalStringPtr(F.getName());
   Value *strPtr_WARNINGS = builder.CreateGlobalStringPtr(WarningMsg);
   Value *strPtr_FILENAME = builder.CreateGlobalStringPtr(File);
   // Set new function name, type and arguments
   FunctionType *FTy = FunctionType::get(builder.getVoidTy(), params, false);
+  int OP_color = C ? (int)C->K : -1;
   std::array<Value *, 5> CallArgs = {
       ConstantInt::get(I32Ty, OP_color), strPtr_NAME,
       ConstantInt::get(I32Ty, OP_line), strPtr_WARNINGS, strPtr_FILENAME};
-  std::string FunctionName;
-
-  if (isMpiCollective(OP_color)) {
-    FunctionName = "check_collective_MPI";
-  } else if (isOmpCollective(OP_color)) {
-    FunctionName = "check_collective_OMP";
-  } else if (isUpcCollective(OP_color)) {
-    FunctionName = "check_collective_UPC";
-  } else {
-    FunctionName = "check_collective_return";
-  }
+  std::string FunctionName = getCheckFunctionName(C);
 
   FunctionCallee CCFunction = M.getOrInsertFunction(FunctionName, FTy);
 
   // Create new function
   CallInst::Create(CCFunction, CallArgs, "", I);
   LLVM_DEBUG(dbgs() << "=> Insertion of " << FunctionName << " (" << OP_color
-                    << ", " << OP_name << ", " << OP_line << ", " << WarningMsg
-                    << ", " << File << ")\n");
+                    << ", " << F.getName() << ", " << OP_line << ", "
+                    << WarningMsg << ", " << File << ")\n");
 }
 } // namespace
 
@@ -100,26 +104,23 @@ bool CollectiveInstrumentation::run(Function &F) {
     // call instruction
     Function *callee = CI.getCalledFunction();
     assert(callee && "Callee expected to be not null");
-    std::string OP_name = callee->getName().str();
-    int OP_color = getCollectiveColor(*callee);
+    auto *Coll = Collective::find(*callee);
+    StringRef CalleeName = callee->getName();
 
     // Before finalize or exit/abort
-    if (callee->getName().equals("MPI_Finalize") ||
-        callee->getName().equals("MPI_Abort") ||
-        callee->getName().equals("abort")) {
-      LLVM_DEBUG(dbgs() << "-> insert check before " << OP_name << " line "
+    if (CalleeName == "MPI_Finalize" || CalleeName == "MPI_Abort" ||
+        CalleeName == "abort") {
+      LLVM_DEBUG(dbgs() << "-> insert check before " << CalleeName << " line "
                         << OP_line << "\n");
-      insertCC(&CI, v_coll.size() + 1, OP_name, OP_line, WarningStr, File);
+      insertCC(&CI, nullptr, *callee, OP_line, WarningStr, File);
       Changed = true;
       continue;
-    }
-    // Before a collective
-    if (OP_color >= 0) {
-      LLVM_DEBUG(dbgs() << "-> insert check before " << OP_name << " line "
+    } else if (Coll) {
+      // Before a collective
+      LLVM_DEBUG(dbgs() << "-> insert check before " << CalleeName << " line "
                         << OP_line << "\n");
-      insertCC(&CI, OP_color, OP_name, OP_line, WarningStr, File);
+      insertCC(&CI, Coll, *callee, OP_line, WarningStr, File);
       Changed = true;
-      // nbCC++;
     }
   } // END FOR
   return Changed;

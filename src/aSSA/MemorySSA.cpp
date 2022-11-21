@@ -4,6 +4,7 @@
 #include "Options.h"
 #include "PTACallGraph.h"
 #include "Utils.h"
+#include "parcoach/Collectives.h"
 #include "parcoach/MemoryRegion.h"
 #include "parcoach/ModRefAnalysis.h"
 
@@ -207,9 +208,10 @@ void MemorySSA::computeMuChi(const Function *F) {
 
 void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
                                               Function *callee) {
+  Collective const *Coll = Collective::find(*callee);
   // If the called function is a CUDA synchronization, create an artificial CHI
   // for each shared region.
-  if (optCudaTaint && callee->getName().equals("llvm.nvvm.barrier0")) {
+  if (Coll && isa<CudaCollective>(Coll) && Coll->Name == "llvm.nvvm.barrier0") {
     for (auto *r : Regions.getCudaSharedRegions()) {
       callSiteToSyncChiMap[inst].insert(new MSSASyncChi(r, inst));
       regDefToBBMap[r].insert(inst->getParent());
@@ -223,7 +225,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
 
   // If the called function is an OMP barrier, create an artificial CHI
   // for each shared region.
-  if (optOmpTaint && callee->getName().equals("__kmpc_barrier")) {
+  if (Coll && isa<OMPCollective>(Coll) && Coll->Name == "__kmpc_barrier") {
     for (auto *r :
          getRange(Regions.getOmpSharedRegions(), inst->getFunction())) {
       callSiteToSyncChiMap[inst].insert(new MSSASyncChi(r, inst));

@@ -1,0 +1,6 @@
+// NOTE: This intentionally does not have a headguard.
+#ifndef CUDA_COLLECTIVE
+#define CUDA_COLLECTIVE(Name, FunctionName)
+#endif
+CUDA_COLLECTIVE(Barrier, llvm.nvvm.barrier0)
+#undef CUDA_COLLECTIVE

@@ -1,8 +1,8 @@
 #include "ParcoachAnalysisInter.h"
-#include "Collectives.h"
 #include "Instrumentation.h"
 #include "Options.h"
 #include "Utils.h"
+#include "parcoach/Collectives.h"
 #include "parcoach/DepGraphDCF.h"
 
 #include "llvm/ADT/SCCIterator.h"
@@ -131,13 +131,12 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
              PTACG.getIndirectCallMap().lookup(inst)) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
-          callee = const_cast<Function *>(mayCallee);
           // Is it a function containing collectives?
-          if (!collperFuncMap[callee].empty()) // && collMap[BB]!="NAVS")
-            collMap[BB] = collperFuncMap[callee] + " " + collMap[BB];
+          if (!collperFuncMap[mayCallee].empty()) // && collMap[BB]!="NAVS")
+            collMap[BB] = collperFuncMap[mayCallee] + " " + collMap[BB];
           // Is it a collective operation?
-          if (isCollective(*callee)) {
-            std::string OP_name = callee->getName().str();
+          if (Collective::isCollective(*mayCallee)) {
+            std::string OP_name = mayCallee->getName().str();
             if (collMap[BB].empty())
               collMap[BB] = OP_name;
             else
@@ -155,7 +154,7 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
           }
         }
         // Is it a collective operation?
-        if (isCollective(*callee)) {
+        if (Collective::isCollective(*callee)) {
           std::string OP_name = callee->getName().str();
           if (collMap[BB].empty())
             collMap[BB] = OP_name;
@@ -221,10 +220,10 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
             }
           }
           // Is it a collective operation?
-          if (isCollective(*mayCallee)) {
+          Collective const *Coll = Collective::find(*mayCallee);
+          if (auto *MPIColl = dyn_cast_or_null<MPICollective>(Coll)) {
             StringRef OP_name = mayCallee->getName();
-            int OP_color = getCollectiveColor(*mayCallee);
-            int OP_arg_id = Com_arg_id(OP_color);
+            int OP_arg_id = MPIColl->CommArgId;
             Value *OP_com = nullptr;
 
             if (OP_arg_id >= 0) {
@@ -246,10 +245,10 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
           push(mpiCollListMap[BB][Val], List.get(), BB);
         }
         // Is it a collective operation?
-        if (isCollective(*callee)) {
+        Collective const *Coll = Collective::find(*callee);
+        if (auto *MPIColl = dyn_cast_or_null<MPICollective>(Coll)) {
           StringRef OP_name = callee->getName();
-          int OP_color = getCollectiveColor(*callee);
-          int OP_arg_id = Com_arg_id(OP_color);
+          int OP_arg_id = MPIColl->CommArgId;
           Value *OP_com = nullptr;
 
           if (OP_arg_id >= 0) {
@@ -818,7 +817,7 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
   auto IsaDirectCallToCollective = [](Instruction const &I) {
     if (CallInst const *CI = dyn_cast<CallInst>(&I)) {
       Function const *F = CI->getCalledFunction();
-      return F && isCollective(*F);
+      return F && Collective::isCollective(*F);
     }
     return false;
   };
@@ -840,12 +839,15 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
       dbgs() << "\n";
     });
 
-    int OP_color = getCollectiveColor(F);
+    Collective const *Coll = Collective::find(F);
+    assert(Coll && "Coll expected to be not null because of filter");
     Value *OP_com = nullptr;
     int OP_arg_id = -1;
 
-    if (optMpiTaint) {
-      OP_arg_id = Com_arg_id(OP_color);
+    // If we are here the paradigm must be enabled because isCollective/find
+    // checks that the collective's paradigm is enabled.
+    if (auto *MPIColl = dyn_cast<MPICollective>(Coll)) {
+      OP_arg_id = MPIColl->CommArgId;
       if (OP_arg_id >= 0)
         OP_com = CI.getArgOperand(OP_arg_id); // 0 for Barrier only
     }

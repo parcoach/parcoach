@@ -3,7 +3,6 @@ This is PARCOACH
 The project is licensed under the LGPL 2.1 license
 */
 
-#include "Collectives.h"
 #include "Config.h"
 #include "Instrumentation.h"
 #include "OpenMPInstr.h"
@@ -12,6 +11,7 @@ The project is licensed under the LGPL 2.1 license
 #include "ParcoachAnalysisInter.h"
 #include "ShowPAInterResults.h"
 #include "Utils.h"
+#include "parcoach/Collectives.h"
 #include "parcoach/DepGraphDCF.h"
 #include "parcoach/ExtInfo.h"
 #include "parcoach/MemoryRegion.h"
@@ -68,8 +68,6 @@ void RegisterPasses(ModulePassManager &MPM) {
            << "sensitive mode.\n";
     exit(EXIT_FAILURE);
   }
-
-  initCollectives();
 
   // Let's make sure we have a single exit node in all our functions.
   MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));

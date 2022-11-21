@@ -3,6 +3,8 @@
 #include "ParcoachAnalysisInter.h"
 #include "Utils.h"
 
+#include "parcoach/Collectives.h"
+
 #include "llvm/Support/WithColor.h"
 
 using namespace llvm;

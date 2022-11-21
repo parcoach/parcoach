@@ -1,0 +1,20 @@
+// NOTE: This intentionally does not have a headguard.
+#ifndef UPC_COLLECTIVE
+#define UPC_COLLECTIVE(Name)
+#endif
+UPC_COLLECTIVE(_upcr_wait)
+UPC_COLLECTIVE(_upcr_all_broadcast)
+UPC_COLLECTIVE(_upcr_all_reduceD)
+UPC_COLLECTIVE(_upcr_all_gather)
+UPC_COLLECTIVE(_upcr_all_scatter)
+UPC_COLLECTIVE(_upcr_all_reduceC)
+UPC_COLLECTIVE(_upcr_all_reduceUC)
+UPC_COLLECTIVE(_upcr_all_reduceS)
+UPC_COLLECTIVE(_upcr_all_reduceUS)
+UPC_COLLECTIVE(_upcr_all_reduceI)
+UPC_COLLECTIVE(_upcr_all_reduceUI)
+UPC_COLLECTIVE(_upcr_all_reduceL)
+UPC_COLLECTIVE(_upcr_all_reduceUL)
+UPC_COLLECTIVE(_upcr_all_reduceF)
+UPC_COLLECTIVE(_upcr_all_reduceLD)
+#undef UPC_COLLECTIVE

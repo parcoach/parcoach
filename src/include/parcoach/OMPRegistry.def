@@ -1,0 +1,6 @@
+// NOTE: This intentionally does not have a headguard.
+#ifndef OMP_COLLECTIVE
+#define OMP_COLLECTIVE(Name)
+#endif
+OMP_COLLECTIVE(__kmpc_barrier)
+#undef OMP_COLLECTIVE

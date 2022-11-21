@@ -19,4 +19,4 @@ config.test_format = lit.formats.ShTest(True)
 # by individual lit.local.cfg files in the test subdirectories.
 config.suffixes = ['.ll', '.c', '.cpp']
 
-config.excludes = ['CMakeFiles', 'MPI', 'third_party']
+config.excludes = ['CMakeFiles', 'third_party']

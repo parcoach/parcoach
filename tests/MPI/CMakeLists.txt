@@ -11,6 +11,12 @@ set(TEST_MPI_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_mpi)
 configure_file(test_instr_mpi.in test_instr_mpi @ONLY)
 set(TEST_INSTR_MPI_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_instr_mpi)
 
+set(LIT_MPI_INCLUDES ${MPI_C_INCLUDE_DIRS})
+list(TRANSFORM LIT_MPI_INCLUDES PREPEND "-I")
+string(JOIN " " LIT_MPI_INCLUDES ${LIT_MPI_INCLUDES})
+
+configure_file(lit.cfg.in ${CMAKE_CURRENT_BINARY_DIR}/lit.cfg @ONLY)
+
 macro(create_mpi_instrumented_executable TARGET_NAME INPUT_BC TARGET_LANG)
   set(INSTR_BC ${INPUT_BC}.instr.bc)
   add_custom_command(

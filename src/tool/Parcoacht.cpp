@@ -113,15 +113,14 @@ int main(int argc, char **argv) {
   std::unique_ptr<ToolOutputFile> Out;
   OutputKind OK{OK_NoOutput};
 
-  if (NoOutput) {
-    if (!OutputFilename.empty())
-      errs() << "WARNING: The -o (output filename) option is ignored when\n"
-                "the --disable-output option is used.\n";
-  } else {
-    // Default to standard output.
-    if (OutputFilename.empty())
-      OutputFilename = "-";
+  if (OutputFilename.empty()) {
+    // By default we don't necessarily instrument the code, so if we don't
+    // explicitly specify an output, just assume we just print the analysis
+    // result.
+    NoOutput = true;
+  }
 
+  if (!NoOutput) {
     std::error_code EC;
     sys::fs::OpenFlags Flags =
         OutputAssembly ? sys::fs::OF_TextWithCRLF : sys::fs::OF_None;

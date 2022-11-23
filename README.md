@@ -55,23 +55,53 @@ cmake .. -G Ninja -DLLVM_DIR=/path/to/llvm
 ```
 
 ## Usage
-Codes with errors can be found in the [Parcoach Microbenchmark Suite](https://github.com/parcoach/microbenchmarks).
+
+Codes with errors can be found in the [Parcoach Microbenchmark Suite](https://github.com/parcoach/microbenchmarks) and in our [tests](./tests) folders.
 
 ### Static checking
 
-PARCOACH is an LLVM pass that can be run with the [opt](http://llvm.org/docs/CommandGuide/opt.html) tool. This tool makes part of LLVM and is already included with your installation of LLVM. It takes as input LLVM bytecode.
+PARCOACH is a set of LLVM analysis and transformation passes which can be ran
+either using the standalone `parcoach` executable.
+It's also possible to use the [opt](http://llvm.org/docs/CommandGuide/opt.html)
+wrapper `parcoachp`, or to directly call `opt` while loading PARCOACH as a pass
+plugin; both these alternative are not recommended, but should work.
 
-#### To use Parcoach on a single file
+The `parcoach` interface mimics `opt`'s one: it takes LLVM IR as input, either
+as bytecode (the `.bc` files) or as humanly readable IR (the `.ll` files).
+Unless using the instrumentation part, you don't need any output IR and using
+`-disable-output` is recommended.
+
+#### How to use Parcoach on a single file
+
+This can be executed right away on one of our tests files.
+
+The first step is to generated the LLVM IR for the file, for a C file it would
+be done with `clang` for instance.
+The command below is meant as an illustrative example, it actually requires MPI
+to be installed on your system.
+If you don't/can't have it, skip this step as we have LLVM IR examples ready to
+use in our codebase.
 
 ```bash
-clang -c -g -emit-llvm file1.c -o file1.bc
-opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi < file1.bc > /dev/null
+clang -g -S -emit-llvm tests/MPI/basic/src/MPIexample.c -o MPIexample.ll
+```
+
+The next step is to actually run PARCOACH over the IR; for the sake of this
+example we'll use one of our IR tests files:
+
+```bash
+parcoach -check-mpi -disable-output tests/MPI/lit/MPIexample.ll
+```
+
+It should give you an output with a warning looking like this:
+```
+PARCOACH: ../tests/MPI/basic/src/MPIexample.c: warning: MPI_Reduce line 10 possibly not called by all processes because of conditional(s) line(s)  24 (../tests/MPI/basic/src/MPIexample.c) (full-inter)
 ```
 
 
 #### If you have multiple files
 
-##### 1) First, compile each file from your program with clang. Use the `-flto` option to generate LLVM bytecode:
+##### 1) First, compile each file from your program with clang.
 ```bash
 clang -g -c -emit-llvm file1.c -o file1.bc
 clang -g -c -emit-llvm file2.c -o file2.bc
@@ -86,9 +116,8 @@ llvm-link file1.bc file2.bc file3.bc -o merge.bc
 ```
 
 ##### 3) Finally, run the PARCOACH pass on the generated LLVM bytecode. To detect collective errors in MPI:
+
 ```bash
-opt -load /path/to/parchoach/build/src/aSSA/aSSA.* -parcoach -check-mpi merge.bc
-=
 ./parcoach -check-mpi merge.bc
 ```
 
@@ -153,8 +182,8 @@ Van Man Nguyen, Emmanuelle Saillard, Julien Jaeger, Denis Barthou and Patrick Ca
 
 ## License
 The project is licensed under the LGPL 2.1 license.
+
 ## External links
 
 - [Official website](https://parcoach.github.io)
 - [Parcoach Microbenchmark Suite](https://github.com/parcoach/microbenchmarks)
-

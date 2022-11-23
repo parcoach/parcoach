@@ -1,5 +1,6 @@
 set(PARCOACH_BUILD_SHARED ON CACHE BOOL "")
 set(CMAKE_BUILD_TYPE Release CACHE STRING "")
+set(CMAKE_INSTALL_LIBDIR lib CACHE STRING "")
 # We're just building a release, we don't care about tests.
 set(PARCOACH_ENABLE_TESTS OFF CACHE BOOL "")
 set(PARCOACH_VERSION_SUFFIX "" CACHE STRING "")
@@ -7,9 +8,7 @@ set(PARCOACH_ENABLE_MPI ON CACHE BOOL "")
 set(PARCOACH_ENABLE_OPENMP ON CACHE BOOL "")
 set(PARCOACH_ENABLE_CUDA OFF CACHE BOOL "")
 set(PARCOACH_ENABLE_UPC OFF CACHE BOOL "")
-# FIXME: right now plafrim doesn't have a generic MPI module, so we simply
-# deactivate the MPI instrumentation at the moment.
-set(PARCOACH_ENABLE_INSTRUMENTATION OFF CACHE BOOL "")
+set(PARCOACH_ENABLE_INSTRUMENTATION ON CACHE BOOL "")
 
 # This is overridable by the user, but it's actually useful to determine 
 # target installation folders.

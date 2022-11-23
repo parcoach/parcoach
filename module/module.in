@@ -40,3 +40,7 @@ if {![file exists $prefix]} {
 prepend-path   PATH               $root/bin
 prepend-path   LD_LIBRARY_PATH    $root/lib
 prepend-path   LIBRARY_PATH       $root/lib
+
+# Additional useful env vars
+# -----------
+setenv   PARCOACH_INSTALL_DIR   $root

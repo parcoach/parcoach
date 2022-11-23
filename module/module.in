@@ -1,0 +1,42 @@
+#%Module
+##########################
+#  PARCOACH module file  #
+##########################
+
+conflict tools/parcoach
+
+# A bit unsatisfying to do this without the user explicit consent, but it
+# seems to be widely done in plafrim modules.
+
+if {![ is-loaded toolchains/llvm ]} {
+   module load toolchains/llvm
+}
+
+proc ModulesHelp { } {
+    global version
+
+    puts stderr "\tAdd PARCOACH $version tool to your environment."
+    puts stderr "\tThe following env variables are modified:"
+    puts stderr "\t\$PATH"
+    puts stderr "\t\$LD_LIBRARY_PATH"
+    puts stderr "\t\$LIBRARY_PATH"
+    puts stderr "\n\tVersion $version\n"
+}
+
+set name    "PARCOACH"
+set version @PARCOACH_VERSION@
+set prefix  /cm/shared/dev/modules/generic/apps/tools/parcoach
+set root    $prefix/$version
+
+module-whatis   "Load PARCOACH $version"
+
+if {![file exists $prefix]} {
+    puts stderr "\t[module-info name] Load Error: $prefix does not exist"
+    break
+    exit 1
+}
+
+# Prepend tools paths
+prepend-path   PATH               $root/bin
+prepend-path   LD_LIBRARY_PATH    $root/lib
+prepend-path   LIBRARY_PATH       $root/lib

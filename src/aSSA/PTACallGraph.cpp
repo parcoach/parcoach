@@ -131,6 +131,7 @@ void PTACallGraph::addToCallGraph(Function const &F) {
               Node->addCalledFunction(CI, getOrInsertFunction(LocalCallee));
           }
           assert(Found && "could not find called function for call inst");
+          (void)Found;
         }
       }
     }

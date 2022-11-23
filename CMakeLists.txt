@@ -28,6 +28,8 @@ add_compile_options(-Wall)
 # List of sources to format; will be populated by subdirectories.
 set(PARCOACH_FORMAT_SOURCES "" CACHE INTERNAL "" FORCE)
 
+add_subdirectory(module)
+
 add_subdirectory(src)
 
 if(PARCOACH_ENABLE_TESTS)

@@ -68,8 +68,11 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
 
   CallInst *CI = cast<CallInst>(&CB);
   const Function *callee = CI->getCalledFunction();
+#if defined(PARCOACH_ENABLE_CUDA) || defined(PARCOACH_ENABLE_OPENMP)
   Collective const *Coll = callee ? Collective::find(*callee) : nullptr;
+#endif
 
+#ifdef PARCOACH_ENABLE_CUDA
   // In CUDA after a synchronization, all region in shared memory are written.
   if (Coll && isa<CudaCollective>(Coll) && Coll->Name == "llvm.nvvm.barrier0") {
     for (auto *r : Regions.getCudaSharedRegions()) {
@@ -79,7 +82,9 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
       funcModMap[curFunc].insert(r);
     }
   }
+#endif
 
+#ifdef PARCOACH_ENABLE_OPENMP
   // In OpenMP after a synchronization, all region in shared memory are written.
   if (Coll && isa<OMPCollective>(Coll) && Coll->Name == "__kmpc_barrier") {
     for (auto *r : getRange(Regions.getOmpSharedRegions(), CI->getFunction())) {
@@ -88,6 +93,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
       funcModMap[curFunc].insert(r);
     }
   }
+#endif
 
   // indirect call
   if (!callee) {

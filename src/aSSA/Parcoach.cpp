@@ -71,11 +71,13 @@ void RegisterPasses(ModulePassManager &MPM) {
     MPM.addPass(ShowStats());
     return;
   }
+#ifdef PARCOACH_ENABLE_OPENMP
   if (Options::get().isActivated(Paradigm::OMP)) {
     // Replace OpenMP Micro Function Calls and compute shared variable for
     // each function.
     MPM.addPass(PrepareOpenMPInstr());
   }
+#endif
   if (optDotGraph) {
     // We want to print the dot *after* the preparation pass.
     MPM.addPass(EmitDG());

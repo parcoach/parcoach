@@ -38,12 +38,18 @@ DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph const &CG,
 
   if (Options::get().isActivated(Paradigm::MPI))
     enableMPI();
+#ifdef PARCOACH_ENABLE_OPENMP
   if (Options::get().isActivated(Paradigm::OMP))
     enableOMP();
+#endif
+#ifdef PARCOACH_ENABLE_UPC
   if (Options::get().isActivated(Paradigm::UPC))
     enableUPC();
+#endif
+#ifdef PARCOACH_ENABLE_CUDA
   if (Options::get().isActivated(Paradigm::CUDA))
     enableCUDA();
+#endif
   build();
 }
 

@@ -22,10 +22,14 @@ std::string getCheckFunctionName(Collective const *C) {
     return "check_collective_return";
   } else if (isa<MPICollective>(C)) {
     return "check_collective_MPI";
+#ifdef PARCOACH_ENABLE_OPENMP
   } else if (isa<OMPCollective>(C)) {
     return "check_collective_OMP";
+#endif
+#ifdef PARCOACH_ENABLE_UPC
   } else if (isa<UPCCollective>(C)) {
     return "check_collective_UPC";
+#endif
   }
   llvm_unreachable("unhandled collective type");
 }

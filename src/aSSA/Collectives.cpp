@@ -34,12 +34,18 @@ private:
 #include "parcoach/MPIRegistry.def"
 #define COLLECTIVE(Name, FunctionName, Type)                                   \
   {#Name, new Type##Collective(Collective::Kind::C_##Name, #FunctionName)},
+#ifdef PARCOACH_ENABLE_OPENMP
 #define OMP_COLLECTIVE(Name) COLLECTIVE(Name, Name, OMP)
 #include "parcoach/OMPRegistry.def"
+#endif
+#ifdef PARCOACH_ENABLE_UPC
 #define UPC_COLLECTIVE(Name) COLLECTIVE(Name, Name, UPC)
 #include "parcoach/UPCRegistry.def"
+#endif
+#ifdef PARCOACH_ENABLE_CUDA
 #define CUDA_COLLECTIVE(Name, FunctionName) COLLECTIVE(Name, FunctionName, Cuda)
 #include "parcoach/CUDARegistry.def"
+#endif
 #undef COLLECTIVE
   };
 };

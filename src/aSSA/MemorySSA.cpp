@@ -208,7 +208,10 @@ void MemorySSA::computeMuChi(const Function *F) {
 
 void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
                                               Function *callee) {
+#if defined(PARCOACH_ENABLE_CUDA) || defined(PARCOACH_ENABLE_OPENMP)
   Collective const *Coll = Collective::find(*callee);
+#endif
+#ifdef PARCOACH_ENABLE_CUDA
   // If the called function is a CUDA synchronization, create an artificial CHI
   // for each shared region.
   if (Coll && isa<CudaCollective>(Coll) && Coll->Name == "llvm.nvvm.barrier0") {
@@ -222,7 +225,9 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     // Otherwise a used region may not appear in the mu map and would lead
     // to breaking an assert!
   }
+#endif
 
+#ifdef PARCOACH_ENABLE_OPENMP
   // If the called function is an OMP barrier, create an artificial CHI
   // for each shared region.
   if (Coll && isa<OMPCollective>(Coll) && Coll->Name == "__kmpc_barrier") {
@@ -237,6 +242,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     // Otherwise a used region may not appear in the mu map and would lead
     // to breaking an assert!
   }
+#endif
 
   // If the callee is a declaration (external function), we create a Mu
   // for each pointer argument and a Chi for each modified argument.

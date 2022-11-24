@@ -18,12 +18,18 @@ struct Collective {
 #define COLLECTIVE(Name) C_##Name,
 #define MPI_COLLECTIVE(Name, CommArgId) COLLECTIVE(Name)
 #include "MPIRegistry.def"
+#ifdef PARCOACH_ENABLE_OPENMP
 #define OMP_COLLECTIVE(Name) COLLECTIVE(Name)
 #include "OMPRegistry.def"
+#endif
+#ifdef PARCOACH_ENABLE_UPC
 #define UPC_COLLECTIVE(Name) COLLECTIVE(Name)
 #include "UPCRegistry.def"
+#endif
+#ifdef PARCOACH_ENABLE_CUDA
 #define CUDA_COLLECTIVE(Name, FunctionName) COLLECTIVE(Name)
 #include "CUDARegistry.def"
+#endif
 #undef COLLECTIVE
   };
   std::string const Name;
@@ -52,6 +58,7 @@ struct MPICollective : Collective {
   }
 };
 
+#ifdef PARCOACH_ENABLE_OPENMP
 struct OMPCollective : Collective {
   OMPCollective(Kind K, llvm::StringRef Name)
       : Collective(Paradigm::OMP, K, Name) {}
@@ -59,7 +66,9 @@ struct OMPCollective : Collective {
     return C->getParadigm() == Paradigm::OMP;
   }
 };
+#endif
 
+#ifdef PARCOACH_ENABLE_CUDA
 struct CudaCollective : Collective {
   CudaCollective(Kind K, llvm::StringRef Name)
       : Collective(Paradigm::CUDA, K, Name) {}
@@ -67,7 +76,9 @@ struct CudaCollective : Collective {
     return C->getParadigm() == Paradigm::CUDA;
   }
 };
+#endif
 
+#ifdef PARCOACH_ENABLE_UPC
 struct UPCCollective : Collective {
   UPCCollective(Kind K, llvm::StringRef Name)
       : Collective(Paradigm::UPC, K, Name) {}
@@ -75,4 +86,5 @@ struct UPCCollective : Collective {
     return C->getParadigm() == Paradigm::UPC;
   }
 };
+#endif
 } // namespace parcoach

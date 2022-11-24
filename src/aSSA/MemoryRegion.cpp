@@ -21,6 +21,7 @@ unsigned MemRegEntry::generateId() {
 
 MemRegEntry::MemRegEntry(Value const *V)
     : id_(generateId()), cudaShared_(false), Val(V) {
+#ifdef PARCOACH_ENABLE_CUDA
   // Cuda shared region
   if (Options::get().isActivated(Paradigm::CUDA)) {
     const GlobalValue *GV = dyn_cast<GlobalValue>(V);
@@ -30,6 +31,7 @@ MemRegEntry::MemRegEntry(Value const *V)
       // sharedCudaRegions.insert(this);
     }
   }
+#endif
 
   if (!optWithRegName) {
     name_ = std::to_string(id_);
@@ -62,6 +64,7 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
     dumpRegions();
   errs() << "* Regions creation done\n";
 
+#ifdef PARCOACH_ENABLE_OPENMP
   // Compute shared regions for each OMP function.
   if (Options::get().isActivated(Paradigm::OMP)) {
     FunctionToMemRegSetMap func2SharedOmpReg;
@@ -78,6 +81,7 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
       }
     }
   }
+#endif
 }
 
 void MemReg::createRegion(const llvm::Value *v) {

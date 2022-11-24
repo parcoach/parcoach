@@ -95,10 +95,20 @@ static cl::opt<bool> clOptUpcTaint("check-upc",
 static cl::opt<parcoach::Paradigm, true> ActivatedParadigm(
     "check", cl::desc("Select enabled paradigm (mpi, openmp, upc, cuda)"),
     cl::values(clEnumValN(parcoach::Paradigm::MPI, "mpi",
-                          "Enable MPI checkin (this is the default"),
-               clEnumValN(parcoach::Paradigm::OMP, "openmp", "Enable OpenMP"),
-               clEnumValN(parcoach::Paradigm::UPC, "upc", "Enable UPC"),
-               clEnumValN(parcoach::Paradigm::CUDA, "cuda", "Enable Cuda")),
+                          "Enable MPI checkin (this is the default")
+#ifdef PARCOACH_ENABLE_OPENMP
+                   ,
+               clEnumValN(parcoach::Paradigm::OMP, "openmp", "Enable OpenMP")
+#endif
+#ifdef PARCOACH_ENABLE_UPC
+                   ,
+               clEnumValN(parcoach::Paradigm::UPC, "upc", "Enable UPC")
+#endif
+#ifdef PARCOACH_ENABLE_CUDA
+                   ,
+               clEnumValN(parcoach::Paradigm::CUDA, "cuda", "Enable Cuda")
+#endif
+                   ),
     cl::cat(ParcoachCategory), cl::location(parcoach::Instance.P));
 
 #ifndef NDEBUG
@@ -136,12 +146,18 @@ Options const &Options::get() {
 Options::Options() {
   if (clOptMpiTaint) {
     ActivatedParadigm = Paradigm::MPI;
+#ifdef PARCOACH_ENABLE_OPENMP
   } else if (clOptOmpTaint) {
     ActivatedParadigm = Paradigm::OMP;
+#endif
+#ifdef PARCOACH_ENABLE_UPC
   } else if (clOptUpcTaint) {
     ActivatedParadigm = Paradigm::UPC;
+#endif
+#ifdef PARCOACH_ENABLE_CUDA
   } else if (clOptCudaTaint) {
     ActivatedParadigm = Paradigm::CUDA;
+#endif
   }
 }
 

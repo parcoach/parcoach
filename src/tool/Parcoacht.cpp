@@ -61,6 +61,9 @@ static cl::opt<bool> NoOutput("disable-output",
                               cl::desc("Do not write result bitcode file"),
                               cl::Hidden);
 
+static cl::opt<bool> ShowVersion("parcoach-version",
+                                 cl::desc("Show PARCOACH version"));
+
 enum OutputKind {
   OK_NoOutput,
   OK_OutputAssembly,
@@ -88,6 +91,11 @@ int main(int argc, char **argv) {
 
   cl::ParseCommandLineOptions(
       argc, argv, "parcoach: a static/dynamic analyzer for MPI collectives\n");
+
+  if (ShowVersion) {
+    parcoach::PrintVersion(outs());
+    return 0;
+  }
 
   LLVMContext Context;
 

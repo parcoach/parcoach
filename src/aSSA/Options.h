@@ -19,7 +19,6 @@ extern bool optOmpTaint;
 extern bool optCudaTaint;
 extern bool optMpiTaint;
 extern bool optUpcTaint;
-extern bool optVersion;
 #ifndef NDEBUG
 extern bool optDumpModRef;
 #endif

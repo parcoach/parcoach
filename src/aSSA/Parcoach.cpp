@@ -58,11 +58,6 @@ struct EmitDG : public PassInfoMixin<EmitDG> {
 } // namespace
 
 void RegisterPasses(ModulePassManager &MPM) {
-  if (optVersion) {
-    outs() << "PARCOACH version " << PARCOACH_VERSION << "\n";
-    return;
-  }
-
   if (!optContextInsensitive && optDotTaintPaths) {
     errs() << "Error: you cannot use -dot-taint-paths option in context "
            << "sensitive mode.\n";
@@ -99,6 +94,10 @@ void RegisterAnalysis(ModuleAnalysisManager &MAM) {
   MAM.registerPass([&]() { return ModRefAnalysis(); });
   MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
   MAM.registerPass([&]() { return StatisticsAnalysis(); });
+}
+
+void PrintVersion(raw_ostream &Out) {
+  Out << "PARCOACH version " << PARCOACH_VERSION << "\n";
 }
 
 } // namespace parcoach

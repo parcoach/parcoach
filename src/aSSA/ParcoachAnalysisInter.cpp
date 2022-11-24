@@ -1,9 +1,9 @@
 #include "ParcoachAnalysisInter.h"
 #include "Instrumentation.h"
-#include "Options.h"
 #include "Utils.h"
 #include "parcoach/Collectives.h"
 #include "parcoach/DepGraphDCF.h"
+#include "parcoach/Options.h"
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SetVector.h"
@@ -82,7 +82,7 @@ void ParcoachAnalysisInter::run() {
         continue;
       // DBG: errs() << "Function: " << F->getName() << "\n";
 
-      if (optMpiTaint)
+      if (Options::get().isActivated(Paradigm::MPI))
         MPI_BFS(F);
       else
         BFS(F);
@@ -872,11 +872,11 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
 
     for (const BasicBlock *BB : callIPDF) {
       // Is this node detected as potentially dangerous by parcoach?
-      if (!optMpiTaint && collMap[BB] != "NAVS") {
+      if (!Options::get().isActivated(Paradigm::MPI) && collMap[BB] != "NAVS") {
         continue;
       }
-      if (optMpiTaint && OP_arg_id >= 0 && mpiCollListMap[BB][OP_com] &&
-          !mpiCollListMap[BB][OP_com]->isNAVS()) {
+      if (Options::get().isActivated(Paradigm::MPI) && OP_arg_id >= 0 &&
+          mpiCollListMap[BB][OP_com] && !mpiCollListMap[BB][OP_com]->isNAVS()) {
         continue;
       }
 

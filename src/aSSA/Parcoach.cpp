@@ -6,7 +6,6 @@ The project is licensed under the LGPL 2.1 license
 #include "Config.h"
 #include "Instrumentation.h"
 #include "OpenMPInstr.h"
-#include "Options.h"
 #include "PTACallGraph.h"
 #include "ParcoachAnalysisInter.h"
 #include "ShowPAInterResults.h"
@@ -17,6 +16,7 @@ The project is licensed under the LGPL 2.1 license
 #include "parcoach/MemoryRegion.h"
 #include "parcoach/MemorySSA.h"
 #include "parcoach/ModRefAnalysis.h"
+#include "parcoach/Options.h"
 #include "parcoach/Passes.h"
 #include "parcoach/StatisticsAnalysis.h"
 #include "parcoach/andersen/Andersen.h"
@@ -71,7 +71,7 @@ void RegisterPasses(ModulePassManager &MPM) {
     MPM.addPass(ShowStats());
     return;
   }
-  if (optOmpTaint) {
+  if (Options::get().isActivated(Paradigm::OMP)) {
     // Replace OpenMP Micro Function Calls and compute shared variable for
     // each function.
     MPM.addPass(PrepareOpenMPInstr());

@@ -1,5 +1,5 @@
 #include "parcoach/Collectives.h"
-#include "Options.h"
+#include "parcoach/Options.h"
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/Function.h"
@@ -46,18 +46,7 @@ private:
 
 } // namespace
 
-bool Collective::enabled() const {
-  switch (P_) {
-  case Paradigm::MPI:
-    return optMpiTaint;
-  case Paradigm::OMP:
-    return optOmpTaint;
-  case Paradigm::UPC:
-    return optUpcTaint;
-  case Paradigm::CUDA:
-    return optCudaTaint;
-  }
-}
+bool Collective::enabled() const { return Options::get().isActivated(P_); }
 
 Collective const *Collective::find(Function const &F) {
   auto It = Registry::get().find(F.getName());

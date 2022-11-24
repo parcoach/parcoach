@@ -1,5 +1,7 @@
 #pragma once
 
+#include "parcoach/Paradigms.h"
+
 #include "llvm/ADT/StringRef.h"
 
 #include <string>
@@ -9,13 +11,6 @@ class Function;
 } // namespace llvm
 
 namespace parcoach {
-enum class Paradigm {
-  MPI,
-  OMP,
-  CUDA,
-  UPC,
-};
-
 // Naive implementation for now, we may want to introduce a real class hierarchy
 // if we need more feature on this.
 struct Collective {

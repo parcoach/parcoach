@@ -1,8 +1,9 @@
 #include "parcoach/DepGraphDCF.h"
+
 #include "MSSAMuChi.h"
-#include "Options.h"
 #include "PTACallGraph.h"
 #include "Utils.h"
+#include "parcoach/Options.h"
 
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/DebugInfo.h"
@@ -35,13 +36,13 @@ DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph const &CG,
       phiElimTime(0), floodDepTime(0), noPtrDep(noPtrDep), noPred(noPred),
       disablePhiElim(disablePhiElim) {
 
-  if (optMpiTaint)
+  if (Options::get().isActivated(Paradigm::MPI))
     enableMPI();
-  if (optOmpTaint)
+  if (Options::get().isActivated(Paradigm::OMP))
     enableOMP();
-  if (optUpcTaint)
+  if (Options::get().isActivated(Paradigm::UPC))
     enableUPC();
-  if (optCudaTaint)
+  if (Options::get().isActivated(Paradigm::CUDA))
     enableCUDA();
   build();
 }

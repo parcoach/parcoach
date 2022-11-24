@@ -1,8 +1,8 @@
 #include "Instrumentation.h"
 
-#include "Options.h"
 #include "parcoach/Analysis.h"
 #include "parcoach/Collectives.h"
+#include "parcoach/Options.h"
 #include "parcoach/Passes.h"
 
 #include "llvm/IR/DebugInfo.h"

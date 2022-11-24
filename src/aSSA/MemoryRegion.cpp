@@ -1,6 +1,6 @@
 #include "parcoach/MemoryRegion.h"
-#include "Options.h"
 #include "Utils.h"
+#include "parcoach/Options.h"
 #include "parcoach/andersen/Andersen.h"
 
 #include "llvm/IR/GlobalValue.h"
@@ -9,6 +9,7 @@
 #include <set>
 
 using namespace llvm;
+using namespace parcoach;
 
 llvm::ValueMap<llvm::Function const *, std::set<llvm::Value const *>>
     MemReg::func2SharedOmpVar;
@@ -21,7 +22,7 @@ unsigned MemRegEntry::generateId() {
 MemRegEntry::MemRegEntry(Value const *V)
     : id_(generateId()), cudaShared_(false), Val(V) {
   // Cuda shared region
-  if (optCudaTaint) {
+  if (Options::get().isActivated(Paradigm::CUDA)) {
     const GlobalValue *GV = dyn_cast<GlobalValue>(V);
     if (GV && GV->getType()->getPointerAddressSpace() == 3) {
       cudaShared_ = true;
@@ -62,7 +63,7 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
   errs() << "* Regions creation done\n";
 
   // Compute shared regions for each OMP function.
-  if (optOmpTaint) {
+  if (Options::get().isActivated(Paradigm::OMP)) {
     FunctionToMemRegSetMap func2SharedOmpReg;
     for (auto I : func2SharedOmpVar) {
       const Function *F = I.first;

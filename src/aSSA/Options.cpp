@@ -1,10 +1,13 @@
-#include "Options.h"
+#include "parcoach/Options.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_os_ostream.h"
 
 using namespace llvm;
-using namespace std;
+
+namespace parcoach {
+static Options Instance;
+}
 
 static cl::OptionCategory ParcoachCategory("Parcoach options");
 
@@ -13,7 +16,7 @@ static cl::opt<bool, true> clOptDumpSSA("dump-ssa",
                                         cl::cat(ParcoachCategory),
                                         cl::location(optDumpSSA));
 
-static cl::opt<string, true>
+static cl::opt<std::string, true>
     clOptDumpSSAFunc("dump-ssa-func",
                      cl::desc("Dump the all-inclusive SSA "
                               "for a particular function."),
@@ -73,20 +76,30 @@ static cl::opt<bool, true>
     clOptNoDataFlow("no-dataflow", cl::desc("Disable dataflow analysis"),
                     cl::cat(ParcoachCategory), cl::location(optNoDataFlow));
 
-static cl::opt<bool, true>
+static cl::opt<bool>
     clOptOmpTaint("check-omp", cl::desc("enable OpenMP collectives checking"),
-                  cl::cat(ParcoachCategory), cl::location(optOmpTaint));
-static cl::opt<bool, true>
-    clOptMpiTaint("check-mpi", cl::desc("enable MPI collectives checking"),
-                  cl::cat(ParcoachCategory), cl::location(optMpiTaint));
+                  cl::cat(ParcoachCategory));
+static cl::opt<bool> clOptMpiTaint("check-mpi",
+                                   cl::desc("enable MPI collectives checking"),
+                                   cl::cat(ParcoachCategory));
 
-static cl::opt<bool, true>
+static cl::opt<bool>
     clOptCudaTaint("check-cuda", cl::desc("enable CUDA collectives checking"),
-                   cl::cat(ParcoachCategory), cl::location(optCudaTaint));
+                   cl::cat(ParcoachCategory));
 
-static cl::opt<bool, true>
-    clOptUpcTaint("check-upc", cl::desc("enable UPC collectives checking"),
-                  cl::cat(ParcoachCategory), cl::location(optUpcTaint));
+static cl::opt<bool> clOptUpcTaint("check-upc",
+                                   cl::desc("enable UPC collectives checking"),
+                                   cl::cat(ParcoachCategory));
+
+// This sets the default paradigme to MPI; it's likely what we want.
+static cl::opt<parcoach::Paradigm, true> ActivatedParadigm(
+    "check", cl::desc("Select enabled paradigm (mpi, openmp, upc, cuda)"),
+    cl::values(clEnumValN(parcoach::Paradigm::MPI, "mpi",
+                          "Enable MPI checkin (this is the default"),
+               clEnumValN(parcoach::Paradigm::OMP, "openmp", "Enable OpenMP"),
+               clEnumValN(parcoach::Paradigm::UPC, "upc", "Enable UPC"),
+               clEnumValN(parcoach::Paradigm::CUDA, "cuda", "Enable Cuda")),
+    cl::cat(ParcoachCategory), cl::location(parcoach::Instance.P));
 
 #ifndef NDEBUG
 bool optDumpModRef;
@@ -96,7 +109,7 @@ static cl::opt<bool, true>
 #endif
 
 bool optDumpSSA;
-string optDumpSSAFunc;
+std::string optDumpSSAFunc;
 bool optDotGraph;
 bool optDumpRegions;
 bool optTimeStats;
@@ -108,7 +121,29 @@ bool optInstrumInter;
 bool optInstrumIntra;
 bool optWeakUpdate;
 bool optNoDataFlow;
-bool optOmpTaint;
-bool optCudaTaint;
-bool optMpiTaint;
-bool optUpcTaint;
+
+namespace parcoach {
+
+namespace {
+Options Instance;
+}
+
+Options const &Options::get() {
+  static Options Instance;
+  return Instance;
+}
+
+Options::Options() {
+  if (clOptMpiTaint) {
+    ActivatedParadigm = Paradigm::MPI;
+  } else if (clOptOmpTaint) {
+    ActivatedParadigm = Paradigm::OMP;
+  } else if (clOptUpcTaint) {
+    ActivatedParadigm = Paradigm::UPC;
+  } else if (clOptCudaTaint) {
+    ActivatedParadigm = Paradigm::CUDA;
+  }
+}
+
+bool Options::isActivated(Paradigm P) const { return P == ActivatedParadigm; }
+} // namespace parcoach

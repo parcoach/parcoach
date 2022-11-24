@@ -25,6 +25,7 @@ set(SHARED_HEADERS
   include/parcoach/MemoryRegion.h
   include/parcoach/MemorySSA.h
   include/parcoach/ModRefAnalysis.h
+  include/parcoach/Options.h
   include/parcoach/Passes.h
   include/parcoach/StatisticsAnalysis.h
   )

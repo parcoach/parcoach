@@ -1,12 +1,12 @@
 #include "parcoach/MemorySSA.h"
 
 #include "MSSAMuChi.h"
-#include "Options.h"
 #include "PTACallGraph.h"
 #include "Utils.h"
 #include "parcoach/Collectives.h"
 #include "parcoach/MemoryRegion.h"
 #include "parcoach/ModRefAnalysis.h"
+#include "parcoach/Options.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/FileSystem.h"

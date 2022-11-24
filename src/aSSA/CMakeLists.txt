@@ -28,7 +28,6 @@ set(ASSA_HEADERS
   Instrumentation.h
   MSSAMuChi.h
   OpenMPInstr.h
-  Options.h
   ParcoachAnalysis.h
   ParcoachAnalysisInter.h
   PTACallGraph.h

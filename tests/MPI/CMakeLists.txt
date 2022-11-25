@@ -5,6 +5,14 @@ if(PARCOACH_ENABLE_INSTRUMENTATION)
   find_program(MPI_RUN_BIN NAMES mpirun REQUIRED)
 endif()
 
+find_program(VALGRIND_BIN NAMES valgrind)
+if(VALGRIND_BIN STREQUAL "VALGRIND_BIN-NOTFOUND")
+  set(PARCOACH_ENABLE_VALGRIND OFF)
+else()
+  set(PARCOACH_ENABLE_VALGRIND ON)
+endif()
+message(STATUS "valgrind: ${VALGRIND_BIN}/${PARCOACH_ENABLE_VALGRIND}")
+
 message(STATUS "Configuring MPI tests")
 configure_file(test_mpi.in test_mpi @ONLY)
 set(TEST_MPI_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_mpi)
@@ -15,6 +23,9 @@ set(LIT_MPI_INCLUDES ${MPI_C_INCLUDE_DIRS})
 list(TRANSFORM LIT_MPI_INCLUDES PREPEND "-I")
 string(JOIN " " LIT_MPI_INCLUDES ${LIT_MPI_INCLUDES})
 
+parcoach_canonicalize_cmake_booleans(
+  PARCOACH_ENABLE_VALGRIND
+  )
 configure_file(lit.cfg.in ${CMAKE_CURRENT_BINARY_DIR}/lit.cfg @ONLY)
 
 macro(create_mpi_instrumented_executable TARGET_NAME INPUT_BC TARGET_LANG)

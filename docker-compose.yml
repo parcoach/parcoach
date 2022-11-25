@@ -14,9 +14,9 @@ services:
         - CMAKE_SHA256=aaced6f745b86ce853661a595bdac6c5314a60f8181b6912a0a4920acfa32708
         - LLVM_VERSION=15
       tags:
-        - "parcoach:ubuntu-focal-build-20220617-llvm-15"
+        - "parcoach:ubuntu-focal-build-20221125-llvm-15"
     # NOTE: I don't think this is possible, but ideally we would share this
     # variable with the .gitlab-ci.yml
-    image: "parcoach:ubuntu-focal-build-20220617-llvm-15"
+    image: "parcoach:ubuntu-focal-build-20221125-llvm-15"
     volumes:
       - .:/home/parcoach/sources

@@ -21,7 +21,7 @@ stages:
 variables:
   # If we need to update llvm we can just change the version here, and the
   # image will be recreated.
-  LINUX_IMAGE_TAG: "ubuntu-focal-build-20220617-llvm-15"
+  LINUX_IMAGE_TAG: "ubuntu-focal-build-20221125-llvm-15"
   PIPENV_VENV_IN_PROJECT: "true"
   # NOTE: this is not quite accurate as we may get either a small/medium/large
   # runner, but it's better than nothing!

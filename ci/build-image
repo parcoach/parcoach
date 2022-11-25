@@ -9,7 +9,7 @@ print_build_versions() {
   version=$1
 
   case "$version" in
-    20220617)
+    20221125)
       # NOTE: other build tools for which we want to control the version
       # would go there.
       print_build_arg "CMAKE_VERSION" "3.23.2"

@@ -30,7 +30,8 @@ using FunctionToValueSetMap =
     llvm::ValueMap<llvm::Function const *, std::set<llvm::Value const *>>;
 
 class MemReg {
-  llvm::ValueMap<const llvm::Value *, MemRegEntry *> valueToRegMap;
+  llvm::ValueMap<const llvm::Value *, std::unique_ptr<MemRegEntry>>
+      valueToRegMap;
   MemRegSet sharedCudaRegions;
   FunctionToMemRegSetMap func2SharedOmpRegs;
 

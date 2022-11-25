@@ -84,11 +84,12 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
 }
 
 void MemReg::createRegion(const llvm::Value *v) {
-  auto *Entry = new MemRegEntry(v);
+  auto [ItEntry, _] =
+      valueToRegMap.insert({v, std::make_unique<MemRegEntry>(v)});
+  auto &Entry = ItEntry->second;
   if (Entry->isCudaShared()) {
-    sharedCudaRegions.insert(Entry);
+    sharedCudaRegions.insert(Entry.get());
   }
-  valueToRegMap[v] = Entry;
 }
 
 void MemReg::setOmpSharedRegions(const Function *F, MemRegVector &regs) {
@@ -110,7 +111,7 @@ MemRegEntry *MemReg::getValueRegion(const llvm::Value *v) const {
   if (I == valueToRegMap.end())
     return NULL;
 
-  return I->second;
+  return I->second.get();
 }
 
 void MemReg::getValuesRegion(std::vector<const Value *> &ptsSet,

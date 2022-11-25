@@ -46,14 +46,14 @@ std::string getCallValueLabel(const llvm::Value *v) {
  * POSTDOMINANCE
  */
 
-static std::map<BasicBlock *, std::set<BasicBlock *> *> pdfCache;
+static std::map<BasicBlock *, std::unique_ptr<std::set<BasicBlock *>>> pdfCache;
 
 // PDF computation
 std::vector<BasicBlock *> postdominance_frontier(PostDominatorTree &PDT,
                                                  BasicBlock *BB) {
   std::vector<BasicBlock *> PDF;
 
-  std::set<BasicBlock *> *cache = pdfCache[BB];
+  auto &cache = pdfCache[BB];
   if (cache) {
     for (BasicBlock *b : *cache)
       PDF.push_back(b);
@@ -84,20 +84,21 @@ std::vector<BasicBlock *> postdominance_frontier(PostDominatorTree &PDT,
     }
   }
 
-  pdfCache[BB] = new std::set<BasicBlock *>();
+  pdfCache[BB] = std::make_unique<std::set<BasicBlock *>>();
   pdfCache[BB]->insert(PDF.begin(), PDF.end());
 
   return PDF;
 }
 
-static std::map<BasicBlock *, std::set<BasicBlock *> *> ipdfCache;
+static std::map<BasicBlock *, std::unique_ptr<std::set<BasicBlock *>>>
+    ipdfCache;
 
 // PDF+ computation
 std::vector<BasicBlock *>
 iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB) {
   std::vector<BasicBlock *> iPDF;
 
-  std::set<BasicBlock *> *cache = ipdfCache[BB];
+  auto &cache = ipdfCache[BB];
   if (cache) {
     for (BasicBlock *b : *cache)
       iPDF.push_back(b);
@@ -135,7 +136,7 @@ iterated_postdominance_frontier(PostDominatorTree &PDT, BasicBlock *BB) {
 
   iPDF.insert(iPDF.end(), S.begin(), S.end());
 
-  ipdfCache[BB] = new std::set<BasicBlock *>();
+  ipdfCache[BB] = std::make_unique<std::set<BasicBlock *>>();
   ipdfCache[BB]->insert(iPDF.begin(), iPDF.end());
 
   return iPDF;

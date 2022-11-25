@@ -18,9 +18,15 @@ struct DebugOnlyOpt {
     DebugFlag = true;
     SmallVector<StringRef, 8> dbgTypes;
     StringRef(Val).split(dbgTypes, ',', -1, false);
-    std::vector<const char *> rawDbgTypes;
-    for (auto dbgType : dbgTypes)
-      rawDbgTypes.push_back(dbgType.data());
+    // Unfortunately, without this extra string copy, using the StringRef
+    // pointers lead to some issues where each debug type is not properly
+    // pushed.
+    std::vector<std::string> stringDbgTypes(dbgTypes.begin(), dbgTypes.end());
+    std::vector<const char *> rawDbgTypes(dbgTypes.size());
+    std::transform(stringDbgTypes.begin(), stringDbgTypes.end(),
+                   rawDbgTypes.begin(),
+                   [](std::string &s) { return s.data(); });
+
     setCurrentDebugTypes(rawDbgTypes.data(), rawDbgTypes.size());
   }
 };

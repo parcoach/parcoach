@@ -26,6 +26,9 @@ class ModRefAnalysisResult;
 class MemorySSA {
 
   // Containers for Mu,Chi,Phi,BB and Values
+  using MuOwnerSet = std::vector<std::unique_ptr<MSSAMu>>;
+  using ChiOwnerSet = std::vector<std::unique_ptr<MSSAChi>>;
+  using PhiOwnerSet = std::vector<std::unique_ptr<MSSAPhi>>;
   using MuSet = std::set<MSSAMu *>;
   using ChiSet = std::set<MSSAChi *>;
   using PhiSet = std::set<MSSAPhi *>;
@@ -33,25 +36,25 @@ class MemorySSA {
   using ValueSet = std::set<const llvm::Value *>;
 
   // Chi and Mu annotations
-  using LoadToMuMap = llvm::ValueMap<const llvm::LoadInst *, MuSet>;
-  using StoreToChiMap = llvm::ValueMap<const llvm::StoreInst *, ChiSet>;
-  using CallSiteToMuSetMap = llvm::ValueMap<const llvm::CallBase *, MuSet>;
-  using CallSiteToChiSetMap = llvm::ValueMap<llvm::CallBase *, ChiSet>;
+  using LoadToMuMap = llvm::ValueMap<const llvm::LoadInst *, MuOwnerSet>;
+  using StoreToChiMap = llvm::ValueMap<const llvm::StoreInst *, ChiOwnerSet>;
+  using CallSiteToMuSetMap = llvm::ValueMap<const llvm::CallBase *, MuOwnerSet>;
+  using CallSiteToChiSetMap = llvm::ValueMap<llvm::CallBase *, ChiOwnerSet>;
   using FuncCallSiteToChiMap =
       llvm::ValueMap<const llvm::Function *,
-                     std::map<llvm::CallBase *, MSSAChi *>>;
+                     std::map<llvm::CallBase *, std::unique_ptr<MSSAChi>>>;
   using FuncCallSiteToArgChiMap =
       llvm::ValueMap<const llvm::Function *,
                      std::map<llvm::CallBase *, std::map<unsigned, MSSAChi *>>>;
 
   // Phis
-  using BBToPhiMap = llvm::ValueMap<const llvm::BasicBlock *, PhiSet>;
+  using BBToPhiMap = llvm::ValueMap<const llvm::BasicBlock *, PhiOwnerSet>;
   using MemRegToBBMap = std::map<MemRegEntry *, BBSet>;
   using LLVMPhiToPredMap = llvm::ValueMap<const llvm::PHINode *, ValueSet>;
 
   // Map functions to entry Chi set and return Mu set
-  using FunToEntryChiMap = llvm::ValueMap<const llvm::Function *, ChiSet>;
-  using FunToReturnMuMap = llvm::ValueMap<const llvm::Function *, MuSet>;
+  using FunToEntryChiMap = llvm::ValueMap<const llvm::Function *, ChiOwnerSet>;
+  using FunToReturnMuMap = llvm::ValueMap<const llvm::Function *, MuOwnerSet>;
 
   using FunRegToEntryChiMap =
       llvm::ValueMap<const llvm::Function *,
@@ -145,6 +148,9 @@ protected:
   FuncCallSiteToChiMap extCallSiteToVarArgExitChi;
   FuncCallSiteToArgChiMap extCallSiteToArgEntryChi;
   FuncCallSiteToArgChiMap extCallSiteToArgExitChi;
+  // Owner of chis allocated in the 2 ArgChi maps above; the data structure
+  // makes it impossible to hold the unique_ptr in a map in a map in a map...
+  ChiOwnerSet AllocatedArgChi;
   FuncToCallBaseSet extFuncToCSMap;
 
 public:

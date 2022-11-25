@@ -29,13 +29,13 @@ public:
   };
 
   MSSADef(MemRegEntry *region, TYPE type)
-      : region(region), var(NULL), type(type) {}
+      : region(region), var(nullptr), type(type) {}
 
   virtual ~MSSADef() {}
   virtual std::string getName() const { return region->getName().str(); }
 
   MemRegEntry *region;
-  MSSAVar *var;
+  std::unique_ptr<MSSAVar> var;
   TYPE type;
 };
 
@@ -176,7 +176,7 @@ public:
   enum TYPE { LOAD, CALL, RET, EXTCALL };
 
   MSSAMu(MemRegEntry *region, TYPE type)
-      : region(region), var(NULL), type(type) {}
+      : region(region), var(nullptr), type(type) {}
   virtual ~MSSAMu() {}
   MemRegEntry *region;
   MSSAVar *var;

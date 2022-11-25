@@ -149,7 +149,7 @@ void MemorySSA::computeMuChi(const Function *F) {
         if (MRA->inGlobalKillSet(r))
           continue;
 
-        loadToMuMap[LI].insert(new MSSALoadMu(r, LI));
+        loadToMuMap[LI].emplace_back(std::make_unique<MSSALoadMu>(r, LI));
         usedRegs.insert(r);
       }
 
@@ -174,7 +174,7 @@ void MemorySSA::computeMuChi(const Function *F) {
         if (MRA->inGlobalKillSet(r))
           continue;
 
-        storeToChiMap[SI].insert(new MSSAStoreChi(r, SI));
+        storeToChiMap[SI].emplace_back(std::make_unique<MSSAStoreChi>(r, SI));
         usedRegs.insert(r);
         regDefToBBMap[r].insert(inst->getParent());
       }
@@ -187,17 +187,18 @@ void MemorySSA::computeMuChi(const Function *F) {
    * function.
    */
   for (auto *r : usedRegs) {
-    auto *chi = new MSSAEntryChi(r, F);
-    funToEntryChiMap[F].insert(chi);
-    funRegToEntryChiMap[F][chi->region] = chi;
+    auto &Chi =
+        funToEntryChiMap[F].emplace_back(std::make_unique<MSSAEntryChi>(r, F));
+
+    funRegToEntryChiMap[F][Chi->region] = Chi.get();
     regDefToBBMap[r].insert(&F->getEntryBlock());
   }
 
   if (!functionDoesNotRet(F)) {
     for (auto *r : usedRegs) {
-      auto *mu = new MSSARetMu(r, F);
-      funToReturnMuMap[F].insert(mu);
-      funRegToReturnMuMap[F][mu->region] = mu;
+      auto &Mu =
+          funToReturnMuMap[F].emplace_back(std::make_unique<MSSARetMu>(r, F));
+      funRegToReturnMuMap[F][Mu->region] = Mu.get();
     }
   }
 }
@@ -212,7 +213,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
   // for each shared region.
   if (Coll && isa<CudaCollective>(Coll) && Coll->Name == "llvm.nvvm.barrier0") {
     for (auto *r : Regions.getCudaSharedRegions()) {
-      callSiteToSyncChiMap[inst].insert(new MSSASyncChi(r, inst));
+      callSiteToSyncChiMap[inst].emplace(
+          std::make_unique<MSSASyncChi>(r, inst));
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);
     }
@@ -229,7 +231,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
   if (Coll && isa<OMPCollective>(Coll) && Coll->Name == "__kmpc_barrier") {
     for (auto *r :
          getRange(Regions.getOmpSharedRegions(), inst->getFunction())) {
-      callSiteToSyncChiMap[inst].insert(new MSSASyncChi(r, inst));
+      callSiteToSyncChiMap[inst].emplace_back(
+          std::make_unique<MSSASyncChi>(r, inst));
       regDefToBBMap[r].insert(inst->getParent());
       usedRegs.insert(r);
     }
@@ -244,7 +247,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
   // for each pointer argument and a Chi for each modified argument.
   if (callee->isDeclaration()) {
     assert(isa<CallInst>(inst)); // InvokeInst are not handled yet
-    const CallInst *CI = cast<CallInst>(inst);
+    CallInst *CI = cast<CallInst>(inst);
     extFuncToCSMap[callee].insert(inst);
 
     auto const *info = extInfo->getExtModInfo(callee);
@@ -252,14 +255,14 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
 
     // Mu and Chi for parameters
     for (unsigned i = 0; i < CI->arg_size(); ++i) {
-      const Value *arg = CI->getArgOperand(i);
+      Value *arg = CI->getArgOperand(i);
       if (arg->getType()->isPointerTy() == false)
         continue;
 
       // Case where argument is a inttoptr cast (e.g. MPI_IN_PLACE)
-      const ConstantExpr *ce = dyn_cast<ConstantExpr>(arg);
+      ConstantExpr *ce = dyn_cast<ConstantExpr>(arg);
       if (ce) {
-        Instruction *inst = const_cast<ConstantExpr *>(ce)->getAsInstruction();
+        Instruction *inst = ce->getAsInstruction();
         assert(inst);
         bool isAIntToPtr = isa<IntToPtrInst>(inst);
         inst->deleteValue();
@@ -284,7 +287,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
         if (MRA->inGlobalKillSet(r))
           continue;
 
-        callSiteToMuMap[inst].insert(new MSSAExtCallMu(r, callee, i));
+        callSiteToMuMap[inst].emplace_back(
+            std::make_unique<MSSAExtCallMu>(r, callee, i));
         usedRegs.insert(r);
       }
 
@@ -296,8 +300,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
             if (MRA->inGlobalKillSet(r))
               continue;
 
-            callSiteToChiMap[inst].insert(
-                new MSSAExtCallChi(r, callee, i, inst));
+            callSiteToChiMap[inst].emplace_back(
+                std::make_unique<MSSAExtCallChi>(r, callee, i, inst));
             regDefToBBMap[r].insert(inst->getParent());
           }
         }
@@ -307,8 +311,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
             if (MRA->inGlobalKillSet(r))
               continue;
 
-            callSiteToChiMap[inst].insert(
-                new MSSAExtCallChi(r, callee, i, inst));
+            callSiteToChiMap[inst].emplace_back(
+                std::make_unique<MSSAExtCallChi>(r, callee, i, inst));
             regDefToBBMap[r].insert(inst->getParent());
           }
         }
@@ -330,8 +334,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
         if (MRA->inGlobalKillSet(r))
           continue;
 
-        extCallSiteToCallerRetChi[inst].insert(
-            new MSSAExtRetCallChi(r, callee));
+        extCallSiteToCallerRetChi[inst].emplace_back(
+            std::make_unique<MSSAExtRetCallChi>(r, callee));
         regDefToBBMap[r].insert(inst->getParent());
         usedRegs.insert(r);
       }
@@ -347,7 +351,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     // Create Mu for each region \in ref(callee)
     for (auto *r : MRA->getFuncRef(callee)) {
       if (killSet.find(r) == killSet.end()) {
-        callSiteToMuMap[inst].insert(new MSSACallMu(r, callee));
+        callSiteToMuMap[inst].emplace_back(
+            std::make_unique<MSSACallMu>(r, callee));
         usedRegs.insert(r);
       }
     }
@@ -355,7 +360,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     // Create Chi for each region \in mod(callee)
     for (auto *r : MRA->getFuncMod(callee)) {
       if (killSet.find(r) == killSet.end()) {
-        callSiteToChiMap[inst].insert(new MSSACallChi(r, callee, inst));
+        callSiteToChiMap[inst].emplace_back(
+            std::make_unique<MSSACallChi>(r, callee, inst));
         regDefToBBMap[r].insert(inst->getParent());
         usedRegs.insert(r);
       }
@@ -392,7 +398,7 @@ void MemorySSA::computePhi(const Function *F) {
         if (domFronPlus.find(Y) != domFronPlus.end())
           continue;
 
-        bbToPhiMap[Y].insert(new MSSAPhi(r));
+        bbToPhiMap[Y].emplace_back(std::make_unique<MSSAPhi>(r));
         domFronPlus.insert(Y);
 
         if (work.find(Y) != work.end())
@@ -417,10 +423,10 @@ void MemorySSA::rename(const Function *F) {
   }
 
   // Compute LHS version for each region.
-  for (MSSAChi *chi : funToEntryChiMap[F]) {
-    chi->var = new MSSAVar(chi, 0, &F->getEntryBlock());
+  for (auto &chi : funToEntryChiMap[F]) {
+    chi->var = std::make_unique<MSSAVar>(chi.get(), 0, &F->getEntryBlock());
 
-    S[chi->region].push_back(chi->var);
+    S[chi->region].push_back(chi->var.get());
     C[chi->region]++;
   }
 
@@ -431,11 +437,11 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
                          std::map<MemRegEntry *, unsigned> &C,
                          std::map<MemRegEntry *, std::vector<MSSAVar *>> &S) {
   // Compute LHS for PHI
-  for (MSSAPhi *phi : bbToPhiMap[X]) {
+  for (auto &phi : bbToPhiMap[X]) {
     auto *V = phi->region;
     unsigned i = C[V];
-    phi->var = new MSSAVar(phi, i, X);
-    S[V].push_back(phi->var);
+    phi->var = std::make_unique<MSSAVar>(phi.get(), i, X);
+    S[V].push_back(phi->var.get());
     C[V]++;
   }
 
@@ -453,57 +459,57 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     if (isCallSite(inst)) {
       CallBase *cs(const_cast<CallBase *>(cast<CallBase>(inst)));
 
-      for (MSSAMu *mu : callSiteToMuMap[cs])
+      for (auto &mu : callSiteToMuMap[cs])
         mu->var = S[mu->region].back();
 
-      for (MSSAChi *chi : callSiteToSyncChiMap[cs]) {
+      for (auto &chi : callSiteToSyncChiMap[cs]) {
         auto *V = chi->region;
         unsigned i = C[V];
-        chi->var = new MSSAVar(chi, i, inst->getParent());
+        chi->var = std::make_unique<MSSAVar>(chi.get(), i, inst->getParent());
         chi->opVar = S[V].back();
-        S[V].push_back(chi->var);
+        S[V].push_back(chi->var.get());
         C[V]++;
       }
 
-      for (MSSAChi *chi : callSiteToChiMap[cs]) {
+      for (auto &chi : callSiteToChiMap[cs]) {
         auto *V = chi->region;
         unsigned i = C[V];
-        chi->var = new MSSAVar(chi, i, inst->getParent());
+        chi->var = std::make_unique<MSSAVar>(chi.get(), i, inst->getParent());
         chi->opVar = S[V].back();
-        S[V].push_back(chi->var);
+        S[V].push_back(chi->var.get());
         C[V]++;
       }
 
-      for (MSSAChi *chi : extCallSiteToCallerRetChi[cs]) {
+      for (auto &chi : extCallSiteToCallerRetChi[cs]) {
         auto *V = chi->region;
         unsigned i = C[V];
-        chi->var = new MSSAVar(chi, i, inst->getParent());
+        chi->var = std::make_unique<MSSAVar>(chi.get(), i, inst->getParent());
         chi->opVar = S[V].back();
-        S[V].push_back(chi->var);
+        S[V].push_back(chi->var.get());
         C[V]++;
       }
     }
 
     if (isa<StoreInst>(inst)) {
       const StoreInst *SI = cast<StoreInst>(inst);
-      for (MSSAChi *chi : storeToChiMap[SI]) {
+      for (auto &chi : storeToChiMap[SI]) {
         auto *V = chi->region;
         unsigned i = C[V];
-        chi->var = new MSSAVar(chi, i, inst->getParent());
+        chi->var = std::make_unique<MSSAVar>(chi.get(), i, inst->getParent());
         chi->opVar = S[V].back();
-        S[V].push_back(chi->var);
+        S[V].push_back(chi->var.get());
         C[V]++;
       }
     }
 
     if (isa<LoadInst>(inst)) {
       const LoadInst *LI = cast<LoadInst>(inst);
-      for (MSSAMu *mu : loadToMuMap[LI])
+      for (auto &mu : loadToMuMap[LI])
         mu->var = S[mu->region].back();
     }
 
     if (isa<ReturnInst>(inst)) {
-      for (MSSAMu *mu : funToReturnMuMap[F]) {
+      for (auto &mu : funToReturnMuMap[F]) {
         mu->var = S[mu->region].back();
       }
     }
@@ -514,7 +520,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
   //     Replace operands V by Vi  where i = Top(S(V))
   for (auto I = succ_begin(X), E = succ_end(X); I != E; ++I) {
     const BasicBlock *Y = *I;
-    for (MSSAPhi *phi : bbToPhiMap[Y]) {
+    for (auto &phi : bbToPhiMap[Y]) {
       unsigned index = whichPred(X, Y);
       phi->opsVar[index] = S[phi->region].back();
     }
@@ -530,7 +536,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
 
   // For each assignment of A in X
   //   pop(S(A))
-  for (MSSAPhi *phi : bbToPhiMap[X]) {
+  for (auto &phi : bbToPhiMap[X]) {
     auto *V = phi->region;
     S[V].pop_back();
   }
@@ -540,25 +546,24 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     if (isa<CallInst>(inst)) {
       CallBase *cs(const_cast<CallBase *>(cast<CallBase>(inst)));
 
-      for (MSSAChi *chi : callSiteToSyncChiMap[cs]) {
+      for (auto &chi : callSiteToSyncChiMap[cs]) {
         auto *V = chi->region;
         S[V].pop_back();
       }
 
-      for (MSSAChi *chi : callSiteToChiMap[cs]) {
+      for (auto &chi : callSiteToChiMap[cs]) {
         auto *V = chi->region;
         S[V].pop_back();
       }
 
-      for (MSSAChi *chi : extCallSiteToCallerRetChi[cs]) {
+      for (auto &chi : extCallSiteToCallerRetChi[cs]) {
         auto *V = chi->region;
         S[V].pop_back();
       }
     }
 
-    if (isa<StoreInst>(inst)) {
-      const StoreInst *SI = cast<StoreInst>(inst);
-      for (MSSAChi *chi : storeToChiMap[SI]) {
+    if (auto *SI = dyn_cast<StoreInst>(inst)) {
+      for (auto &chi : storeToChiMap[SI]) {
         auto *V = chi->region;
         S[V].pop_back();
       }
@@ -570,8 +575,8 @@ void MemorySSA::computePhiPredicates(const llvm::Function *F) {
   ValueSet preds;
 
   for (const BasicBlock &bb : *F) {
-    for (MSSAPhi *phi : bbToPhiMap[&bb]) {
-      computeMSSAPhiPredicates(phi);
+    for (auto &phi : bbToPhiMap[&bb]) {
+      computeMSSAPhiPredicates(phi.get());
     }
 
     for (const Instruction &inst : bb) {
@@ -674,7 +679,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
   stream << ") {\n";
 
   // Dump entry chi
-  for (MSSAChi *chi : funToEntryChiMap[F])
+  for (auto &chi : funToEntryChiMap[F])
     stream << chi->region->getName() << chi->var->version << "\n";
 
   // For each basic block
@@ -685,7 +690,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
     stream << bb->getName().str() << ":\n";
 
     // Phi functions
-    for (MSSAPhi *phi : bbToPhiMap[bb]) {
+    for (auto &phi : bbToPhiMap[bb]) {
       stream << phi->region->getName() << phi->var->version << " = phi( ";
       for (auto I : phi->opsVar)
         stream << phi->region->getName() << I.second->version << ", ";
@@ -713,7 +718,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
       if (const LoadInst *LI = dyn_cast<LoadInst>(inst)) {
         stream << getValueLabel(LI) << " = mu(";
 
-        for (MSSAMu *mu : loadToMuMap[LI])
+        for (auto &mu : loadToMuMap[LI])
           stream << mu->region->getName() << mu->var->version << ", ";
 
         stream << getValueLabel(LI->getPointerOperand()) << ")\n";
@@ -721,8 +726,8 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
       }
 
       // Store inst
-      if (const StoreInst *SI = dyn_cast<StoreInst>(inst)) {
-        for (MSSAChi *chi : storeToChiMap[SI]) {
+      if (auto *SI = dyn_cast<StoreInst>(inst)) {
+        for (auto &chi : storeToChiMap[SI]) {
           stream << chi->region->getName() << chi->var->version << " = X("
                  << chi->region->getName() << chi->opVar->version << ", "
                  << getValueLabel(SI->getValueOperand()) << ", "
@@ -738,21 +743,21 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
 
         CallInst *cs(const_cast<CallInst *>(CI));
         stream << *CI << "\n";
-        for (MSSAMu *mu : callSiteToMuMap[cs])
+        for (auto &mu : callSiteToMuMap[cs])
           stream << "  mu(" << mu->region->getName() << mu->var->version
                  << ")\n";
 
-        for (MSSAChi *chi : callSiteToChiMap[cs])
+        for (auto &chi : callSiteToChiMap[cs])
           stream << chi->region->getName() << chi->var->version << " = "
                  << "  X(" << chi->region->getName() << chi->opVar->version
                  << ")\n";
 
-        for (MSSAChi *chi : callSiteToSyncChiMap[cs])
+        for (auto &chi : callSiteToSyncChiMap[cs])
           stream << chi->region->getName() << chi->var->version << " = "
                  << "  X(" << chi->region->getName() << chi->opVar->version
                  << ")\n";
 
-        for (MSSAChi *chi : extCallSiteToCallerRetChi[cs])
+        for (auto &chi : extCallSiteToCallerRetChi[cs])
           stream << chi->region->getName() << chi->var->version << " = "
                  << "  X(" << chi->region->getName() << chi->opVar->version
                  << ")\n";
@@ -764,7 +769,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
   }
 
   // Dump return mu
-  for (MSSAMu *mu : funToReturnMuMap[F])
+  for (auto &mu : funToReturnMuMap[F])
     stream << "  mu(" << mu->region->getName() << mu->var->version << ")\n";
 
   stream << "}\n";
@@ -779,14 +784,16 @@ void MemorySSA::createArtificalChiForCalledFunction(
   // If it is a var arg function, create artificial entry and exit chi for the
   // var arg.
   if (callee->isVarArg()) {
-    MSSAChi *entryChi = new MSSAExtVarArgChi(callee);
-    extCallSiteToVarArgEntryChi[callee][CS] = entryChi;
-    entryChi->var = new MSSAVar(entryChi, 0, NULL);
+    auto [ItEntry, _] = extCallSiteToVarArgEntryChi[callee].emplace(
+        CS, std::make_unique<MSSAExtVarArgChi>(callee));
+    auto &EntryChi = ItEntry->second;
+    EntryChi->var = std::make_unique<MSSAVar>(EntryChi.get(), 0, nullptr);
 
-    MSSAChi *outChi = new MSSAExtVarArgChi(callee);
-    outChi->var = new MSSAVar(entryChi, 1, NULL);
-    outChi->opVar = entryChi->var;
-    extCallSiteToVarArgExitChi[callee][CS] = outChi;
+    auto [ItOut, __] = extCallSiteToVarArgExitChi[callee].emplace(
+        CS, std::make_unique<MSSAExtVarArgChi>(callee));
+    auto &OutChi = ItOut->second;
+    OutChi->var = std::make_unique<MSSAVar>(EntryChi.get(), 1, nullptr);
+    OutChi->opVar = EntryChi->var.get();
   }
 
   // Create artifical entry and exit chi for each pointer argument.
@@ -797,23 +804,34 @@ void MemorySSA::createArtificalChiForCalledFunction(
       continue;
     }
 
-    MSSAChi *entryChi = new MSSAExtArgChi(callee, argId);
-    extCallSiteToArgEntryChi[callee][CS][argId] = entryChi;
-    entryChi->var = new MSSAVar(entryChi, 0, NULL);
+    auto Chi = std::make_unique<MSSAExtArgChi>(callee, argId);
+    auto [ItEntry, EntryInserted] =
+        extCallSiteToArgEntryChi[callee][CS].emplace(argId, Chi.get());
+    if (EntryInserted) {
+      AllocatedArgChi.emplace_back(std::move(Chi));
+    }
+    auto &EntryChi = ItEntry->second;
+    EntryChi->var = std::make_unique<MSSAVar>(EntryChi, 0, nullptr);
 
-    MSSAChi *exitChi = new MSSAExtArgChi(callee, argId);
-    exitChi->var = new MSSAVar(exitChi, 1, NULL);
-    exitChi->opVar = entryChi->var;
-    extCallSiteToArgExitChi[callee][CS][argId] = exitChi;
+    auto ChiOut = std::make_unique<MSSAExtArgChi>(callee, argId);
+    auto [ItOut, OutInserted] =
+        extCallSiteToArgExitChi[callee][CS].emplace(argId, ChiOut.get());
+    if (OutInserted) {
+      AllocatedArgChi.emplace_back(std::move(ChiOut));
+    }
+    auto &ExitChi = ItOut->second;
+    ExitChi->var = std::make_unique<MSSAVar>(ExitChi, 1, nullptr);
+    ExitChi->opVar = EntryChi->var.get();
 
     argId++;
   }
 
   // Create artifical chi for return value if it is a pointer.
   if (callee->getReturnType()->isPointerTy()) {
-    MSSAChi *retChi = new MSSAExtRetChi(callee);
-    retChi->var = new MSSAVar(retChi, 0, NULL);
-    extCallSiteToCalleeRetChi[callee][CS] = retChi;
+    auto [ItRet, _] = extCallSiteToCalleeRetChi[callee].emplace(
+        CS, std::make_unique<MSSAExtRetChi>(callee));
+    auto &RetChi = ItRet->second;
+    RetChi->var = std::make_unique<MSSAVar>(RetChi.get(), 0, nullptr);
   }
 }
 

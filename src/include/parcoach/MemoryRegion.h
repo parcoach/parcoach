@@ -38,7 +38,9 @@ class MemReg {
   void setOmpSharedRegions(const llvm::Function *F, MemRegVector &regs);
 
 public:
+#ifndef NDEBUG
   void dumpRegions() const;
+#endif
   MemRegEntry *getValueRegion(const llvm::Value *v) const;
   void getValuesRegion(std::vector<const llvm::Value *> &ptsSet,
                        MemRegVector &regs) const;

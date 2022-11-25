@@ -15,6 +15,8 @@
 #include <fstream>
 #include <queue>
 
+#define DEBUG_TYPE "dgdcf"
+
 using namespace llvm;
 namespace {
 struct functionArg {
@@ -56,19 +58,9 @@ DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph const &CG,
 DepGraphDCF::~DepGraphDCF() {}
 
 void DepGraphDCF::build() {
-  unsigned counter = 0;
-  unsigned nbFunctions = M.getFunctionList().size();
-
   for (Function const &F : M) {
     if (!CG.isReachableFromEntry(F))
       continue;
-
-    if (counter % 100 == 0)
-      errs() << "DepGraph: visited " << counter << " functions over "
-             << nbFunctions << " (" << (((float)counter) / nbFunctions * 100)
-             << "%)\n";
-
-    counter++;
 
     if (isIntrinsicDbgFunction(&F))
       continue;
@@ -84,6 +76,15 @@ void DepGraphDCF::build() {
     computeTaintedValuesContextInsensitive();
   else
     computeTaintedValuesContextSensitive();
+
+  LLVM_DEBUG({
+    dbgs() << "Tainted values (" << taintedLLVMNodes.size() << "/"
+           << taintedSSANodes.size() << "):\n";
+    for (auto *V : taintedLLVMNodes) {
+      V->print(dbgs());
+      dbgs() << "\n";
+    }
+  });
 }
 
 void DepGraphDCF::enableMPI() {
@@ -2399,15 +2400,11 @@ void DepGraphDCF::computeTaintedValuesCSForEntry(
       // errs() << "tainting " << N->getFunction()->getName() << "\n";
       floodFunction(N->getFunction());
 
-      errs() << "for each call site get PDF+ and save tainted conditions\n";
+      LLVM_DEBUG(
+          dbgs()
+          << "for each call site get PDF+ and save tainted conditions\n");
       computeFunctionCSTaintedConds(N->getFunction());
     }
-
-    // errs() << "stack : ";
-    /*for (PTACallGraphNode *node : S)
-      errs() << node->getFunction()->getName() << " ";
-    errs() << "\n";
-*/
 
     // Add first unvisited callee to stack if any
     for (auto I = N->begin(), E = N->end(); I != E; ++I) {

@@ -11,6 +11,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/FileSystem.h"
 
+#define DEBUG_TYPE "mssa"
+
 using namespace llvm;
 
 namespace parcoach {
@@ -27,8 +29,6 @@ MemorySSA::MemorySSA(Module &M, Andersen const &PTA, PTACallGraph const &CG,
 MemorySSA::~MemorySSA() {}
 
 void MemorySSA::buildSSA(llvm::Module &M, llvm::ModuleAnalysisManager &AM) {
-  unsigned nbFunctions = M.getFunctionList().size();
-  unsigned counter = 0;
   // Get an inner FunctionAnalysisManager from the module one.
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   for (Function &F : M) {
@@ -37,11 +37,6 @@ void MemorySSA::buildSSA(llvm::Module &M, llvm::ModuleAnalysisManager &AM) {
 
       continue;
     }
-
-    if (counter % 100 == 0)
-      errs() << "MSSA: visited " << counter << " functions over " << nbFunctions
-             << " (" << (((float)counter) / nbFunctions * 100) << "%)\n";
-    counter++;
 
     if (isIntrinsicDbgFunction(&F)) {
       continue;

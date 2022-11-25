@@ -8,6 +8,8 @@
 
 #include <set>
 
+#define DEBUG_TYPE "memreg"
+
 using namespace llvm;
 using namespace parcoach;
 
@@ -49,20 +51,16 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
   std::vector<const Value *> regions;
   AA.getAllAllocationSites(regions);
 
-  errs() << regions.size() << " regions\n";
-  unsigned regCounter = 0;
+  LLVM_DEBUG(dbgs() << regions.size() << " regions\n");
   for (const Value *r : regions) {
-    if (regCounter % 100 == 0) {
-      errs() << regCounter << " regions created ("
-             << ((float)regCounter) / regions.size() * 100 << "%)\n";
-    }
-    regCounter++;
     createRegion(r);
   }
 
-  if (optDumpRegions)
-    dumpRegions();
-  errs() << "* Regions creation done\n";
+  LLVM_DEBUG({
+    if (optDumpRegions)
+      dumpRegions();
+    dbgs() << "* Regions creation done\n";
+  });
 
 #ifdef PARCOACH_ENABLE_OPENMP
   // Compute shared regions for each OMP function.
@@ -96,13 +94,15 @@ void MemReg::setOmpSharedRegions(const Function *F, MemRegVector &regs) {
   func2SharedOmpRegs[F].insert(regs.begin(), regs.end());
 }
 
+#ifndef NDEBUG
 void MemReg::dumpRegions() const {
-  llvm::errs() << valueToRegMap.size() << " regions :\n";
+  dbgs() << valueToRegMap.size() << " regions :\n";
   for (auto I : valueToRegMap) {
-    llvm::errs() << *I.second->Val
-                 << (I.second->isCudaShared() ? " (shared)\n" : "\n");
+    dbgs() << *I.second->Val
+           << (I.second->isCudaShared() ? " (shared)\n" : "\n");
   }
 }
+#endif
 
 MemRegEntry *MemReg::getValueRegion(const llvm::Value *v) const {
   auto I = valueToRegMap.find(v);

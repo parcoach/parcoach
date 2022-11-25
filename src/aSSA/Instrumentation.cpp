@@ -80,6 +80,7 @@ CollectiveInstrumentation::CollectiveInstrumentation(
     : Warnings(Warnings) {}
 
 bool CollectiveInstrumentation::run(Function &F) {
+  TimeTraceScope TTS("CollectiveInstrumentation", F.getName());
   bool Changed = false;
   auto IsaDirectCall = [](Instruction const &I) {
     if (CallInst const *CI = dyn_cast<CallInst>(&I)) {
@@ -133,6 +134,7 @@ bool CollectiveInstrumentation::run(Function &F) {
 PreservedAnalyses
 ParcoachInstrumentationPass::run(llvm::Module &M,
                                  llvm::ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("CollectiveInstrumentation");
   auto const &PAInter = AM.getResult<InterproceduralAnalysis>(M);
   if (PAInter->getWarnings().empty() || !optInstrumInter) {
     LLVM_DEBUG(dbgs() << "Skipping instrumentation: no warnings detected"

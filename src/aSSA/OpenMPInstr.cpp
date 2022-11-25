@@ -15,6 +15,7 @@ namespace parcoach {
 
 PreservedAnalyses PrepareOpenMPInstr::run(Module &M,
                                           ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("PrepareOpenMPInstr");
   LLVM_DEBUG(dbgs() << "Running PrepareOpenMPInstr\n");
 
   auto IsCandidateCall = [&](Instruction &I) {

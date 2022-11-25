@@ -65,6 +65,7 @@ std::string Warning::toString() const {
 }
 
 void ParcoachAnalysisInter::run() {
+  TimeTraceScope TTS("ParcoachAnalysisInter");
   // Parcoach analysis
 
   /* (1) BFS on each function of the Callgraph in reverse topological order
@@ -938,6 +939,7 @@ AnalysisKey InterproceduralAnalysis::Key;
 
 InterproceduralAnalysis::Result
 InterproceduralAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("ParcoachAnalysisInterAnalysis");
   auto const &PTACG = AM.getResult<PTACallGraphAnalysis>(M);
   auto &DG = AM.getResult<DepGraphDCFAnalysis>(M);
   LLVM_DEBUG(dbgs() << "Running PARCOACH InterproceduralAnalysis\n");

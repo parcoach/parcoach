@@ -47,6 +47,7 @@ MemRegEntry::MemRegEntry(Value const *V)
 }
 
 MemReg::MemReg(Module &M, Andersen const &AA) {
+  TimeTraceScope TTS("MemRegAnalysis");
   // Create regions from allocation sites.
   std::vector<const Value *> regions;
   AA.getAllAllocationSites(regions);
@@ -137,6 +138,7 @@ AnalysisKey MemRegAnalysis::Key;
 
 MemRegAnalysis::Result MemRegAnalysis::run(llvm::Module &M,
                                            llvm::ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("MemRegAnalysisPass");
   Andersen const &AA = AM.getResult<AndersenAA>(M);
   return std::make_unique<MemReg>(M, AA);
 }

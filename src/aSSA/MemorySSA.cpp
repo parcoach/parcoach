@@ -29,6 +29,7 @@ MemorySSA::MemorySSA(Module &M, Andersen const &PTA, PTACallGraph const &CG,
 MemorySSA::~MemorySSA() {}
 
 void MemorySSA::buildSSA(llvm::Module &M, llvm::ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("MemorySSA");
   // Get an inner FunctionAnalysisManager from the module one.
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   for (Function &F : M) {
@@ -827,6 +828,7 @@ void MemorySSA::printTimers() const {
 AnalysisKey MemorySSAAnalysis::Key;
 MemorySSAAnalysis::Result MemorySSAAnalysis::run(Module &M,
                                                  ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("parcoach::MemorySSAAnalysisPass");
   auto const &AA = AM.getResult<AndersenAA>(M);
   auto const &extInfo = AM.getResult<ExtInfoAnalysis>(M);
   auto const &MRA = AM.getResult<ModRefAnalysis>(M);

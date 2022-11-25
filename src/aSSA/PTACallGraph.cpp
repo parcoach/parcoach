@@ -12,6 +12,7 @@ using namespace llvm;
 AnalysisKey PTACallGraphAnalysis::Key;
 PTACallGraphAnalysis::Result
 PTACallGraphAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("PTACallGraphAnalysis");
   Andersen const &AA = AM.getResult<AndersenAA>(M);
   return std::make_unique<PTACallGraph>(M, AA);
 }
@@ -21,6 +22,7 @@ PTACallGraph::PTACallGraph(llvm::Module const &M, Andersen const &AA)
       ExternalCallingNode(getOrInsertFunction(nullptr)),
       CallsExternalNode(std::make_unique<PTACallGraphNode>(nullptr)) {
 
+  TimeTraceScope TTS("PTACallGraph");
   for (Function const &F : M)
     addToCallGraph(F);
 

@@ -58,6 +58,7 @@ DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph const &CG,
 DepGraphDCF::~DepGraphDCF() {}
 
 void DepGraphDCF::build() {
+  TimeTraceScope TTS("DepGraphDCF");
   for (Function const &F : M) {
     if (!CG.isReachableFromEntry(F))
       continue;
@@ -2434,6 +2435,7 @@ void DepGraphDCF::computeTaintedValuesCSForEntry(
 AnalysisKey DepGraphDCFAnalysis::Key;
 DepGraphDCFAnalysis::Result
 DepGraphDCFAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("DepGraphDCFAnalysis");
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto &MSSA = AM.getResult<MemorySSAAnalysis>(M);
   auto const &PTACG = AM.getResult<PTACallGraphAnalysis>(M);

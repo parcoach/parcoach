@@ -45,21 +45,33 @@
 
 using namespace llvm;
 
-static cl::opt<std::string> InputFilename(cl::Positional,
-                                          cl::desc("<input bitcode file>"),
-                                          cl::init("-"),
-                                          cl::value_desc("filename"));
+namespace {
 
-static cl::opt<std::string> OutputFilename("o",
-                                           cl::desc("Override output filename"),
-                                           cl::value_desc("filename"));
+cl::opt<std::string> InputFilename(cl::Positional,
+                                   cl::desc("<input bitcode file>"),
+                                   cl::init("-"), cl::value_desc("filename"));
 
-static cl::opt<bool> OutputAssembly("S",
-                                    cl::desc("Write output as LLVM assembly"));
+cl::opt<std::string> OutputFilename("o", cl::desc("Override output filename"),
+                                    cl::value_desc("filename"));
 
-static cl::opt<bool> NoOutput("disable-output",
-                              cl::desc("Do not write result bitcode file"),
-                              cl::Hidden);
+cl::opt<bool> OutputAssembly("S", cl::desc("Write output as LLVM assembly"));
+
+cl::opt<bool> NoOutput("disable-output",
+                       cl::desc("Do not write result bitcode file"),
+                       cl::Hidden);
+
+cl::opt<bool> TimeTrace("time-trace", cl::desc("Record time trace"));
+
+cl::opt<unsigned> TimeTraceGranularity(
+    "time-trace-granularity",
+    cl::desc(
+        "Minimum time granularity (in microseconds) traced by time profiler"),
+    cl::init(500), cl::Hidden);
+
+cl::opt<std::string>
+    TimeTraceFile("time-trace-file",
+                  cl::desc("Specify time trace file destination"),
+                  cl::value_desc("filename"));
 
 static cl::opt<bool> ShowVersion("parcoach-version",
                                  cl::desc("Show PARCOACH version"));
@@ -69,6 +81,26 @@ enum OutputKind {
   OK_OutputAssembly,
   OK_OutputBitcode,
 };
+
+struct TimeTracer {
+  StringRef InputFilename;
+  TimeTracer(StringRef ProgramName, StringRef Input) : InputFilename(Input) {
+    if (TimeTrace)
+      timeTraceProfilerInitialize(TimeTraceGranularity, ProgramName);
+  }
+  ~TimeTracer() {
+    if (TimeTrace) {
+      if (auto E = timeTraceProfilerWrite(TimeTraceFile, InputFilename)) {
+        handleAllErrors(std::move(E), [&](const StringError &SE) {
+          errs() << SE.getMessage() << "\n";
+        });
+        return;
+      }
+      timeTraceProfilerCleanup();
+    }
+  }
+};
+} // namespace
 
 int main(int argc, char **argv) {
   InitLLVM X(argc, argv);
@@ -107,6 +139,9 @@ int main(int argc, char **argv) {
     Err.print(argv[0], errs());
     return 1;
   }
+
+  TimeTracer Tracer(argv[0], InputFilename);
+  TimeTraceScope TTS("Parcoach", "The main entry point of the tool.");
 
   // Immediately run the verifier to catch any problems before starting up the
   // pass pipelines.  Otherwise we can crash on broken code during

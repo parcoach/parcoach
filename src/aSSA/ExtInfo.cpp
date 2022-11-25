@@ -1058,6 +1058,7 @@ const ExtInfo::ModInfo *ExtInfo::getExtModInfo(const llvm::Function *F) const {
 AnalysisKey ExtInfoAnalysis::Key;
 std::unique_ptr<ExtInfo> ExtInfoAnalysis::run(Module &M,
                                               ModuleAnalysisManager &) {
+  TimeTraceScope TTS("parcoach::ExtInfo");
   return std::make_unique<ExtInfo>(M);
 }
 

@@ -23,6 +23,7 @@ cl::opt<bool> DumpConstraintInfo("dump-cons",
 AnalysisKey AndersenAA::Key;
 
 Andersen AndersenAA::run(Module &M, ModuleAnalysisManager &) {
+  TimeTraceScope TTS("parcoach::Andersen");
   Andersen AA;
   LLVM_DEBUG(dbgs() << "Running Andersen\n");
   AA.runOnModule(M);

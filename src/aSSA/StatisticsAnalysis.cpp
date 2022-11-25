@@ -8,6 +8,7 @@ AnalysisKey StatisticsAnalysis::Key;
 
 StatisticsAnalysis::Statistics
 StatisticsAnalysis::run(Module &M, ModuleAnalysisManager &) {
+  TimeTraceScope TTS("StatisticsAnalysis");
   Statistics Res{};
   auto IsCallInst = [](Instruction const &I) { return isa<CallInst>(I); };
   for (const Function &F : M) {

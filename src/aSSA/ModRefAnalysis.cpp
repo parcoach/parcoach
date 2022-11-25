@@ -282,6 +282,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
 }
 
 void ModRefAnalysisResult::analyze(Module &M) {
+  TimeTraceScope TTS("ModRefAnalysis");
   // Compute global kill set containing regions whose allocation sites are
   // in functions not reachable from prog entry.
   std::vector<const Value *> allocSites;
@@ -469,6 +470,7 @@ void ModRefAnalysisResult::dump() const {
 AnalysisKey ModRefAnalysis::Key;
 ModRefAnalysis::Result ModRefAnalysis::run(Module &M,
                                            ModuleAnalysisManager &AM) {
+  TimeTraceScope TTS("ModRefAnalysisPass");
   auto &AA = AM.getResult<AndersenAA>(M);
   auto &PTA = AM.getResult<PTACallGraphAnalysis>(M);
   auto &ExtInfo = AM.getResult<ExtInfoAnalysis>(M);

@@ -43,6 +43,28 @@ using namespace llvm;
 namespace parcoach {
 
 namespace {
+cl::opt<bool> optStats("statistics", cl::desc("print statistics"),
+                       cl::cat(ParcoachCategory));
+cl::opt<bool>
+    optInstrumInter("instrum-inter",
+                    cl::desc("Instrument code with inter-procedural parcoach"),
+                    cl::cat(ParcoachCategory));
+
+cl::opt<bool> optContextInsensitive("context-insensitive",
+                                    cl::desc("Context insensitive version of "
+                                             "flooding."),
+                                    cl::cat(ParcoachCategory));
+
+cl::opt<bool> optDotGraph("dot-depgraph",
+                          cl::desc("Dot the dependency graph to dg.dot"),
+                          cl::cat(ParcoachCategory));
+
+cl::opt<bool> optDotTaintPaths("dot-taint-paths",
+                               cl::desc("Dot taint path of each "
+                                        "conditions of tainted "
+                                        "collectives."),
+                               cl::cat(ParcoachCategory));
+
 struct ShowStats : public PassInfoMixin<ShowStats> {
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
     AM.getResult<StatisticsAnalysis>(M).print(outs());
@@ -82,15 +104,19 @@ void RegisterPasses(ModulePassManager &MPM) {
     // We want to print the dot *after* the preparation pass.
     MPM.addPass(EmitDG());
   }
-  MPM.addPass(ParcoachInstrumentationPass());
+
   MPM.addPass(ShowPAInterResult());
+  if (optInstrumInter) {
+    MPM.addPass(ParcoachInstrumentationPass());
+  }
 }
 
 void RegisterAnalysis(ModuleAnalysisManager &MAM) {
   MAM.registerPass([&]() { return AndersenAA(); });
-  MAM.registerPass([&]() { return DepGraphDCFAnalysis(); });
+  MAM.registerPass(
+      [&]() { return DepGraphDCFAnalysis(optContextInsensitive); });
   MAM.registerPass([&]() { return ExtInfoAnalysis(); });
-  MAM.registerPass([&]() { return InterproceduralAnalysis(); });
+  MAM.registerPass([&]() { return InterproceduralAnalysis(optDotTaintPaths); });
   MAM.registerPass([&]() { return MemorySSAAnalysis(); });
   MAM.registerPass([&]() { return MemRegAnalysis(); });
   MAM.registerPass([&]() { return ModRefAnalysis(); });

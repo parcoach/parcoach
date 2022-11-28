@@ -36,6 +36,11 @@ void push(std::unique_ptr<CollList> &List, T Collective, BasicBlock const *BB,
     List = std::make_unique<CollList>(Collective, BB);
   }
 }
+
+cl::opt<bool> optNoDataFlow("no-dataflow",
+                            cl::desc("Disable dataflow analysis"),
+                            cl::cat(ParcoachCategory));
+
 } // namespace
 
 Warning::Warning(Function const *F, DebugLoc &DL, ConditionalsContainerTy &&C)
@@ -107,6 +112,8 @@ void ParcoachAnalysisInter::run() {
   }
   LLVM_DEBUG(dbgs() << " ... Parcoach analysis done\n");
 }
+
+bool ParcoachAnalysisInter::useDataflow() const { return !optNoDataFlow; }
 
 /*
  * FUNCTIONS USED TO CHECK COLLECTIVES
@@ -902,7 +909,7 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
       DebugLoc loc = inst->getDebugLoc();
       Conditionals.push_back(loc);
 
-      if (optDotTaintPaths) {
+      if (EmitDotDG_) {
         std::string dotfilename("taintedpath-");
         std::string cfilename = loc->getFilename().str();
         size_t lastpos_slash = cfilename.find_last_of('/');
@@ -944,7 +951,7 @@ InterproceduralAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   auto &DG = AM.getResult<DepGraphDCFAnalysis>(M);
   LLVM_DEBUG(dbgs() << "Running PARCOACH InterproceduralAnalysis\n");
   auto PAInter = std::make_unique<ParcoachAnalysisInter>(M, DG.get(), *PTACG,
-                                                         AM, !optInstrumInter);
+                                                         AM, EmitDotDG_);
   PAInter->run();
   return PAInter;
 }

@@ -16,7 +16,8 @@ PreservedAnalyses ShowPAInterResult::run(Module &M, ModuleAnalysisManager &AM) {
   int WnbAdded = 0, CnbAdded = 0;
   int WnbRemoved = 0, CnbRemoved = 0;
   auto CyanErr = []() { return WithColor(errs(), raw_ostream::Colors::CYAN); };
-  if (!optNoDataFlow) {
+  // FIXME: All this probably belongs in a operator<< or toString method.
+  if (PAInter->useDataflow()) {
     CyanErr() << "==========================================\n";
     CyanErr() << "===  PARCOACH INTER WITH DEP ANALYSIS  ===\n";
     CyanErr() << "==========================================\n";

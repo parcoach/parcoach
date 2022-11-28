@@ -2,7 +2,6 @@
 
 #include "parcoach/Analysis.h"
 #include "parcoach/Collectives.h"
-#include "parcoach/Options.h"
 #include "parcoach/Passes.h"
 
 #include "llvm/IR/DebugInfo.h"
@@ -136,9 +135,8 @@ ParcoachInstrumentationPass::run(llvm::Module &M,
                                  llvm::ModuleAnalysisManager &AM) {
   TimeTraceScope TTS("CollectiveInstrumentation");
   auto const &PAInter = AM.getResult<InterproceduralAnalysis>(M);
-  if (PAInter->getWarnings().empty() || !optInstrumInter) {
-    LLVM_DEBUG(dbgs() << "Skipping instrumentation: no warnings detected"
-                      << " or instrumentation disabled.");
+  if (PAInter->getWarnings().empty()) {
+    LLVM_DEBUG(dbgs() << "Skipping instrumentation: no warnings detected.");
     return PreservedAnalyses::all();
   }
   parcoach::CollectiveInstrumentation Instrum(PAInter->getWarnings());

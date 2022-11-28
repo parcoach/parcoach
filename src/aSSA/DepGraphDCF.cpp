@@ -18,6 +18,7 @@
 #define DEBUG_TYPE "dgdcf"
 
 using namespace llvm;
+namespace parcoach {
 namespace {
 struct functionArg {
   std::string name;
@@ -28,15 +29,17 @@ std::vector<functionArg> ssaSourceFunctions;
 std::vector<functionArg> valueSourceFunctions;
 std::vector<const char *> loadValueSources;
 std::vector<functionArg> resetFunctions;
+cl::opt<bool> optWeakUpdate("weak-update", cl::desc("Weak update"),
+                            cl::cat(ParcoachCategory));
 } // namespace
 
-namespace parcoach {
 DepGraphDCF::DepGraphDCF(MemorySSA *mssa, PTACallGraph const &CG,
-                         FunctionAnalysisManager &AM, Module &M, bool noPtrDep,
-                         bool noPred, bool disablePhiElim)
-    : mssa(mssa), CG(CG), FAM(AM), M(M), PDT(nullptr), buildGraphTime(0),
-      phiElimTime(0), floodDepTime(0), noPtrDep(noPtrDep), noPred(noPred),
-      disablePhiElim(disablePhiElim) {
+                         FunctionAnalysisManager &AM, Module &M,
+                         bool ContextInsensitive, bool noPtrDep, bool noPred,
+                         bool disablePhiElim)
+    : mssa(mssa), CG(CG), FAM(AM), M(M), ContextInsensitive(ContextInsensitive),
+      PDT(nullptr), buildGraphTime(0), phiElimTime(0), floodDepTime(0),
+      noPtrDep(noPtrDep), noPred(noPred), disablePhiElim(disablePhiElim) {
 
   if (Options::get().isActivated(Paradigm::MPI))
     enableMPI();
@@ -73,7 +76,7 @@ void DepGraphDCF::build() {
     phiElimination();
 
   // Compute tainted values
-  if (optContextInsensitive)
+  if (ContextInsensitive)
     computeTaintedValuesContextInsensitive();
   else
     computeTaintedValuesContextSensitive();
@@ -2475,6 +2478,7 @@ DepGraphDCFAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto &MSSA = AM.getResult<MemorySSAAnalysis>(M);
   auto const &PTACG = AM.getResult<PTACallGraphAnalysis>(M);
-  return std::make_unique<DepGraphDCF>(MSSA.get(), *PTACG, FAM, M);
+  return std::make_unique<DepGraphDCF>(MSSA.get(), *PTACG, FAM, M,
+                                       ContextInsensitive_);
 }
 } // namespace parcoach

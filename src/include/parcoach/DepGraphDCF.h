@@ -21,8 +21,8 @@ public:
 
   DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph const &CG,
               llvm::FunctionAnalysisManager &AM, llvm::Module &M,
-              bool noPtrDep = false, bool noPred = false,
-              bool disablePhiElim = false);
+              bool ContextInsensitive, bool noPtrDep = false,
+              bool noPred = false, bool disablePhiElim = false);
   virtual ~DepGraphDCF();
 
   void toDot(llvm::StringRef filename) const;
@@ -80,6 +80,7 @@ private:
   const llvm::Function *curFunc;
   llvm::FunctionAnalysisManager &FAM;
   llvm::Module const &M;
+  bool const ContextInsensitive;
   llvm::PostDominatorTree *PDT;
 
   /* Graph nodes */
@@ -205,8 +206,11 @@ class DepGraphDCFAnalysis
     : public llvm::AnalysisInfoMixin<DepGraphDCFAnalysis> {
   friend llvm::AnalysisInfoMixin<DepGraphDCFAnalysis>;
   static llvm::AnalysisKey Key;
+  bool ContextInsensitive_;
 
 public:
+  DepGraphDCFAnalysis(bool ContextInsensitive)
+      : ContextInsensitive_(ContextInsensitive){};
   // We return a unique_ptr to ensure stability of the analysis' internal state.
   using Result = std::unique_ptr<DepGraphDCF>;
   Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);

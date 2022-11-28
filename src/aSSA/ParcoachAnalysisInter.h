@@ -32,9 +32,8 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
 public:
   ParcoachAnalysisInter(llvm::Module &M, DepGraphDCF *DG,
                         PTACallGraph const &PTACG,
-                        llvm::ModuleAnalysisManager &AM,
-                        bool disableInstru = false)
-      : ParcoachAnalysis(M, DG, disableInstru), PTACG(PTACG), MAM(AM) {
+                        llvm::ModuleAnalysisManager &AM, bool EmitDotDG)
+      : ParcoachAnalysis(M, DG), PTACG(PTACG), MAM(AM), EmitDotDG_(EmitDotDG) {
     id++;
   }
 
@@ -42,10 +41,12 @@ public:
 
   void run() override;
   CallToWarningMapTy const &getWarnings() { return Warnings; };
+  bool useDataflow() const;
 
 private:
   PTACallGraph const &PTACG;
   llvm::ModuleAnalysisManager &MAM;
+  bool const EmitDotDG_;
   CallToWarningMapTy Warnings;
 
   void setCollSet(llvm::BasicBlock *BB);

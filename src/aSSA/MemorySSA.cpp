@@ -16,6 +16,16 @@
 using namespace llvm;
 
 namespace parcoach {
+namespace {
+cl::opt<bool> optDumpSSA("dump-ssa", cl::desc("Dump the all-inclusive SSA"),
+                         cl::cat(ParcoachCategory));
+
+cl::opt<std::string> optDumpSSAFunc("dump-ssa-func",
+                                    cl::desc("Dump the all-inclusive SSA "
+                                             "for a particular function."),
+                                    cl::cat(ParcoachCategory));
+
+} // namespace
 
 MemorySSA::MemorySSA(Module &M, Andersen const &PTA, PTACallGraph const &CG,
                      MemReg const &Regions, ModRefAnalysisResult *MRA,

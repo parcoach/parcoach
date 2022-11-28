@@ -10,6 +10,14 @@
 using namespace llvm;
 
 namespace parcoach {
+namespace {
+#ifndef NDEBUG
+cl::opt<bool> optDumpModRef("dump-modref",
+                            cl::desc("Dump the mod/ref analysis"),
+                            cl::cat(ParcoachCategory));
+#endif
+
+} // namespace
 ModRefAnalysisResult::ModRefAnalysisResult(PTACallGraph const &CG,
                                            Andersen const &PTA,
                                            ExtInfo const &extInfo,

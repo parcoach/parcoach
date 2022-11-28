@@ -23,8 +23,10 @@ class InterproceduralAnalysis
     : public llvm::AnalysisInfoMixin<InterproceduralAnalysis> {
   friend llvm::AnalysisInfoMixin<InterproceduralAnalysis>;
   static llvm::AnalysisKey Key;
+  bool EmitDotDG_;
 
 public:
+  InterproceduralAnalysis(bool EmitDotDG = false) : EmitDotDG_(EmitDotDG) {}
   using Result = std::unique_ptr<parcoach::ParcoachAnalysisInter>;
 
   Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);

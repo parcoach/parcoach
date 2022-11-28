@@ -13,6 +13,18 @@
 using namespace llvm;
 using namespace parcoach;
 
+namespace {
+cl::opt<bool> optDumpRegions("dump-regions",
+                             cl::desc("Dump the regions found by the "
+                                      "Andersen PTA"),
+                             cl::cat(ParcoachCategory));
+cl::opt<bool>
+    optWithRegName("with-reg-name",
+                   cl::desc("Compute human readable names of regions"),
+                   cl::cat(ParcoachCategory));
+
+} // namespace
+
 llvm::ValueMap<llvm::Function const *, std::set<llvm::Value const *>>
     MemReg::func2SharedOmpVar;
 

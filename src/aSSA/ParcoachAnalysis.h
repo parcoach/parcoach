@@ -15,10 +15,9 @@ class Instruction;
 
 class ParcoachAnalysis {
 public:
-  ParcoachAnalysis(llvm::Module &M, parcoach::DepGraphDCF *DG,
-                   bool disableInstru = false)
+  ParcoachAnalysis(llvm::Module &M, parcoach::DepGraphDCF *DG)
       : M(M), DG(DG), nbCollectivesFound(0), nbCollectivesCondCalled(0),
-        nbCollectivesFoundParcoachOnly(0), disableInstru(disableInstru) {}
+        nbCollectivesFoundParcoachOnly(0) {}
 
   virtual ~ParcoachAnalysis() {}
 
@@ -75,8 +74,6 @@ protected:
   std::set<const llvm::BasicBlock *> conditionSetParcoachOnly;
   std::set<const llvm::Instruction *> warningSet;
   std::set<const llvm::Instruction *> warningSetParcoachOnly;
-
-  bool disableInstru;
 };
 
 #endif /* PARCOACHANALYSIS */

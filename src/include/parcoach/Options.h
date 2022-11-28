@@ -2,34 +2,23 @@
 
 #include "parcoach/Paradigms.h"
 
+#include "llvm/Support/CommandLine.h"
+
 #include <string>
 
 namespace parcoach {
 struct Options {
+  // Although it doesn't have any member yet, we use a singleton to make sure
+  // the constructor is called and provides backwards compatibility with the
+  // old -check-* options.
   Options();
   static Options const &get();
   // It may be silly as we could just compare in the caller, but this allows
   // for multiple paradigms being enabled in the future.
   // https://llvm.org/docs/CommandLine.html#parsing-a-list-of-options
   bool isActivated(Paradigm P) const;
-  Paradigm P;
 };
 
-} // namespace parcoach
+extern llvm::cl::OptionCategory ParcoachCategory;
 
-extern bool optDumpSSA;
-extern std::string optDumpSSAFunc;
-extern bool optDotGraph;
-extern bool optDumpRegions;
-extern bool optTimeStats;
-extern bool optDotTaintPaths;
-extern bool optStats;
-extern bool optWithRegName;
-extern bool optContextInsensitive;
-extern bool optInstrumInter;
-extern bool optInstrumIntra;
-extern bool optWeakUpdate;
-extern bool optNoDataFlow;
-#ifndef NDEBUG
-extern bool optDumpModRef;
-#endif
+} // namespace parcoach

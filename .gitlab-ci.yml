@@ -16,12 +16,13 @@ stages:
     - cd ci
     - ./build-image-if-needed "$CI_REGISTRY_IMAGE" "$IMAGE_TAG"
   tags:
-    - linux,medium
+    - linux,large
 
 variables:
   # If we need to update llvm we can just change the version here, and the
   # image will be recreated.
   LINUX_IMAGE_TAG: "ubuntu-focal-build-20221125-llvm-15"
+  RHEL_IMAGE_TAG: "ubi-8.6-build-20221129-ninja-1.11.1-mpi-4.1.4-llvm-15.0.6-tests-20221130"
   PIPENV_VENV_IN_PROJECT: "true"
   # NOTE: this is not quite accurate as we may get either a small/medium/large
   # runner, but it's better than nothing!
@@ -33,6 +34,11 @@ build-linux-image:
   extends: .build-test-image
   variables:
     IMAGE_TAG: $LINUX_IMAGE_TAG
+
+build-rhel-image:
+  extends: .build-test-image
+  variables:
+    IMAGE_TAG: $RHEL_IMAGE_TAG
 
 # NOTE: while using the shared runners, this doesn't actually do anything :s
 .pipenv-template: &pipenv_configuration
@@ -50,13 +56,17 @@ build-linux-image:
   parallel:
     matrix:
       - TYPE: [static, shared]
+        IMAGE_TAG: $LINUX_IMAGE_TAG
+      - TYPE: [rpm]
+        IMAGE_TAG: $RHEL_IMAGE_TAG
 
 build-releases:
   <<: *release_matrix
   stage: build
-  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
+  image: "$CI_REGISTRY_IMAGE:$IMAGE_TAG"
   needs:
     - build-linux-image
+    - build-rhel-image
   tags:
     - linux,medium
   script:
@@ -64,7 +74,7 @@ build-releases:
     - mkdir packages
     - cmake . -G Ninja -B build -C caches/Release-${TYPE}.cmake
     - cmake --build build --target package
-    - mv build/*.tar.gz packages
+    - mv build/parcoach-*.* packages
   artifacts:
     paths:
       - packages/
@@ -74,16 +84,23 @@ test-releases:
   <<: *pipenv_configuration
   <<: *release_matrix
   stage: tests
-  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
+  image: "$CI_REGISTRY_IMAGE:$IMAGE_TAG"
   dependencies:
     - build-releases
   tags:
     - linux,large
   script:
     - mkdir install
-    - tar -xf packages/*-${TYPE}-Linux.tar.gz -C install
-    - export PARCOACH_INSTALL_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))"
-    - export LLVM_TOOLS_BINARY_DIR="$(dirname $(find /usr/lib -name FileCheck))"
+    - |
+      if [ "${TYPE}" == "rpm" ]; then
+        sudo rpm -i packages/*.rpm
+        export CC=clang
+        export CXX=clang++
+      else
+        tar -xf packages/*-${TYPE}-Linux.tar.gz -C install
+        export PARCOACH_INSTALL_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))"
+        export LLVM_TOOLS_BINARY_DIR="$(dirname $(find /usr/lib -name FileCheck))"
+      fi
     - mkdir build
     - cmake tests -G Ninja -B build -C caches/Tests-releases.cmake
     - cmake --build build --target run-tests

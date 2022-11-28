@@ -10,7 +10,7 @@ set(PARCOACH_ENABLE_CUDA OFF CACHE BOOL "")
 set(PARCOACH_ENABLE_UPC OFF CACHE BOOL "")
 set(PARCOACH_ENABLE_INSTRUMENTATION ON CACHE BOOL "")
 
-# This is overridable by the user, but it's actually useful to determine 
+# This is overridable by the user, but it's actually useful to determine
 # target installation folders.
 set(PLAFRIM_PARCOACH_VERSION 2.0.0 CACHE STRING "")
 set(PLAFRIM_MODULE_ROOT "/cm/shared/dev/modules/generic" CACHE STRING "")

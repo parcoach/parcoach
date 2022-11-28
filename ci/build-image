@@ -5,6 +5,28 @@ print_build_arg() {
   printf -- '--build-arg %s=%s ' "$@"
 }
 
+print_mpi_versions() {
+  version=$1
+  case "$version" in
+    4.1.4)
+      print_build_arg "MPI_VERSION" "4.1.4"
+      print_build_arg "MPI_SHA256" "e166dbe876e13a50c2882e11193fecbc4362e89e6e7b6deeb69bf095c0f4fc4c"
+      ;;
+    *) echo "[${FUNCNAME[0]}] Unknown version $version"; exit 1;
+  esac
+}
+
+print_ninja_versions() {
+  version=$1
+  case "$version" in
+    1.11.1)
+      print_build_arg "NINJA_VERSION" "1.11.1"
+      print_build_arg "NINJA_SHA256" "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77"
+      ;;
+    *) echo "[${FUNCNAME[0]}] Unknown version $version"; exit 1;
+  esac
+}
+
 print_build_versions() {
   version=$1
 
@@ -14,6 +36,9 @@ print_build_versions() {
       # would go there.
       print_build_arg "CMAKE_VERSION" "3.23.2"
       print_build_arg "CMAKE_SHA256" "aaced6f745b86ce853661a595bdac6c5314a60f8181b6912a0a4920acfa32708"
+      ;;
+    20221129)
+      # No specific tool just yet
       ;;
     *) echo "[${FUNCNAME[0]}] Unknown version $version"; exit 1;
   esac
@@ -25,11 +50,20 @@ parse_arguments() {
 
     case "$tool" in
       build) print_build_versions "$tool_version" ;;
+      mpi) print_mpi_versions "$tool_version" ;;
+      ninja) print_ninja_versions "$tool_version" ;;
       *) print_build_arg "${tool^^}_VERSION" "${tool_version}" ;;
     esac
   done
 }
 
+is_dry_run() {
+  if [ "$1" == "--dry-run" ]; then
+    echo "yes"
+  else
+    echo "no"
+  fi
+}
 
 generate_docker_build_command() {
   build_image_name=$1
@@ -42,7 +76,9 @@ generate_docker_build_command() {
   # the command line.
   shift
   for option in "$@"; do
-    printf -- "%s " "$option"
+    if [ $(is_dry_run $option) == "no" ]; then
+      printf -- "%s " "$option"
+    fi
   done
 
   # Automatically append the full image as a tag.
@@ -51,4 +87,15 @@ generate_docker_build_command() {
   printf -- ".\\n"
 }
 
-eval "$(generate_docker_build_command "$@")"
+dry=false
+for option in "$@"; do
+  if [ $(is_dry_run $option) == "yes" ]; then
+    dry=true
+  fi
+done
+
+if $dry; then
+  printf "$(generate_docker_build_command "$@")\n"
+else
+  eval "$(generate_docker_build_command "$@")"
+fi

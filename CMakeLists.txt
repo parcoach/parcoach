@@ -39,9 +39,22 @@ endif()
 
 add_subdirectory(code-quality)
 
+set(CPACK_PACKAGE_NAME "parcoach")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+"PARCOACH (PARallel COntrol flow Anomaly CHecker) automatically checks parallel \
+applications to verify the correct use of collectives. This tool uses an \
+inter-procedural control and data-flow analysis to detect potential errors at compile-time."
+)
+set(CPACK_PACKAGE_DESCRIPTION_FILE ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
 set(CPACK_PACKAGE_VERSION ${PACKAGE_VERSION})
 set(CPACK_PACKAGE_VERSION_MAJOR ${PARCOACH_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PARCOACH_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PARCOACH_VERSION_PATCH})
+set(CPACK_PACKAGE_VENDOR "Inria")
 set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE)
+set(CPACK_BINARY_STGZ OFF)
+set(CPACK_BINARY_TZ OFF)
+# Include this unconditionally, let the user provide CPACK_BINARY_RPM=ON if
+# they do want to generate the package.
+include(RPM)
 include(CPack)

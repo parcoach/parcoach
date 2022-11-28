@@ -20,3 +20,20 @@ services:
     image: "parcoach:ubuntu-focal-build-20221125-llvm-15"
     volumes:
       - .:/home/parcoach/sources
+  ubi:
+    build:
+      context: ci
+      dockerfile: Dockerfile.rhel
+      args:
+        - UBI_VERSION=8.6
+        - MPI_VERSION=4.1.4
+        - MPI_SHA256=e166dbe876e13a50c2882e11193fecbc4362e89e6e7b6deeb69bf095c0f4fc4c
+        - NINJA_VERSION=1.11.1
+        - NINJA_SHA256=b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77
+        - LLVM_VERSION=15.0.6
+        - TESTS_VERSION=20221130
+      tags:
+        - "parcoach:ubi-8.6-build-20221129-ninja-1.11.1-mpi-4.1.4-llvm-15.0.6-tests-20221130"
+    image: "parcoach:ubi-8.6-build-20221129-ninja-1.11.1-mpi-4.1.4-llvm-15.0.6-tests-20221130"
+    volumes:
+      - .:/home/parcoach/sources

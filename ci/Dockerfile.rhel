@@ -1,0 +1,42 @@
+ARG UBI_VERSION
+FROM redhat/ubi8:${UBI_VERSION}
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "-c"]
+
+RUN mkdir -p /scripts
+COPY rhel/install-build-essentials.sh /scripts
+RUN /scripts/install-build-essentials.sh
+
+ARG NINJA_VERSION
+ARG NINJA_SHA256
+COPY rhel/install-ninja.sh /scripts
+RUN if [ -n "$NINJA_VERSION" ]; then /scripts/install-ninja.sh ${NINJA_VERSION} ${NINJA_SHA256}; fi
+
+# Install MPI
+ARG MPI_VERSION
+ARG MPI_SHA256
+COPY rhel/install-mpi.sh /scripts
+RUN if [ -n "$MPI_VERSION" ]; then /scripts/install-mpi.sh ${MPI_VERSION} ${MPI_SHA256}; fi
+
+# Install llvm if needed
+# This ARG is needed because ARG-s defined before FROM are outside of build stage.
+ARG LLVM_VERSION
+COPY rhel/install-llvm.sh /scripts
+COPY rhel/llvm.cmake /scripts
+RUN if [ -n "$LLVM_VERSION" ]; then /scripts/install-llvm.sh ${LLVM_VERSION}; fi
+
+ARG TESTS_VERSION
+COPY rhel/install-tests-essentials.sh /scripts
+RUN if [ -n "$TESTS_VERSION" ]; then /scripts/install-tests-essentials.sh; fi
+
+# Create the parcoach user
+RUN useradd -m parcoach
+RUN dnf install -y sudo
+# Don't do this at home
+RUN echo 'parcoach ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+USER parcoach
+ENV SHELL=/bin/bash
+WORKDIR /home/parcoach

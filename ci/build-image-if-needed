@@ -6,6 +6,12 @@ pushd ${SCRIPT_DIR}
 
 REGISTRY_IMAGE_NAME=$1
 IMAGE_TAG=$2
+DOCKERFILE=""
+if [[ ${IMAGE_TAG} = \ubi* ]]; then
+  DOCKERFILE="Dockerfile.rhel"
+else
+  DOCKERFILE="Dockerfile.parcoach"
+fi
 
 set +e
 docker manifest inspect ${REGISTRY_IMAGE_NAME}:${IMAGE_TAG}
@@ -16,7 +22,7 @@ then
   echo "The image already exists"
 else
   echo "Building image"
-  "${SCRIPT_DIR}/build-image" "${REGISTRY_IMAGE_NAME}:${IMAGE_TAG}" -f Dockerfile.parcoach
+  "${SCRIPT_DIR}/build-image" "${REGISTRY_IMAGE_NAME}:${IMAGE_TAG}" -f ${DOCKERFILE}
   docker push "${REGISTRY_IMAGE_NAME}:${IMAGE_TAG}"
 fi
 

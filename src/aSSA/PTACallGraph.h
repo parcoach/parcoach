@@ -124,24 +124,22 @@ public:
 namespace llvm {
 
 template <> struct GraphTraits<const PTACallGraphNode *> {
-  typedef const PTACallGraphNode NodeType;
-  typedef const PTACallGraphNode *NodeRef;
+  using NodeType = const PTACallGraphNode;
+  using NodeRef = NodeType *;
 
-  typedef PTACallGraphNode::CallRecord CGNPairTy;
-  typedef std::pointer_to_unary_function<CGNPairTy, const PTACallGraphNode *>
-      CGNDerefFun;
+  using CGNPairTy = PTACallGraphNode::CallRecord;
 
-  typedef mapped_iterator<NodeType::const_iterator, CGNDerefFun>
+  static NodeRef CGNDeref(CGNPairTy P) { return P.second; }
+
+  typedef mapped_iterator<NodeType::const_iterator, decltype(&CGNDeref)>
       ChildIteratorType;
 
   static inline ChildIteratorType child_begin(NodeType *N) {
-    return map_iterator(N->begin(), CGNDerefFun(CGNDeref));
+    return map_iterator(N->begin(), CGNDeref);
   }
   static inline ChildIteratorType child_end(NodeType *N) {
-    return map_iterator(N->end(), CGNDerefFun(CGNDeref));
+    return map_iterator(N->end(), CGNDeref);
   }
-
-  static const PTACallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
 };
 
 template <>
@@ -150,11 +148,6 @@ struct GraphTraits<const PTACallGraph *>
   static NodeType *getEntryNode(const PTACallGraph *CGN) {
     return CGN->getExternalCallingNode(); // Start at the external node!
   }
-  typedef std::pair<const Function *const, std::unique_ptr<PTACallGraphNode>>
-      PairTy;
-  typedef std::pointer_to_unary_function<const PairTy &,
-                                         const PTACallGraphNode &>
-      DerefFun;
 };
 } // namespace llvm
 

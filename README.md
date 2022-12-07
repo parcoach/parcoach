@@ -121,6 +121,30 @@ llvm-link file1.bc file2.bc file3.bc -o merge.bc
 ./parcoach -check-mpi merge.bc
 ```
 
+#### PARCOACH's wrapper and integration with build systems
+
+The executable `parcoachcc` is shipped with PARCOACH and can be used as a wrapper
+to have a single step to compile your code while running the analyses over it.
+
+A call to the wrapper looks like this:
+```bash
+$ parcoachcc clang example.c -c -o example.o
+remark: Parcoach: running '/usr/bin/clang example.c -c -o example.o'
+remark: Parcoach: running '/usr/bin/clang example.c -g -S -emit-llvm -o parcoach-ir-782df9.ll'
+remark: Parcoach: running '/usr/local/bin/parcoach parcoach-ir-782df9.ll'
+...
+```
+
+As you can see, under the hood `parcoachcc` will perform three steps:
+  - it will execute the original command line.
+  - it will generate a temporary LLVM IR file.
+  - it will run PARCOACH over that temporary IR.
+
+This wrapper lets you easily integrate PARCOACH in popular build systems;
+you can check our wiki articles about
+[autotools integration](https://gitlab.inria.fr/parcoach/parcoach/-/wikis/Using-PARCOACH-in-an-autotools-project)
+or [CMake integration](https://gitlab.inria.fr/parcoach/parcoach/-/wikis/Using-PARCOACH-in-a-CMake-project).
+
 ### Runtime checking
 
 Coming soon

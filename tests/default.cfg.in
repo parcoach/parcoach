@@ -3,6 +3,7 @@
 # Configuration file for the 'lit' test runner.
 
 config.substitutions.append(('%parcoach', '@PARCOACH_BIN@'))
+config.substitutions.append(('%wrapper', '@PARCOACHCC_BIN@'))
 config.substitutions.append(('%clangxx', '@CMAKE_CXX_COMPILER@'))
 config.substitutions.append(('%clang', '@CMAKE_C_COMPILER@'))
 config.substitutions.append(('%filecheck', '@FILECHECK_BIN@'))

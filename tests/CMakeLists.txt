@@ -19,6 +19,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   find_program(PARCOACH_BIN
     parcoach REQUIRED
     HINTS ${PARCOACH_INSTALL_DIR}/bin)
+  find_program(PARCOACHCC_BIN
+    parcoachcc REQUIRED
+    HINTS ${PARCOACH_INSTALL_DIR}/bin)
   if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
     set(PARCOACH_LIB_DIR ${PARCOACH_INSTALL_DIR}/lib)
     find_library(PARCOACH_MPI_INSTR_LIB
@@ -32,11 +35,14 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   endif()
 else()
   set(PARCOACH_BIN ${CMAKE_BINARY_DIR}/parcoach)
+  set(PARCOACHCC_BIN ${CMAKE_BINARY_DIR}/parcoachcc)
   if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
     set(PARCOACH_MPI_INSTR_LIB ${PARCOACH_MPI_INSTR_LIB_NAME})
     set(PARCOACH_LIB_DIR ${CMAKE_BINARY_DIR}/src/instrumentation)
   endif()
 endif()
+
+get_filename_component(PARCOACH_BIN_PATH ${PARCOACH_BIN} DIRECTORY)
 
 set(PARCOACH_FILE_CONTAINS ${CMAKE_CURRENT_SOURCE_DIR}/file_contains.py)
 set(PARCOACH_GREP_BIN ${CMAKE_CURRENT_BINARY_DIR}/parcoach_grep)
@@ -76,7 +82,7 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/default.cfg.in"
 # Top-level target for all generated test files.
 add_custom_target(tests-dependencies ALL)
 add_custom_target(tests-ready
-  DEPENDS tests-dependencies ${PARCOACH_BIN})
+  DEPENDS tests-dependencies ${PARCOACH_BIN} ${PARCOACHCC_BIN})
 
 add_custom_target(run-ctest
   ${CTEST_COMMAND} --output-on-failure --timeout 30

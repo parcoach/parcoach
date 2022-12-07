@@ -29,6 +29,7 @@ config.test_source_root = '@CMAKE_CURRENT_SOURCE_DIR@'
 
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = '@CMAKE_CURRENT_BINARY_DIR@'
+config.environment['PATH'] = f"@PARCOACH_BIN_PATH@:{config.environment['PATH']}"
 
 config.substitutions.append(('%mpicc', '@MPI_C_COMPILER@'))
 config.substitutions.append(('%mpifort', '@MPI_Fortran_COMPILER@ @CMAKE_Fortran_FLAGS@'))
@@ -43,6 +44,7 @@ config.environment['OMPI_CC'] = '@CMAKE_C_COMPILER@'
 config.environment['OMPI_FC'] = '@CMAKE_Fortran_COMPILER@'
 config.environment['MPICH_CC'] = '@CMAKE_C_COMPILER@'
 config.environment['MPICH_FC'] = '@CMAKE_Fortran_COMPILER@'
+
 
 if @PARCOACH_ENABLE_VALGRIND@:
   config.available_features.add('valgrind')

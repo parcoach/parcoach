@@ -44,7 +44,7 @@ if(PARCOACH_ENABLE_INSTRUMENTATION)
   add_subdirectory(instrumentation)
 endif()
 
-add_subdirectory(tool)
+add_subdirectory(tools)
 
 if(PARCOACH_BUILD_SHARED)
   # The plugin can only be built when building shared libs.

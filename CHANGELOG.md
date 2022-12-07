@@ -6,7 +6,10 @@
 
   - analyses: integrated static and dynamic analyses for MPI-RMA.
   They are available by using the `-check=rma` flag.
-
+  - cli: introduced `parcoachcc`, a wrapper that can be used as a prefix on
+  compilation lines to run PARCOACH in addition to running the original
+  compilation line. Checkout the README and wiki articles for the usage and
+  integration with Autotools/CMake.
 
 ## 2.1.0
 

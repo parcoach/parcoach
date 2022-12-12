@@ -1,0 +1,25 @@
+# Base template for creating image on-demand.
+# FIXME: checkout docker-maintained image to do this!
+.build-test-image:
+  stage: build-images
+  # This base image includes bash and docker, and was created manually.
+  image: "$CI_REGISTRY_IMAGE:builder"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - cd ci
+    - ./build-image-if-needed "$CI_REGISTRY_IMAGE" "$IMAGE_TAG"
+  tags:
+    - linux,large
+
+# If we'd need to create another image we'd duplicate this job, and create a
+# new image tag.
+build-linux-image:
+  extends: .build-test-image
+  variables:
+    IMAGE_TAG: $LINUX_IMAGE_TAG
+
+build-rhel-image:
+  extends: .build-test-image
+  variables:
+    IMAGE_TAG: $RHEL_IMAGE_TAG

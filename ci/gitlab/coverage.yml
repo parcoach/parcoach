@@ -1,0 +1,39 @@
+test-coverage:
+  cache: !reference [.pipenv-template, cache]
+  before_script: !reference [.pipenv-template, before_script]
+  stage: tests
+  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
+  needs:
+    - build-linux-image
+  tags:
+    - linux,large
+  script:
+    - mkdir build
+    - cmake . -G Ninja -B build -C caches/Coverage.cmake
+    - cmake --build build --target coverage
+    # NOTE: this is a tiny bit tricky: we need to run lcov_cobertura from the
+    # project's source folder so that the paths are correct in the XML.
+    - lcov_cobertura build/parcoach.lcov -o cobertura-coverage.xml
+  coverage: '/Coverage: \d+\.\d+/'
+  artifacts:
+    paths:
+      - build/html
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura-coverage.xml
+
+pages:
+  image: alpine:latest
+  stage: deploy
+  tags:
+    - linux
+  dependencies:
+    - test-coverage
+  script:
+    - mv build/html public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"

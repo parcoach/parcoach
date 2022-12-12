@@ -144,6 +144,7 @@ coverage-linux:
         path: cobertura-coverage.xml
 
 pages:
+  image: alpine:latest
   stage: deploy
   tags:
     - linux
@@ -154,5 +155,5 @@ pages:
   artifacts:
     paths:
       - public
-  only:
-    - master
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"

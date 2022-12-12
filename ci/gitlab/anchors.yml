@@ -1,0 +1,28 @@
+# NOTE: while using the shared runners, this doesn't actually do anything :s
+.pipenv-template:
+  cache:
+    - key:
+        files:
+          - Pipfile.lock
+      paths:
+        - .venv
+  before_script:
+    - pipenv install
+    - source .venv/bin/activate
+
+.release-matrix:
+  parallel:
+    matrix:
+      - TYPE: [static, shared]
+        IMAGE_TAG: $LINUX_IMAGE_TAG
+      - TYPE: [rpm]
+        IMAGE_TAG: $RHEL_IMAGE_TAG
+
+.set-version-suffix:
+  script:
+    - |
+      if [ "$CI_COMMIT_TAG" == "" ]; then
+        export VERSION_SUFFIX="-$CI_COMMIT_SHORT_SHA"
+      else
+        export VERSION_SUFFIX=""
+      fi

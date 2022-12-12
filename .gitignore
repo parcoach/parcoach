@@ -70,7 +70,5 @@ acs-*.bib
 # Etags
 TAGS
 
-#if llvm folder is inside PARCOACH as written in README
-llvm
-build*
+/build*
 compile_commands.json

@@ -1,0 +1,43 @@
+test-releases:
+  stage: tests
+  image: "$CI_REGISTRY_IMAGE:$IMAGE_TAG"
+  dependencies:
+    - build-releases
+  tags:
+    - linux,large
+  parallel: !reference [.release-matrix, parallel]
+  cache: !reference [.pipenv-template, cache]
+  before_script: !reference [.pipenv-template, before_script]
+  script:
+    - !reference [.set-version-suffix, script]
+    - mkdir install
+    - |
+      if [ "${TYPE}" == "rpm" ]; then
+        sudo rpm -i packages/*.rpm
+        export CC=clang
+        export CXX=clang++
+      else
+        tar -xf packages/*-${TYPE}-Linux.tar.gz -C install
+        export PARCOACH_INSTALL_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))"
+        export LLVM_TOOLS_BINARY_DIR="$(dirname $(find /usr/lib -name FileCheck))"
+      fi
+    - mkdir build
+    - cmake tests -G Ninja -B build
+      -C caches/Tests-releases.cmake
+      -DPARCOACH_VERSION_SUFFIX=$VERSION_SUFFIX
+    - cmake --build build --target run-tests
+
+# This is the default debug+assert build+tests in-tree
+test-asserts:
+  stage: tests
+  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
+  needs:
+    - build-linux-image
+  tags:
+    - linux,large
+  cache: !reference [.pipenv-template, cache]
+  before_script: !reference [.pipenv-template, before_script]
+  script:
+    - mkdir build
+    - cmake . -G Ninja -B build
+    - cmake --build build --target run-tests

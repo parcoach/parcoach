@@ -2,21 +2,9 @@ stages:
   - build-images
   - build
   - tests
-  - coverage
+  - upload
   - deploy
-
-# Base template for creating image on-demand.
-.build-test-image:
-  stage: build-images
-  # This base image includes bash and docker, and was created manually.
-  image: "$CI_REGISTRY_IMAGE:builder"
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - cd ci
-    - ./build-image-if-needed "$CI_REGISTRY_IMAGE" "$IMAGE_TAG"
-  tags:
-    - linux,large
+  - release
 
 variables:
   # If we need to update llvm we can just change the version here, and the
@@ -27,133 +15,12 @@ variables:
   # NOTE: this is not quite accurate as we may get either a small/medium/large
   # runner, but it's better than nothing!
   CTEST_PARALLEL_LEVEL: "4"
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/parcoach"
 
-# If we'd need to create another image we'd duplicate this job, and create a
-# new image tag.
-build-linux-image:
-  extends: .build-test-image
-  variables:
-    IMAGE_TAG: $LINUX_IMAGE_TAG
-
-build-rhel-image:
-  extends: .build-test-image
-  variables:
-    IMAGE_TAG: $RHEL_IMAGE_TAG
-
-# NOTE: while using the shared runners, this doesn't actually do anything :s
-.pipenv-template: &pipenv_configuration
-  cache:
-    - key:
-        files:
-          - Pipfile.lock
-      paths:
-        - .venv
-  before_script:
-    - pipenv install
-    - source .venv/bin/activate
-
-.release-matrix: &release_matrix
-  parallel:
-    matrix:
-      - TYPE: [static, shared]
-        IMAGE_TAG: $LINUX_IMAGE_TAG
-      - TYPE: [rpm]
-        IMAGE_TAG: $RHEL_IMAGE_TAG
-
-build-releases:
-  <<: *release_matrix
-  stage: build
-  image: "$CI_REGISTRY_IMAGE:$IMAGE_TAG"
-  needs:
-    - build-linux-image
-    - build-rhel-image
-  tags:
-    - linux,medium
-  script:
-    - mkdir build
-    - mkdir packages
-    - cmake . -G Ninja -B build -C caches/Release-${TYPE}.cmake
-    - cmake --build build --target package
-    - mv build/parcoach-*.* packages
-  artifacts:
-    paths:
-      - packages/
-    expire_in: 2 days
-
-test-releases:
-  <<: *pipenv_configuration
-  <<: *release_matrix
-  stage: tests
-  image: "$CI_REGISTRY_IMAGE:$IMAGE_TAG"
-  dependencies:
-    - build-releases
-  tags:
-    - linux,large
-  script:
-    - mkdir install
-    - |
-      if [ "${TYPE}" == "rpm" ]; then
-        sudo rpm -i packages/*.rpm
-        export CC=clang
-        export CXX=clang++
-      else
-        tar -xf packages/*-${TYPE}-Linux.tar.gz -C install
-        export PARCOACH_INSTALL_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))"
-        export LLVM_TOOLS_BINARY_DIR="$(dirname $(find /usr/lib -name FileCheck))"
-      fi
-    - mkdir build
-    - cmake tests -G Ninja -B build -C caches/Tests-releases.cmake
-    - cmake --build build --target run-tests
-
-# This is the default debug+assert build+tests in-tree
-test-asserts:
-  <<: *pipenv_configuration
-  stage: tests
-  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
-  needs:
-    - build-linux-image
-  tags:
-    - linux,large
-  script:
-    - mkdir build
-    - cmake . -G Ninja -B build
-    - cmake --build build --target run-tests
-
-coverage-linux:
-  <<: *pipenv_configuration
-  stage: coverage
-  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
-  needs:
-    - build-linux-image
-  tags:
-    - linux,large
-  script:
-    - mkdir build
-    - cmake . -G Ninja -B build -C caches/Coverage.cmake
-    - cmake --build build --target coverage
-    # NOTE: this is a tiny bit tricky: we need to run lcov_cobertura from the
-    # project's source folder so that the paths are correct in the XML.
-    - lcov_cobertura build/parcoach.lcov -o cobertura-coverage.xml
-  coverage: '/Coverage: \d+\.\d+/'
-  artifacts:
-    paths:
-      - build/html
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: cobertura-coverage.xml
-
-pages:
-  image: alpine:latest
-  stage: deploy
-  tags:
-    - linux
-  dependencies:
-    - coverage-linux
-  script:
-    - mv build/html public
-  artifacts:
-    paths:
-      - public
-  rules:
-    - if: $CI_COMMIT_BRANCH == "master"
+include:
+  - "ci/gitlab/anchors.yml"
+  - "ci/gitlab/build-images.yml"
+  - "ci/gitlab/build.yml"
+  - "ci/gitlab/tests.yml"
+  - "ci/gitlab/coverage.yml"
+  - "ci/gitlab/publish-release.yml"

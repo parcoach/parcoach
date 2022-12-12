@@ -1,0 +1,54 @@
+.upload:
+  stage: upload
+  image: curlimages/curl:latest
+  dependencies:
+    - build-releases
+  tags:
+    - linux
+  script:
+    - cd packages
+    - |
+      for f in *; do
+        curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+             --upload-file $f \
+             ${PACKAGE_REGISTRY_URL}/${VERSION}/$f;
+      done
+
+upload-snapshot:
+  variables:
+    VERSION: snapshot
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TAG == null
+  extends: .upload
+
+upload-tag:
+  variables:
+    VERSION: $CI_COMMIT_TAG
+  rules:
+    - if: $CI_COMMIT_TAG
+  after_script:
+    - echo "release-cli create --name \"Release $VERSION\" --tag-name $VERSION \\" > release-cli.txt
+    - cd packages
+    - |
+      for f in *; do
+        echo " --assets-link \"{\\\"name\\\":\\\"${f}\\\",\\\"url\\\":\\\"${PACKAGE_REGISTRY_URL}/${VERSION}/${f}\\\"}\" \\" >> ../release-cli.txt
+      done
+    - echo ";" >> ../release-cli.txt
+  artifacts:
+    paths:
+      - release-cli.txt
+  extends: .upload
+
+create:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  dependencies:
+    - upload-tag
+  tags:
+    - linux
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - cat release-cli.txt
+    - eval "$(cat release-cli.txt)"

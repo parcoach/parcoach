@@ -1,6 +1,22 @@
 # PARCOACH changelog
 
-## 2.0
+## 2.1.0
+
+### General:
+
+  - cli: introduced the `-check=...` to select the paradigm, instead of using 4
+  different options (`-check-mpi` etc).
+  - output: IR output is disabled by default, the information emitted by
+  PARCOACH are also shorter.
+  - Fixed memory leaks in some analysis, and added a test in the CI checking
+  that PARCOACH doesn't leak.
+  - Users can now use `-time-trace` to do some profiling on PARCOACH.
+
+### Packaging:
+
+  - RHEL: created an RPM based on RHEL 8.6.
+
+## 2.0.0
 
 This is a major release changing a lot the internal structure of the tool,
 improving the command line interface, and improving the tests and code coverage.

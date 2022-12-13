@@ -15,6 +15,7 @@
 ### Packaging:
 
   - RHEL: created an RPM based on RHEL 8.6.
+  - Release: release and packages are automatically created when creating a tag.
 
 ## 2.0.0
 

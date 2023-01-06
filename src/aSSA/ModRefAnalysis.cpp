@@ -161,30 +161,29 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
     // direct call
     if (callee) {
       auto const *info = extInfo.getExtModInfo(callee);
-      assert(info);
 
-      // Variadic argument
-      if (i >= info->nbArgs) {
-        // errs() << "Function: " << callee->getName() << " in " <<
-        // callee->getParent()->getName() << "\n";
-        assert(callee->isVarArg());
+      if (info) {
+        // Variadic argument
+        if (i >= info->nbArgs) {
+          // errs() << "Function: " << callee->getName() << " in " <<
+          // callee->getParent()->getName() << "\n";
+          assert(callee->isVarArg());
 
-        if (info->argIsMod[info->nbArgs - 1]) {
-          for (auto *r : regs) {
-            if (globalKillSet.find(r) != globalKillSet.end())
-              continue;
-            funcModMap[curFunc].insert(r);
+          if (info->argIsMod[info->nbArgs - 1]) {
+            for (auto *r : regs) {
+              if (globalKillSet.find(r) != globalKillSet.end())
+                continue;
+              funcModMap[curFunc].insert(r);
+            }
           }
-        }
-      }
-
-      // Normal argument
-      else {
-        if (info->argIsMod[i]) {
-          for (auto *r : regs) {
-            if (globalKillSet.find(r) != globalKillSet.end())
-              continue;
-            funcModMap[curFunc].insert(r);
+        } else {
+          // Normal argument
+          if (info->argIsMod[i]) {
+            for (auto *r : regs) {
+              if (globalKillSet.find(r) != globalKillSet.end())
+                continue;
+              funcModMap[curFunc].insert(r);
+            }
           }
         }
       }
@@ -194,7 +193,9 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
           continue;
 
         auto const *info = extInfo.getExtModInfo(mayCallee);
-        assert(info);
+        if (!info) {
+          continue;
+        }
 
         // Variadic argument
         if (i >= info->nbArgs) {
@@ -226,7 +227,6 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
   // Compute mof/ref for return value if it is a pointer.
   if (callee) {
     auto const *info = extInfo.getExtModInfo(callee);
-    assert(info);
 
     if (callee->getReturnType()->isPointerTy()) {
       std::vector<const Value *> retPtsSet;
@@ -244,7 +244,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         funcRefMap[curFunc].insert(r);
       }
 
-      if (info->retIsMod) {
+      if (info && info->retIsMod) {
         for (auto *r : regs) {
           if (globalKillSet.find(r) != globalKillSet.end())
             continue;
@@ -260,7 +260,6 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         continue;
 
       auto const *info = extInfo.getExtModInfo(mayCallee);
-      assert(info);
 
       if (mayCallee->getReturnType()->isPointerTy()) {
         std::vector<const Value *> retPtsSet;
@@ -277,7 +276,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
           funcRefMap[curFunc].insert(r);
         }
 
-        if (info->retIsMod) {
+        if (info && info->retIsMod) {
           for (auto *r : regs) {
             if (globalKillSet.find(r) != globalKillSet.end())
               continue;

@@ -1144,22 +1144,29 @@ ExtInfo::ExtInfo(Module &m) {
   // for (const funcDepPair *i = funcDepPairs; i->name; ++i)
   // extDepInfoMap[i->name] = &i->depInfo;
 
-  bool missingInfo = false;
-
+  SmallVector<StringRef> MissingInfo;
+  MissingInfo.reserve(m.size());
   for (Function &F : m) {
     if (!F.isDeclaration() || isIntrinsicDbgFunction(&F))
       continue;
 
     if (!getExtModInfo(&F)) {
-      missingInfo = true;
-      errs() << "missing info for external function " << F.getName() << "\n";
+      MissingInfo.emplace_back(F.getName());
     }
   }
-
-  if (missingInfo) {
-    errs() << "Error: you have to fill the funcModPairs array in ExtInfo.cpp"
-           << " with the missing functions. exiting..\n";
-    exit(EXIT_FAILURE);
+  if (!MissingInfo.empty()) {
+    errs() << "Parcoach is missing some information about external functions: ";
+    bool First = true;
+    for (StringRef Name : MissingInfo) {
+      if (!First) {
+        errs() << ", ";
+      }
+      First = false;
+      errs() << Name;
+    }
+    errs() << ".\n"
+           << "The alias analyses may be innaccurate, you may want to add "
+           << "these functions to ExtInfo.cpp.\n";
   }
 }
 

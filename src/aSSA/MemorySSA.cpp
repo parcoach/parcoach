@@ -29,7 +29,7 @@ cl::opt<std::string> optDumpSSAFunc("dump-ssa-func",
 
 MemorySSA::MemorySSA(Module &M, Andersen const &PTA, PTACallGraph const &CG,
                      MemReg const &Regions, ModRefAnalysisResult *MRA,
-                     ExtInfo *extInfo, ModuleAnalysisManager &AM)
+                     ExtInfo const &extInfo, ModuleAnalysisManager &AM)
     : computeMuChiTime(0), computePhiTime(0), renameTime(0),
       computePhiPredicatesTime(0), PTA(PTA), CG(CG), Regions(Regions), MRA(MRA),
       extInfo(extInfo), curDF(NULL), curDT(NULL) {
@@ -260,8 +260,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     CallInst *CI = cast<CallInst>(inst);
     extFuncToCSMap[callee].insert(inst);
 
-    auto const *info = extInfo->getExtModInfo(callee);
-    assert(info);
+    auto const *info = extInfo.getExtModInfo(callee);
 
     // Mu and Chi for parameters
     for (unsigned i = 0; i < CI->arg_size(); ++i) {
@@ -302,6 +301,10 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
         usedRegs.insert(r);
       }
 
+      if (!info) {
+        continue;
+      }
+
       // Chis
       if (i >= info->nbArgs) {
         assert(callee->isVarArg());
@@ -330,7 +333,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     }
 
     // Chi for return value if it is a pointer
-    if (CI->getType()->isPointerTy() && info->retIsMod) {
+    if (info && info->retIsMod && CI->getType()->isPointerTy()) {
       std::vector<const Value *> ptsSet;
       bool Found = PTA.getPointsToSet(CI, ptsSet);
       assert(Found && "CI not found in MSSA");
@@ -863,6 +866,6 @@ MemorySSAAnalysis::Result MemorySSAAnalysis::run(Module &M,
   auto const &PTACG = AM.getResult<PTACallGraphAnalysis>(M);
   auto const &Regions = AM.getResult<MemRegAnalysis>(M);
   return std::make_unique<MemorySSA>(M, AA, *PTACG, *Regions, MRA.get(),
-                                     extInfo.get(), AM);
+                                     *extInfo, AM);
 }
 } // namespace parcoach

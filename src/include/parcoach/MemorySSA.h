@@ -70,8 +70,8 @@ class MemorySSA {
 
 public:
   MemorySSA(llvm::Module &M, Andersen const &PTA, PTACallGraph const &CG,
-            MemReg const &Regions, ModRefAnalysisResult *MRA, ExtInfo *extInfo,
-            llvm::ModuleAnalysisManager &AM);
+            MemReg const &Regions, ModRefAnalysisResult *MRA,
+            ExtInfo const &extInfo, llvm::ModuleAnalysisManager &AM);
   virtual ~MemorySSA();
 
   void printTimers() const;
@@ -121,7 +121,7 @@ protected:
   PTACallGraph const &CG;
   MemReg const &Regions;
   ModRefAnalysisResult *MRA;
-  ExtInfo *extInfo;
+  ExtInfo const &extInfo;
 
   llvm::DominanceFrontier *curDF;
   llvm::DominatorTree *curDT;

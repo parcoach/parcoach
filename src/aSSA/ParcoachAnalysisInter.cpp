@@ -362,6 +362,7 @@ void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
 }
 
 void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
+  LLVM_DEBUG(dbgs() << "----- MPI_BFS_Loop -----\n");
   std::deque<BasicBlock *> Unvisited;
   BasicBlock *Lheader = L->getHeader();
 
@@ -406,6 +407,7 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
   Unvisited.push_back(Lheader);
 
   while (Unvisited.size() > 0) {
+    LLVM_DEBUG(dbgs() << "Unvisited (" << Unvisited.size() << ")\n");
     BasicBlock *header = *Unvisited.begin();
     // DEBUG//errs() << "Header " << header->getName() << "\n";
     Unvisited.pop_front();
@@ -413,7 +415,7 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
     if (bbVisitedMap[header] == black)
       continue;
 
-    if (mustWaitLoop(header, L) &&
+    if (mustWait(header, L) &&
         header != Lheader) { // all successors have not been seen
       Unvisited.push_back(header);
       continue;
@@ -436,8 +438,9 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
         setMPICollSet(Pred);
         bbVisitedMap[Pred] = grey;
 
-        if (Pred != Lheader && (L->contains(Pred) || isExitNode(Pred)))
+        if (Pred != Lheader && (L->contains(Pred) || isExitNode(Pred))) {
           Unvisited.push_back(Pred);
+        }
       }
       // BB ALREADY SEEN
       else {
@@ -454,10 +457,13 @@ void ParcoachAnalysisInter::MPI_BFS_Loop(llvm::Loop *L) {
   for (auto &[Val, List] : mpiCollListMap[Lheader]) {
     push(List, "NAVS", Lheader, true);
   }
+
+  LLVM_DEBUG(dbgs() << "----- end MPI_BFS_Loop -----\n");
 }
 
 // FOR MPI APPLIS: BFS
 void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
+  LLVM_DEBUG(dbgs() << "-- MPI_BFS --\n");
   std::deque<BasicBlock *> Unvisited;
 
   // DEBUG//errs() << "** Analyzing function " << F->getName() << "\n";
@@ -522,25 +528,18 @@ void ParcoachAnalysisInter::MPI_BFS(llvm::Function *F) {
 
     bbVisitedMap[header] = black;
   } // END WHILE
+  LLVM_DEBUG(dbgs() << "-- end MPI_BFS --\n");
 }
 
 // FOR BFS: Returns true if all successors are not black
-bool ParcoachAnalysisInter::mustWait(llvm::BasicBlock *bb) {
-  succ_iterator SI = succ_begin(bb), E = succ_end(bb);
-  for (; SI != E; ++SI) {
-    BasicBlock *Succ = *SI;
-    if (bbVisitedMap[Succ] != black)
+bool ParcoachAnalysisInter::mustWait(llvm::BasicBlock *bb, Loop *l) {
+  for (auto *S : successors(bb)) {
+    if (S == bb) {
+      continue;
+    }
+    if (bbVisitedMap[S] != black && (!l || l->contains(S))) {
       return true;
-  }
-  return false;
-}
-
-bool ParcoachAnalysisInter::mustWaitLoop(llvm::BasicBlock *bb, Loop *l) {
-  succ_iterator SI = succ_begin(bb), E = succ_end(bb);
-  for (; SI != E; ++SI) {
-    BasicBlock *Succ = *SI;
-    if (bbVisitedMap[Succ] != black && l->contains(Succ))
-      return true;
+    }
   }
   return false;
 }
@@ -599,7 +598,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
     if (bbVisitedMap[header] == black)
       continue;
 
-    if (mustWaitLoop(header, L) &&
+    if (mustWait(header, L) &&
         header != Lheader) { // all successors have not been seen
       Unvisited.push_back(header);
       continue;
@@ -635,7 +634,7 @@ void ParcoachAnalysisInter::BFS_Loop(llvm::Loop *L) {
           collMap[Pred] = "NAVS";
           // DEBUG//errs() << "  -> BB has " << collMap[Pred] << "\n";
         }
-        // XXX: Loop always set NAVS to avoid différent loop itérations
+        // XXX: Loop always set NAVS to avoid different loop iterations
         collMap[Pred] = "NAVS";
       }
 

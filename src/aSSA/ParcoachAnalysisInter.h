@@ -55,8 +55,7 @@ private:
   void MPI_BFS_Loop(llvm::Loop *L);
   void BFS_Loop(llvm::Loop *L);
   bool isExitNode(llvm::BasicBlock *BB);
-  bool mustWait(llvm::BasicBlock *bb);
-  bool mustWaitLoop(llvm::BasicBlock *bb, llvm::Loop *l);
+  bool mustWait(llvm::BasicBlock *bb, llvm::Loop *l = nullptr);
   void BFS(llvm::Function *F);
   void MPI_BFS(llvm::Function *F);
   void checkCollectives(llvm::Function *F);

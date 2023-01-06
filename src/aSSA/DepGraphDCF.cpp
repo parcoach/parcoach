@@ -377,6 +377,24 @@ void DepGraphDCF::visitCmpInst(llvm::CmpInst &I) {
   }
 }
 
+void DepGraphDCF::visitUnaryOperator(llvm::UnaryOperator &I) {
+  funcToLLVMNodesMap[curFunc].insert(&I);
+
+  for (const Value *v : I.operands()) {
+    addEdge(v, &I);
+    funcToLLVMNodesMap[curFunc].insert(v);
+  }
+}
+
+void DepGraphDCF::visitFreezeInst(llvm::FreezeInst &I) {
+  funcToLLVMNodesMap[curFunc].insert(&I);
+
+  for (const Value *v : I.operands()) {
+    addEdge(v, &I);
+    funcToLLVMNodesMap[curFunc].insert(v);
+  }
+}
+
 void DepGraphDCF::visitLoadInst(llvm::LoadInst &I) {
   // Load inst, connect MSSA mus and the pointer loaded.
   funcToLLVMNodesMap[curFunc].insert(&I);

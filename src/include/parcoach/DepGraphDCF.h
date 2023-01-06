@@ -35,6 +35,8 @@ public:
   void visitBasicBlock(llvm::BasicBlock &BB);
   void visitAllocaInst(llvm::AllocaInst &I);
   void visitCmpInst(llvm::CmpInst &I);
+  void visitFreezeInst(llvm::FreezeInst &I);
+  void visitUnaryOperator(llvm::UnaryOperator &I);
   void visitLoadInst(llvm::LoadInst &I);
   void visitStoreInst(llvm::StoreInst &I);
   void visitGetElementPtrInst(llvm::GetElementPtrInst &I);

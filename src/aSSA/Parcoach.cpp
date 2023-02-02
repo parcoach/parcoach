@@ -126,6 +126,10 @@ void RegisterFunctionAnalyses(FunctionAnalysisManager &FAM) {
   AAManager AA;
   AA.registerFunctionAnalysis<BasicAA>();
   FAM.registerPass([&]() { return std::move(AA); });
+#ifdef PARCOACH_ENABLE_RMA
+  FAM.registerPass([&]() { return LocalConcurrencyAnalysis(); });
+  FAM.registerPass([&]() { return RMAStatisticsAnalysis(); });
+#endif
 }
 
 void RegisterModuleAnalyses(ModuleAnalysisManager &MAM) {

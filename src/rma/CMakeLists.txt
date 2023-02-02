@@ -1,5 +1,8 @@
 set(RMA_PASS_SOURCES
+  LocalConcurrencyAnalysis.cpp
   LocalConcurrencyDetection.cpp
+  RMAInstrumentation.cpp
+  RMAStatisticsAnalysis.cpp
   )
 set(RMA_PASS_HEADERS
   LocalConcurrencyDetection.h

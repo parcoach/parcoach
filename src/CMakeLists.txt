@@ -22,6 +22,7 @@ set(SHARED_HEADERS
   include/parcoach/Collectives.h
   include/parcoach/DepGraphDCF.h
   include/parcoach/ExtInfo.h
+  include/parcoach/LocalConcurrencyDetectionPass.h
   include/parcoach/MemoryRegion.h
   include/parcoach/MemorySSA.h
   include/parcoach/ModRefAnalysis.h
@@ -31,11 +32,18 @@ set(SHARED_HEADERS
   )
 add_sources_to_format(SOURCES ${SHARED_HEADERS})
 
+if(PARCOACH_ENABLE_RMA)
+  add_subdirectory(rma)
+endif()
+
 add_subdirectory(aSSA)
+
 if(PARCOACH_ENABLE_INSTRUMENTATION)
   add_subdirectory(instrumentation)
 endif()
+
 add_subdirectory(tool)
+
 if(PARCOACH_BUILD_SHARED)
   # The plugin can only be built when building shared libs.
   add_subdirectory(plugin)

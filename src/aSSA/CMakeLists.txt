@@ -61,3 +61,7 @@ call_llvm_helper(
   ${LLVM_DYLIB_OPTION}
   ${BUILDTREE}
   )
+
+if(PARCOACH_ENABLE_RMA)
+  target_link_libraries(aSSA PRIVATE RMA)
+endif()

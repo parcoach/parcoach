@@ -13,6 +13,7 @@ The project is licensed under the LGPL 2.1 license
 #include "parcoach/Collectives.h"
 #include "parcoach/DepGraphDCF.h"
 #include "parcoach/ExtInfo.h"
+#include "parcoach/LocalConcurrencyDetectionPass.h"
 #include "parcoach/MemoryRegion.h"
 #include "parcoach/MemorySSA.h"
 #include "parcoach/ModRefAnalysis.h"
@@ -21,6 +22,8 @@ The project is licensed under the LGPL 2.1 license
 #include "parcoach/StatisticsAnalysis.h"
 #include "parcoach/andersen/Andersen.h"
 
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/DependenceAnalysis.h"
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -105,13 +108,27 @@ void RegisterPasses(ModulePassManager &MPM) {
     MPM.addPass(EmitDG());
   }
 
+#ifdef PARCOACH_ENABLE_RMA
+  if (Options::get().isActivated(Paradigm::RMA)) {
+    // Add the RMA passes and that's it.
+    MPM.addPass(LocalConcurrencyDetectionPass());
+    return;
+  }
+#endif
+
   MPM.addPass(ShowPAInterResult());
   if (optInstrumInter) {
     MPM.addPass(ParcoachInstrumentationPass());
   }
 }
 
-void RegisterAnalysis(ModuleAnalysisManager &MAM) {
+void RegisterFunctionAnalyses(FunctionAnalysisManager &FAM) {
+  AAManager AA;
+  AA.registerFunctionAnalysis<BasicAA>();
+  FAM.registerPass([&]() { return std::move(AA); });
+}
+
+void RegisterModuleAnalyses(ModuleAnalysisManager &MAM) {
   MAM.registerPass([&]() { return AndersenAA(); });
   MAM.registerPass(
       [&]() { return DepGraphDCFAnalysis(optContextInsensitive); });

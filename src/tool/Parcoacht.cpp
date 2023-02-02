@@ -189,18 +189,15 @@ int main(int argc, char **argv) {
   PipelineTuningOptions PTO;
   PassBuilder PB(nullptr, PTO, None, &PIC);
 
-  AAManager AA;
-
-  // Register the AA manager first so that our version is the one used.
-  FAM.registerPass([&] { return std::move(AA); });
   // Register our TargetLibraryInfoImpl.
   FAM.registerPass([&] { return TargetLibraryAnalysis(TLII); });
 
   // Register all the basic analyses with the managers.
   PB.registerModuleAnalyses(MAM);
-  parcoach::RegisterAnalysis(MAM);
+  parcoach::RegisterModuleAnalyses(MAM);
   PB.registerCGSCCAnalyses(CGAM);
   PB.registerFunctionAnalyses(FAM);
+  parcoach::RegisterFunctionAnalyses(FAM);
   PB.registerLoopAnalyses(LAM);
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 

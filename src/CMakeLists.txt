@@ -33,7 +33,7 @@ add_sources_to_format(SOURCES ${SHARED_HEADERS})
 
 add_subdirectory(aSSA)
 if(PARCOACH_ENABLE_INSTRUMENTATION)
-  add_subdirectory(lib)
+  add_subdirectory(instrumentation)
 endif()
 add_subdirectory(tool)
 if(PARCOACH_BUILD_SHARED)

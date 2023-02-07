@@ -1,3 +1,5 @@
+find_package(MPI REQUIRED)
+
 add_sources_to_format(SOURCES MPI_DynamicCheck.c)
 add_library(MPI_DynamicCheck OBJECT MPI_DynamicCheck.c)
 set_property(TARGET MPI_DynamicCheck PROPERTY POSITION_INDEPENDENT_CODE 1)

@@ -1,10 +1,10 @@
-find_package(MPI REQUIRED)
-
-
 add_library(Instrumentation SHARED)
 install(TARGETS Instrumentation)
 
 add_subdirectory(mpi)
+if(PARCOACH_ENABLE_RMA)
+  add_subdirectory(rma)
+endif()
 
 # FIXME
 #if (FALSE AND OpenMP_FOUND)

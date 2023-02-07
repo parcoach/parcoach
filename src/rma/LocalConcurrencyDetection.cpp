@@ -8,43 +8,31 @@
 #include "llvm/Analysis/PostDominators.h"
 
 using namespace llvm;
-using namespace std;
 
-FunctionType *handlerType = nullptr;
-
+namespace {
 FunctionType *getHandlerType(LLVMContext &C) {
-  if (!handlerType) {
-    handlerType = FunctionType::get(Type::getVoidTy(C),
-                                    {Type::getInt8Ty(C)->getPointerTo(),
-                                     Type::getInt64Ty(C), Type::getInt64Ty(C),
-                                     Type::getInt8Ty(C)->getPointerTo()},
-                                    false);
+  static FunctionType *HandlerType_ = nullptr;
+  if (!HandlerType_) {
+    HandlerType_ = FunctionType::get(Type::getVoidTy(C),
+                                     {Type::getInt8Ty(C)->getPointerTo(),
+                                      Type::getInt64Ty(C), Type::getInt64Ty(C),
+                                      Type::getInt8Ty(C)->getPointerTo()},
+                                     false);
   }
-  return handlerType;
+  return HandlerType_;
 }
 
-FunctionCallee handlerLoad;
-FunctionCallee handlerStore;
-
-FunctionCallee &getHandlerLoad(Module *M) {
-  if (!handlerLoad) {
-    handlerLoad =
-        M->getOrInsertFunction("LOAD", getHandlerType(M->getContext()));
-  }
-  return handlerLoad;
+FunctionCallee getHandlerLoad(Module *M) {
+  return M->getOrInsertFunction("LOAD", getHandlerType(M->getContext()));
 }
 
-FunctionCallee &getHandlerStore(Module *M) {
-  if (!handlerStore) {
-    handlerStore =
-        M->getOrInsertFunction("STORE", getHandlerType(M->getContext()));
-  }
-  return handlerStore;
+FunctionCallee getHandlerStore(Module *M) {
+  return M->getOrInsertFunction("STORE", getHandlerType(M->getContext()));
 }
 
 // To instrument LOAD/STORE
 void CreateAndInsertFunction(Instruction &I, Value *Addr,
-                             FunctionCallee &handler, size_t size, int line,
+                             FunctionCallee handler, size_t size, int line,
                              StringRef file) {
 
   IRBuilder<> builder(&I);
@@ -89,40 +77,6 @@ void ReplaceCallInst(Instruction &I, CallInst &ci, int line, StringRef file,
   ci.replaceAllUsesWith(newci);
 }
 
-/*	void ReplaceBitcast(CallInst &ci, int line, StringRef file, LLVMContext
-&Ctx)
-        {
-        IRBuilder<> builder(&ci);
-        Value *filename = builder.CreateGlobalStringPtr(file.str());
-        errs() << "DEB 1\n";
-        Function *callee = ci.getCalledFunction();
-// PB ICIIIIII getFunctionType()
-auto newArgsType = callee->getFunctionType()->params().vec();
-errs() << "DEB 2\n";
-//newArgsType.push_back(Type::getInt8PtrTy(Ctx));
-newArgsType.push_back(Type::getInt64Ty(Ctx));
-errs() << "DEB 3\n";
-FunctionType *handlerType = FunctionType::get(callee->getReturnType(),
-newArgsType, false); errs() << "DEB 4\n";
-//handlerType->print(errs());
-
-Module *M = ci.getFunction()->getParent();
-FunctionCallee newFunc = M->getOrInsertFunction ("",handlerType);
-errs() << "DEB 5\n";
-
-SmallVector<Value *,8> Args(ci.args());
-//CastInst* CIf = CastInst::CreatePointerCast(filename,
-Type::getInt8PtrTy(Ctx),"", &I);
-//Args.push_back(CIf);
-Args.push_back(ConstantInt::get(Type::getInt64Ty(Ctx), line));
-errs() << "DEB 6\n";
-
-Value *newci = builder.CreateCall(newFunc, Args );
-errs() << "DEB 7\n";
-ci.replaceAllUsesWith(newci);
-}
-*/
-
 vector<Instruction *> toInstrument;
 vector<Instruction *>
     toDelete; // CallInst to delete (all MPI-RMA are replaced by new functions)
@@ -132,6 +86,8 @@ auto MagentaErr = []() {
 };
 auto GreenErr = []() { return WithColor(errs(), raw_ostream::Colors::GREEN); };
 auto RedErr = []() { return WithColor(errs(), raw_ostream::Colors::RED); };
+
+} // namespace
 
 // Instrument MPI FORTRAN operations
 bool LocalConcurrencyDetection::changeFuncNamesFORTRAN(Instruction &I) {

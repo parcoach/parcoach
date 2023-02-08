@@ -1,0 +1,8 @@
+// REQUIRES: instrumentation
+// ALLOW_RETRIES: 3
+// RUN: c_file=$(echo %s | sed 's/_instr.test/.c/')
+// RUN: %mpicc -g -S -emit-llvm "$c_file" -o %t.ll
+// RUN: %parcoach -check=rma -o %t_instr.ll %t.ll
+// RUN: %mpicc %t_instr.ll -L%libdir -lInstrumentation -o %t.bin
+// RUN: LD_LIBRARY_PATH=%libdir:$LD_LIBRARY_PATH %not %mpiexec -np 2 %t.bin 2>&1 | %filecheck %s
+// CHECK: Error when inserting memory access {{.*}}window.c at line 44 with {{.*}}window.c at line 41.

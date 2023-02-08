@@ -11,6 +11,12 @@ if(NOT "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}" STREQUAL EXPECTE
          "CMAKE_C_COMPILER and CMAKE_CXX_COMPILER appropriately.")
 endif()
 
+if(PARCOACH_ENABLE_FORTRAN AND NOT CMAKE_Fortran_COMPILER_ID STREQUAL "LLVMFlang")
+  message(FATAL_ERROR "PARCOACH needs the flang shipped with LLVM >= 15, "
+    "and it looks like the detected compiler doesn't match that. Please set "
+    "the variable CMAKE_Fortran_COMPILER appropriately.")
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
 

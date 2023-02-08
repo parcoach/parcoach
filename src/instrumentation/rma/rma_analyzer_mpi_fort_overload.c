@@ -51,17 +51,18 @@ int mpi_barrier_(int *comm, int *res);
 
 /* This function is used to spawn the thread that would excute the
  * communication checking thread function at the win_create stage */
+// TODO: make this MPI_Fint
 int new_win_create_(int *base, int *size, int *disp_unit, int *info, int *comm,
-                    int *win) {
+                    int *win, int *_) {
   int ret;
   MPI_Win c_win;
   t1 = clock();
+  MPI_Comm c_comm = MPI_Comm_f2c(*comm);
 
   mpi_win_create_(base, size, disp_unit, info, comm, win, &ret);
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_start((void *)base, (MPI_Aint)size, (MPI_Comm)comm, &c_win,
-                     FORT);
+  rma_analyzer_start((void *)base, *size, c_comm, &c_win);
 
   return ret;
 }
@@ -69,7 +70,7 @@ int new_win_create_(int *base, int *size, int *disp_unit, int *info, int *comm,
 /* This function is used to spawn the thread that would excute the
  * communication checking thread function at the win_allocate stage */
 int new_win_allocate_(int *size, int *disp_unit, int *info, int *comm,
-                      int *baseptr, int *win) {
+                      int *baseptr, int *win, int *_) {
   int ret;
   MPI_Win c_win;
   t1 = clock();
@@ -77,14 +78,13 @@ int new_win_allocate_(int *size, int *disp_unit, int *info, int *comm,
   mpi_win_allocate_(size, disp_unit, info, comm, baseptr, win, &ret);
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_start((void *)baseptr, (MPI_Aint)size, (MPI_Comm)comm, &c_win,
-                     FORT);
+  rma_analyzer_start((void *)baseptr, *size, MPI_Comm_f2c(*comm), &c_win);
 
   return ret;
 }
 
 /* Global passive Target synchronization "Lock_all" */
-int new_win_lock_all_(int *assert, int *win) {
+int new_win_lock_all_(int *assert, int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -96,7 +96,7 @@ int new_win_lock_all_(int *assert, int *win) {
 }
 
 /* Passive target synchronization "Lock" */
-int new_win_lock_(int *lock_type, int *rank, int *assert, int *win) {
+int new_win_lock_(int *lock_type, int *rank, int *assert, int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -109,7 +109,7 @@ int new_win_lock_(int *lock_type, int *rank, int *assert, int *win) {
 }
 
 /* Active target synchronization "Fence" */
-int new_win_fence_(int *assert, int *win) {
+int new_win_fence_(int *assert, int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -135,7 +135,7 @@ int new_win_fence_(int *assert, int *win) {
 }
 
 /* PSCW active target synchronisation "Win_start" called by the origin */
-int new_win_start_(int *group, int *assert, int *win) {
+int new_win_start_(int *group, int *assert, int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -147,7 +147,7 @@ int new_win_start_(int *group, int *assert, int *win) {
 }
 
 /* PSCW active target synchronisation "Win_post" called by the target */
-int new_win_post_(int *group, int *assert, int *win) {
+int new_win_post_(int *group, int *assert, int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -167,23 +167,23 @@ int new_win_post_(int *group, int *assert, int *win) {
  * [offset, offset+size[ and send it to the target with MPI_Send */
 int new_put_(int *origin_addr, int *origin_count, int *origin_datatype,
              int *target_rank, int *target_disp, int *target_count,
-             int *target_datatype, int *win) {
+             int *target_datatype, int *win, int *_) {
   LOG(stderr, "A process is accessing a put function !\n\n");
-  uint64_t local_size = 0;
-  uint64_t target_size = 0;
+  int local_size = 0;
+  int target_size = 0;
 
   int ret;
   MPI_Win c_win;
 
-  mpi_type_size_(origin_datatype, (int *)&local_size, &ret);
-  local_size *= (uint64_t)origin_count;
-  mpi_type_size_(target_datatype, (int *)&target_size, &ret);
-  target_size *= (uint64_t)*target_count;
+  mpi_type_size_(origin_datatype, &local_size, &ret);
+  local_size *= *origin_count;
+  mpi_type_size_(target_datatype, &target_size, &ret);
+  target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_update_on_comm_send(
-      (uint64_t)origin_addr, local_size, (uint64_t)*target_disp, target_size,
-      (int)*target_rank, RMA_READ, RMA_WRITE, 0, NULL, c_win);
+  rma_analyzer_update_on_comm_send((uint64_t)origin_addr, local_size,
+                                   *target_disp, target_size, *target_rank,
+                                   RMA_READ, RMA_WRITE, 0, NULL, c_win);
 
   mpi_put_(origin_addr, origin_count, origin_datatype, target_rank, target_disp,
            target_count, target_datatype, win, &ret);
@@ -195,23 +195,23 @@ int new_put_(int *origin_addr, int *origin_count, int *origin_datatype,
  * another MPI process */
 int new_get_(int *origin_addr, int *origin_count, int *origin_datatype,
              int *target_rank, int *target_disp, int *target_count,
-             int *target_datatype, int *win) {
+             int *target_datatype, int *win, int *_) {
   LOG(stderr, "A process is accessing a get function !\n\n");
-  uint64_t local_size = 0;
-  uint64_t target_size = 0;
+  int local_size = 0;
+  int target_size = 0;
 
   int ret;
   MPI_Win c_win;
 
-  mpi_type_size_(origin_datatype, (int *)&local_size, &ret);
-  local_size *= (uint64_t)origin_count;
-  mpi_type_size_(target_datatype, (int *)&target_size, &ret);
-  target_size *= (uint64_t)target_count;
+  mpi_type_size_(origin_datatype, &local_size, &ret);
+  local_size *= *origin_count;
+  mpi_type_size_(target_datatype, &target_size, &ret);
+  target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_update_on_comm_send(
-      (uint64_t)origin_addr, local_size, (uint64_t)target_disp, target_size,
-      (int)*target_rank, RMA_WRITE, RMA_READ, 0, NULL, c_win);
+  rma_analyzer_update_on_comm_send((uint64_t)origin_addr, local_size,
+                                   *target_disp, target_size, *target_rank,
+                                   RMA_WRITE, RMA_READ, 0, NULL, c_win);
 
   mpi_get_(origin_addr, origin_count, origin_datatype, target_rank, target_disp,
            target_count, target_datatype, win, &ret);
@@ -221,23 +221,23 @@ int new_get_(int *origin_addr, int *origin_count, int *origin_datatype,
 /* An atomic put that does the same as MPI_Put here ! */
 int new_accumulate_(int *origin_addr, int *origin_count, int *origin_datatype,
                     int *target_rank, int *target_disp, int *target_count,
-                    int *target_datatype, int *op, int *win) {
+                    int *target_datatype, int *op, int *win, int *_) {
   LOG(stderr, "A process is accessing an accumulate function !\n\n");
-  uint64_t local_size = 0;
-  uint64_t target_size = 0;
+  int local_size = 0;
+  int target_size = 0;
 
   int ret;
   MPI_Win c_win;
 
-  mpi_type_size_(origin_datatype, (int *)&local_size, &ret);
-  local_size *= (uint64_t)origin_count;
-  mpi_type_size_(target_datatype, (int *)&target_size, &ret);
-  target_size *= (uint64_t)target_count;
+  mpi_type_size_(origin_datatype, &local_size, &ret);
+  local_size *= *origin_count;
+  mpi_type_size_(target_datatype, &target_size, &ret);
+  target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_update_on_comm_send(
-      (uint64_t)origin_addr, local_size, (uint64_t)target_disp, target_size,
-      (int)*target_rank, RMA_READ, RMA_WRITE, 0, NULL, c_win);
+  rma_analyzer_update_on_comm_send((uint64_t)origin_addr, local_size,
+                                   *target_disp, target_size, *target_rank,
+                                   RMA_READ, RMA_WRITE, 0, NULL, c_win);
 
   mpi_accumulate_(origin_addr, origin_count, origin_datatype, target_rank,
                   target_disp, target_count, target_datatype, op, win, &ret);
@@ -250,7 +250,7 @@ int new_accumulate_(int *origin_addr, int *origin_count, int *origin_datatype,
 
 /* Global Passive target synchronisation "Unlock_all" called by all
  * the processus */
-int new_win_unlock_all_(int *win) {
+int new_win_unlock_all_(int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -262,7 +262,7 @@ int new_win_unlock_all_(int *win) {
 }
 
 /* Passive target Synchronization "Unlock" */
-int new_win_unlock_(int *rank, int *win) {
+int new_win_unlock_(int *rank, int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -274,7 +274,7 @@ int new_win_unlock_(int *rank, int *win) {
 }
 
 /* PSCW active synchronisation "Win_complete" called by the origin */
-int new_win_complete_(int *win) {
+int new_win_complete_(int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -286,7 +286,7 @@ int new_win_complete_(int *win) {
 }
 
 /* PSCW active synchronisation "Win_wait" called by the target */
-int new_win_wait_(int *win) {
+int new_win_wait_(int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -298,7 +298,7 @@ int new_win_wait_(int *win) {
 }
 
 /* Free memory */
-int new_win_free_(int *win) {
+int new_win_free_(int *win, int *_) {
   int ret;
   MPI_Win c_win;
 
@@ -325,7 +325,7 @@ int new_win_free_(int *win) {
   return ret;
 }
 
-int new_win_flush_(int *rank, int *win) {
+int new_win_flush_(int *rank, int *win, int *_) {
   int ret;
   mpi_win_flush_(rank, win, &ret);
   return ret;
@@ -335,7 +335,7 @@ int new_win_flush_(int *rank, int *win) {
  *        Synchronization handling          *
  ********************************************/
 
-int new_barrier_(int *comm) {
+int new_barrier_(int *comm, int *_) {
   int ret;
 
   /* For Barrier call, we need to reset and restart the state of all active

@@ -1,14 +1,9 @@
 set(RMA_PASS_SOURCES
   LocalConcurrencyAnalysis.cpp
-  LocalConcurrencyDetection.cpp
   RMAInstrumentation.cpp
   RMAStatisticsAnalysis.cpp
   )
-set(RMA_PASS_HEADERS
-  LocalConcurrencyDetection.h
-  )
 add_sources_to_format(SOURCES ${RMA_PASS_SOURCES})
-add_sources_to_format(SOURCES ${RMA_PASS_HEADERS})
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 

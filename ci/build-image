@@ -31,14 +31,13 @@ print_build_versions() {
   version=$1
 
   case "$version" in
-    20221125)
+    20230213)
+      ;&
+    20230209)
       # NOTE: other build tools for which we want to control the version
       # would go there.
-      print_build_arg "CMAKE_VERSION" "3.23.2"
-      print_build_arg "CMAKE_SHA256" "aaced6f745b86ce853661a595bdac6c5314a60f8181b6912a0a4920acfa32708"
-      ;;
-    20221129)
-      # No specific tool just yet
+      print_build_arg "CMAKE_VERSION" "3.25.2"
+      print_build_arg "CMAKE_SHA256" "783da74f132fd1fea91b8236d267efa4df5b91c5eec1dea0a87f0cf233748d99"
       ;;
     *) echo "[${FUNCNAME[0]}] Unknown version $version"; exit 1;
   esac

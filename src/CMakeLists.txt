@@ -22,12 +22,12 @@ set(SHARED_HEADERS
   include/parcoach/Collectives.h
   include/parcoach/DepGraphDCF.h
   include/parcoach/ExtInfo.h
-  include/parcoach/LocalConcurrencyDetectionPass.h
   include/parcoach/MemoryRegion.h
   include/parcoach/MemorySSA.h
   include/parcoach/ModRefAnalysis.h
   include/parcoach/Options.h
   include/parcoach/Passes.h
+  include/parcoach/RMAPasses.h
   include/parcoach/StatisticsAnalysis.h
   )
 add_sources_to_format(SOURCES ${SHARED_HEADERS})

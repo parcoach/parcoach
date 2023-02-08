@@ -2,10 +2,6 @@
 find_package(MPI REQUIRED)
 message(STATUS "Using mpicc: ${MPI_C_COMPILER}")
 
-if(PARCOACH_ENABLE_INSTRUMENTATION)
-  find_program(MPI_RUN_BIN NAMES mpirun REQUIRED)
-endif()
-
 find_program(VALGRIND_BIN NAMES valgrind)
 if(VALGRIND_BIN STREQUAL "VALGRIND_BIN-NOTFOUND")
   set(PARCOACH_ENABLE_VALGRIND OFF)
@@ -53,4 +49,8 @@ add_subdirectory(basic)
 option(PARCOACH_ENABLE_MBI_TESTS "Enable MBI test targets." ON)
 if(PARCOACH_ENABLE_MBI_TESTS)
   add_subdirectory(MBI)
+endif()
+
+if(PARCOACH_ENABLE_RMA)
+  add_subdirectory(rma)
 endif()

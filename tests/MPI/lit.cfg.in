@@ -20,7 +20,7 @@ config.test_format = lit.formats.ShTest(True)
 
 # suffixes: A list of file extensions to treat as test files. This is overriden
 # by individual lit.local.cfg files in the test subdirectories.
-config.suffixes = ['.ll', '.c', '.cpp']
+config.suffixes = ['.ll', '.c', '.cpp', '.test', '.f90']
 
 config.excludes = ['basic', 'MBI']
 
@@ -31,11 +31,16 @@ config.test_source_root = '@CMAKE_CURRENT_SOURCE_DIR@'
 config.test_exec_root = '@CMAKE_CURRENT_BINARY_DIR@'
 
 config.substitutions.append(('%mpicc', '@MPI_C_COMPILER@'))
+config.substitutions.append(('%mpifort', '@MPI_Fortran_COMPILER@ @CMAKE_Fortran_FLAGS@'))
+config.substitutions.append(('%mpiexec', '@MPIEXEC_EXECUTABLE@'))
+config.substitutions.append(('%libdir', '@PARCOACH_LIB_DIR@'))
 
 # It's not quite possible to detect which MPI library is being used, so just
 # setup the CC for known usages.
 config.environment['OMPI_CC'] = '@CMAKE_C_COMPILER@'
+config.environment['OMPI_FC'] = '@CMAKE_Fortran_COMPILER@'
 config.environment['MPICH_CC'] = '@CMAKE_C_COMPILER@'
+config.environment['MPICH_FC'] = '@CMAKE_Fortran_COMPILER@'
 
 if @PARCOACH_ENABLE_VALGRIND@:
   config.available_features.add('valgrind')

@@ -1,6 +1,12 @@
 # PARCOACH changelog
 
-## 2.1.1
+## 2.2.0
+
+### General
+
+  - analyses: integrated static and dynamic analyses for MPI-RMA.
+  They are available by using the `-check=rma` flag.
+
 
 ## 2.1.0
 

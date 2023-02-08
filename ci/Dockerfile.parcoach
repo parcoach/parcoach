@@ -20,8 +20,14 @@ ARG UBUNTU_VERSION
 ARG LLVM_VERSION
 RUN if [ -n "$LLVM_VERSION" ]; then /scripts/install-llvm.sh ${UBUNTU_VERSION} ${LLVM_VERSION}; fi
 
-# Install MPI
-RUN /scripts/install-mpi.sh
+# Install OpenMPI
+ARG OPENMPI_VERSION
+RUN if [ -n "$OPENMPI_VERSION" ]; then /scripts/install-openmpi.sh ${OPENMPI_VERSION}; fi
+# This fixes running RMA codes within docker.
+ENV OMPI_MCA_btl_vader_single_copy_mechanism=${OPENMPI_VERSION:+none}
+
+ARG MPICH_VERSION
+RUN if [ -n "$MPICH_VERSION" ]; then /scripts/install-mpich.sh ${MPICH_VERSION}; fi
 
 # Create the parcoach user
 RUN useradd -m parcoach

@@ -2,14 +2,16 @@ test-coverage:
   cache: !reference [.pipenv-template, cache]
   before_script: !reference [.pipenv-template, before_script]
   stage: tests
-  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
+  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG_OMPI"
   needs:
-    - build-linux-image
+    - build-linux-images
   tags:
     - linux,large
   script:
     - mkdir build
     - cmake . -G Ninja -B build -C caches/Coverage.cmake
+      -DCMAKE_Fortran_COMPILER=flang-new-15
+      -DCMAKE_Fortran_FLAGS="-flang-experimental-exec"
     - cmake --build build --target coverage
     # NOTE: this is a tiny bit tricky: we need to run lcov_cobertura from the
     # project's source folder so that the paths are correct in the XML.

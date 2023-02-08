@@ -5,10 +5,10 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pw
 
 # NOTE: python38 because default is 3.6 for ubi8 and MBI needs > 3.7
 dnf install -y \
-  cmake \
   make \
   gcc \
   gcc-c++ \
+  gcc-gfortran \
   git \
   python38 \
   rpm-build \

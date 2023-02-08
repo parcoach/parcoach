@@ -13,8 +13,9 @@ LLVM_VERSION=$2
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 echo "deb http://apt.llvm.org/${UBUNTU_VERSION}/ llvm-toolchain-${UBUNTU_VERSION}-${LLVM_VERSION} main" | tee /etc/apt/sources.list.d/llvm.list
 
-# FIXME: we should probably filter this a bit more.
 apt_install -t "llvm-toolchain-${UBUNTU_VERSION}-${LLVM_VERSION}" \
+  flang-${LLVM_VERSION} \
+  libflang-${LLVM_VERSION}-dev \
   clang-${LLVM_VERSION} \
   lldb-${LLVM_VERSION} \
   lld-${LLVM_VERSION} \
@@ -23,15 +24,9 @@ apt_install -t "llvm-toolchain-${UBUNTU_VERSION}-${LLVM_VERSION}" \
   clang-format-${LLVM_VERSION} \
   clang-tools-${LLVM_VERSION} \
   llvm-${LLVM_VERSION}-dev \
-  lld-${LLVM_VERSION} \
-  lldb-${LLVM_VERSION} \
   llvm-${LLVM_VERSION}-tools \
   libomp-${LLVM_VERSION}-dev \
-  libc++-${LLVM_VERSION}-dev \
-  libc++abi-${LLVM_VERSION}-dev \
-  libclang-common-${LLVM_VERSION}-dev \
-  libclang-${LLVM_VERSION}-dev \
-  libclang-cpp${LLVM_VERSION}-dev \
+  libclang-rt-${LLVM_VERSION}-dev \
   libunwind-${LLVM_VERSION}-dev \
   zlib1g-dev \
 

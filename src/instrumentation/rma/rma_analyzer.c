@@ -20,89 +20,12 @@
 rma_analyzer_state *state_htbl = NULL;
 static int win_mpi_tag_id[RMA_ANALYZER_MAX_WIN] = {0};
 
-/* Programming language used by the origin program */
-static Lang language_program;
-
 /* Activate or deactivate window filtering. Activated by default. */
 static int rma_analyzer_filter_window = 1;
 
 /******************************************************
  *    RMA Analyzer MPI Fortran/C wrapper routines     *
  ******************************************************/
-
-int fc_MPI_Comm_size(MPI_Comm comm, int *size) {
-  if (language_program == C)
-    return MPI_Comm_size(comm, size);
-  else // language_program == FORT
-  {
-    /* Since the communicator has been created in the Fortran program, we need
-     * to convert it */
-    MPI_Comm c_comm = MPI_Comm_f2c(comm);
-    return MPI_Comm_size(c_comm, size);
-  }
-}
-
-int fc_MPI_Comm_rank(MPI_Comm comm, int *rank) {
-  if (language_program == C)
-    return MPI_Comm_rank(comm, rank);
-  else // language_program == FORT
-  {
-    /* Since the communicator has been created in the Fortran program, we need
-     * to convert it */
-    MPI_Comm c_comm = MPI_Comm_f2c(comm);
-    return MPI_Comm_rank(c_comm, rank);
-  }
-}
-
-int fc_MPI_Cancel(MPI_Request *request) {
-  /* Since the request is created by the C library, no action needed */
-  return MPI_Cancel(request);
-}
-
-int fc_MPI_Test(MPI_Request *request, int *flag, MPI_Status *status) {
-  /* Since the request and the status are both created by the C library, no
-   * action needed */
-  return MPI_Test(request, flag, status);
-}
-
-int fc_MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest,
-                int tag, MPI_Comm comm) {
-  if (language_program == C)
-    return MPI_Send(buf, count, datatype, dest, tag, comm);
-  else // language_program == FORT
-  {
-    /* Since the communicator has been created in the Fortran program, we need
-     * to convert it */
-    MPI_Comm c_comm = MPI_Comm_f2c(comm);
-    return MPI_Send(buf, count, datatype, dest, tag, c_comm);
-  }
-}
-
-int fc_MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
-                 int tag, MPI_Comm comm, MPI_Request *request) {
-  if (language_program == C)
-    return MPI_Irecv(buf, count, datatype, source, tag, comm, request);
-  else // language_program == FORT
-  {
-    /* Since the communicator has been created in the Fortran program, we need
-     * to convert it */
-    MPI_Comm c_comm = MPI_Comm_f2c(comm);
-    return MPI_Irecv(buf, count, datatype, source, tag, c_comm, request);
-  }
-}
-
-int fc_MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
-                  MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) {
-  if (language_program == C)
-    return MPI_Reduce(sendbuf, recvbuf, count, datatype, op, root, comm);
-  else // language_program == FORT
-  {
-    /* Since the communicator has been created in the Fortran program, we need
-     * to convert it */
-    MPI_Comm c_comm = MPI_Comm_f2c(comm);
-    return MPI_Reduce(sendbuf, recvbuf, count, datatype, op, root, c_comm);
-  }
-}
 
 /******************************************************
  *             RMA Analyzer routines                  *
@@ -119,8 +42,8 @@ rma_analyzer_state *rma_analyzer_get_state(MPI_Win win) {
   }
   /*HASH_FIND_PTR(state_htbl, &win, state);*/
   if (NULL == state) {
-    LOG(stderr, "Error : no state found for %i in %s, exiting now\n", win,
-        __func__);
+    LOG(stderr, "Error : no state found for %p in %s, exiting now\n",
+        (void *)win, __func__);
     exit(EXIT_FAILURE);
   }
 
@@ -240,13 +163,12 @@ void rma_analyzer_check_communication(Interval *received_itv, MPI_Win win) {
   int mpi_flag = 0;
   MPI_Request mpi_request;
 
-  fc_MPI_Irecv(received_itv, 1, state->interval_datatype, MPI_ANY_SOURCE,
-               state->mpi_tag + state->count_epoch, state->win_comm,
-               &mpi_request);
+  MPI_Irecv(received_itv, 1, state->interval_datatype, MPI_ANY_SOURCE,
+            state->mpi_tag + state->count_epoch, state->win_comm, &mpi_request);
 
   while (mpi_flag == 0) {
     if ((state->thread_end == 1) && (state->count == state->value)) {
-      fc_MPI_Cancel(&mpi_request);
+      MPI_Cancel(&mpi_request);
       state->count = 0;
       pthread_exit(NULL);
       return;
@@ -260,7 +182,7 @@ void rma_analyzer_check_communication(Interval *received_itv, MPI_Win win) {
     }
     nb_loops++;
 
-    fc_MPI_Test(&mpi_request, &mpi_flag, MPI_STATUS_IGNORE);
+    MPI_Test(&mpi_request, &mpi_flag, MPI_STATUS_IGNORE);
   }
   state->count++;
   mpi_flag = 0;
@@ -363,7 +285,7 @@ void rma_analyzer_clear_comm_check_thread(int do_reduce, MPI_Win win) {
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
   int my_rank;
-  fc_MPI_Comm_rank(state->win_comm, &my_rank);
+  MPI_Comm_rank(state->win_comm, &my_rank);
 
   LOG(stderr, "My work stops here !\n");
   for (int i = 0; i < state->size_comm; i++) {
@@ -376,8 +298,8 @@ void rma_analyzer_clear_comm_check_thread(int do_reduce, MPI_Win win) {
    * zero to the number of communication the thread waits for. */
   if (do_reduce) {
     for (int i = 0; i < state->size_comm; i++) {
-      fc_MPI_Reduce(&(state->array[i]), (void *)(&state->value), 1, MPI_INT,
-                    MPI_SUM, i, state->win_comm);
+      MPI_Reduce(&(state->array[i]), (void *)(&state->value), 1, MPI_INT,
+                 MPI_SUM, i, state->win_comm);
     }
   } else {
     state->value = 0;
@@ -465,8 +387,8 @@ void rma_analyzer_update_on_comm_send(
   // print_interval(*target_itv);
   /* Send the struct Interval with interval_datatype MPI datatype to the target
    */
-  fc_MPI_Send(target_itv, 1, state->interval_datatype, target_rank,
-              state->mpi_tag + state->count_epoch, state->win_comm);
+  MPI_Send(target_itv, 1, state->interval_datatype, target_rank,
+           state->mpi_tag + state->count_epoch, state->win_comm);
 
   /* Increment number of communications sent to the target */
   state->array[target_rank]++;
@@ -494,14 +416,9 @@ void rma_analyzer_free_tag_range(int tag_id) {
 }
 
 /* Initialize the RMA analyzer */
-void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win,
-                        Lang language) {
+void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
+                        MPI_Win *win) {
   LOG(stderr, "Starting RMA analyzer\n");
-  if (language_program == NONE) {
-    language_program = language;
-  } else {
-    assert(language_program == language);
-  }
 
   /* Check if filtering of the window has been deactivated by env */
   char *tmp = getenv("RMA_ANALYZER_FILTER_WINDOW");
@@ -515,7 +432,7 @@ void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win,
   new_state->win_base = (uint64_t)base;
   new_state->win_size = (size_t)size;
   new_state->win_comm = comm;
-  fc_MPI_Comm_size(new_state->win_comm, &(new_state->size_comm));
+  MPI_Comm_size(new_state->win_comm, &(new_state->size_comm));
   new_state->array = malloc(sizeof(int) * new_state->size_comm);
 
   pthread_mutex_init(&new_state->list_mutex, NULL);
@@ -527,7 +444,7 @@ void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win,
 
   /* Create the MPI Datatype needed to exchange intervals */
   int struct_size = sizeof(Interval);
-  LOG(stderr, "Creating type: %i, %i, %p", struct_size, MPI_BYTE,
+  LOG(stderr, "Creating type: %i, %p, %p", struct_size, (void *)MPI_BYTE,
       &(new_state->interval_datatype));
   MPI_Type_contiguous(struct_size, MPI_BYTE, &(new_state->interval_datatype));
   MPI_Type_commit(&new_state->interval_datatype);
@@ -554,12 +471,15 @@ void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win,
   new_state->from_sync = 0;
 
   HASH_ADD_PTR(state_htbl, state_win, new_state);
-  LOG(stderr, "New state window added for window %i\n", new_state->state_win);
+  LOG(stderr, "New state window added for window %p\n",
+      (void *)new_state->state_win);
 }
 
 /* Free the resources used by the RMA analyzer */
 void rma_analyzer_stop(MPI_Win win) {
   LOG(stderr, "Getting state in %s\n", __func__);
+  // If we've reached that point, no conflicts have been detected.
+  printf("PARCOACH: stopping RMA analyzer, no issues found.");
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
   rma_analyzer_free_tag_range(state->mpi_tag);

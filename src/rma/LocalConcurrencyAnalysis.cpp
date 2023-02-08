@@ -1,4 +1,4 @@
-#include "parcoach/LocalConcurrencyDetectionPass.h"
+#include "parcoach/RMAPasses.h"
 
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/IR/Function.h"
@@ -8,6 +8,7 @@
 
 using namespace llvm;
 
+namespace parcoach::rma {
 namespace {
 class LCDAnalysis {
   enum Color { WHITE, GREY, BLACK };
@@ -21,12 +22,12 @@ class LCDAnalysis {
   BBMap LlatchMap;
   BBMemMap BBToMemAccess;
   FunctionAnalysisManager &FAM_;
-  parcoach::LocalConcurrencyVector Results;
+  LocalConcurrencyVector Results;
 
 public:
   LCDAnalysis(FunctionAnalysisManager &FAM) : FAM_(FAM){};
-  parcoach::LocalConcurrencyVector takeResults() {
-    parcoach::LocalConcurrencyVector Ret;
+  LocalConcurrencyVector takeResults() {
+    LocalConcurrencyVector Ret;
     std::swap(Results, Ret);
     return Ret;
   }
@@ -40,20 +41,12 @@ public:
 // Get the memory access from the instruction
 // We consider only local accesses here
 enum LCDAnalysis::ACCESS LCDAnalysis::getInstructionType(Instruction *I) {
-
-  // For FORTRAN codes:
-  if (I->getOpcode() == Instruction::BitCast) {
-    if (I->getOperand(0)->getName() == ("mpi_get_")) {
-      return WRITE;
-    } else if (I->getOperand(0)->getName() == ("mpi_put_")) {
-      return READ;
-    }
-    // For C codes:
-  } else if (CallBase *ci = dyn_cast<CallBase>(I)) {
+  if (CallBase *ci = dyn_cast<CallBase>(I)) {
     if (Function *calledFunction = ci->getCalledFunction()) {
-      if (calledFunction->getName() == "MPI_Get") {
+      StringRef CalledName = calledFunction->getName();
+      if (CalledName == "MPI_Get" || CalledName == "mpi_get_") {
         return WRITE;
-      } else if (calledFunction->getName() == "MPI_Put") {
+      } else if (CalledName == "MPI_Put" || CalledName == "mpi_put_") {
         return READ;
       }
     }
@@ -85,53 +78,21 @@ void LCDAnalysis::analyzeBB(BasicBlock *bb) {
       // ci->print(errs());
       // errs() << "\n";
       if (Function *calledFunction = ci->getCalledFunction()) {
+        StringRef CalledName = calledFunction->getName();
         // errs() << "Calledfunction = " << calledFunction->getName() << "\n";
-        if ((calledFunction->getName() == "MPI_Get") ||
-            (calledFunction->getName() == "MPI_Put")) {
+        if ((CalledName == "MPI_Get") || (CalledName == "MPI_Put") ||
+            (CalledName == "mpi_put_") || (CalledName == "mpi_get_")) {
           mem = ci->getArgOperand(0);
           // errs() << "!!!!!!!! Found a put / get -> store mem \n";
-        } else if ((calledFunction->getName() == "MPI_Win_flush") ||
-                   (calledFunction->getName() == "MPI_Win_flush_all") ||
-                   (calledFunction->getName() == "MPI_Win_fence") ||
-                   (calledFunction->getName() == "MPI_Win_flush_local")) {
-          // GreenErr() << "---> Found a synchro\n";
-          BBToMemAccess[bb].clear();
-        }
-      }
-    } else if (inst->getOpcode() == Instruction::BitCast) {
-      // inst->print(errs());
-      // errs() << "\n";
-      if (inst->getOperand(0)->getName() == ("mpi_put_") ||
-          inst->getOperand(0)->getName() == ("mpi_get_")) {
-        // errs() << "!!!!!!!! Found a put / get !!!!!! line " << line << " in "
-        // << file << "\n";
-
-        for (auto user = inst->user_begin(); user != inst->user_end(); ++user) {
-          // user->print(errs());
-          // errs() << "\n";
-          if (isa<CallBase>(cast<Instruction>(*user))) {
-            // errs() << "CallInst!\n";
-            CallBase *c = dyn_cast<CallBase>(*user);
-            // c->print(errs());
-            // errs() << "\n";
-            // errs() << "\n";
-            mem = c->getArgOperand(0);
-            errs() << inst->getOpcodeName()
-                   << " with operands: " << c->getArgOperand(0) << ", "
-                   << c->getArgOperand(1) << "\n";
-            // errs() << "!!!! store mem : " << mem << "!!!\n";
-          } else if (isa<InvokeInst>(cast<Instruction>(*user))) {
-            // errs() << "Invoke! Nothing is stored\n";
-          }
-        }
-      } else {
-        StringRef bitcastName = inst->getOperand(0)->getName();
-        if (bitcastName == ("mpi_win_flush_") ||
-            bitcastName == ("mpi_win_flush_all_") ||
-            bitcastName == "MPI_Win_flush_all" ||
-            bitcastName == "MPI_Win_flush" || bitcastName == "MPI_Win_fence" ||
-            bitcastName == ("mpi_win_fence_") ||
-            bitcastName == ("MPI_Win_flush_local")) {
+        } else if ((CalledName == "MPI_Win_flush") ||
+                   (CalledName == "MPI_Win_flush_all") ||
+                   (CalledName == "MPI_Win_fence") ||
+                   (CalledName == "MPI_Win_flush_local") ||
+                   (CalledName == "MPI_Win_unlock_all") ||
+                   (CalledName == "mpi_win_unlock_all_") ||
+                   (CalledName == "mpi_win_flush_") ||
+                   (CalledName == "mpi_win_flush_all_") ||
+                   (CalledName == "mpi_win_fence_")) {
           // GreenErr() << "---> Found a synchro\n";
           BBToMemAccess[bb].clear();
         }
@@ -367,7 +328,6 @@ void LCDAnalysis::analyze(Function *F) {
 }
 } // namespace
 
-namespace parcoach {
 AnalysisKey LocalConcurrencyAnalysis::Key;
 LocalConcurrencyVector
 LocalConcurrencyAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
@@ -378,4 +338,4 @@ LocalConcurrencyAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   return LCD.takeResults();
 }
 
-} // namespace parcoach
+} // namespace parcoach::rma

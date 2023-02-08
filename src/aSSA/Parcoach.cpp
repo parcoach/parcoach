@@ -13,12 +13,12 @@ The project is licensed under the LGPL 2.1 license
 #include "parcoach/Collectives.h"
 #include "parcoach/DepGraphDCF.h"
 #include "parcoach/ExtInfo.h"
-#include "parcoach/LocalConcurrencyDetectionPass.h"
 #include "parcoach/MemoryRegion.h"
 #include "parcoach/MemorySSA.h"
 #include "parcoach/ModRefAnalysis.h"
 #include "parcoach/Options.h"
 #include "parcoach/Passes.h"
+#include "parcoach/RMAPasses.h"
 #include "parcoach/StatisticsAnalysis.h"
 #include "parcoach/andersen/Andersen.h"
 
@@ -111,7 +111,7 @@ void RegisterPasses(ModulePassManager &MPM) {
 #ifdef PARCOACH_ENABLE_RMA
   if (Options::get().isActivated(Paradigm::RMA)) {
     // Add the RMA passes and that's it.
-    MPM.addPass(LocalConcurrencyDetectionPass());
+    MPM.addPass(rma::RMAInstrumentationPass());
     return;
   }
 #endif
@@ -127,8 +127,8 @@ void RegisterFunctionAnalyses(FunctionAnalysisManager &FAM) {
   AA.registerFunctionAnalysis<BasicAA>();
   FAM.registerPass([&]() { return std::move(AA); });
 #ifdef PARCOACH_ENABLE_RMA
-  FAM.registerPass([&]() { return LocalConcurrencyAnalysis(); });
-  FAM.registerPass([&]() { return RMAStatisticsAnalysis(); });
+  FAM.registerPass([&]() { return rma::LocalConcurrencyAnalysis(); });
+  FAM.registerPass([&]() { return rma::RMAStatisticsAnalysis(); });
 #endif
 }
 

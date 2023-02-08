@@ -10,14 +10,32 @@ services:
       # this part of the docker compose file.
       args:
         - UBUNTU_VERSION=focal
-        - CMAKE_VERSION=3.23.2
-        - CMAKE_SHA256=aaced6f745b86ce853661a595bdac6c5314a60f8181b6912a0a4920acfa32708
+        - CMAKE_VERSION=3.25.2
+        - CMAKE_SHA256=783da74f132fd1fea91b8236d267efa4df5b91c5eec1dea0a87f0cf233748d99
         - LLVM_VERSION=15
+        - OPENMPI_VERSION=deb
       tags:
-        - "parcoach:ubuntu-focal-build-20221125-llvm-15"
+        - "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230209-llvm-15-openmpi-deb"
     # NOTE: I don't think this is possible, but ideally we would share this
     # variable with the .gitlab-ci.yml
-    image: "parcoach:ubuntu-focal-build-20221125-llvm-15"
+    image: "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230209-llvm-15-openmpi-deb"
+    volumes:
+      - .:/home/parcoach/sources
+  shell-mpich:
+    build:
+      context: ci
+      dockerfile: Dockerfile.parcoach
+      args:
+        - UBUNTU_VERSION=focal
+        - CMAKE_VERSION=3.25.2
+        - CMAKE_SHA256=783da74f132fd1fea91b8236d267efa4df5b91c5eec1dea0a87f0cf233748d99
+        - LLVM_VERSION=15
+        - MPICH_VERSION=deb
+      tags:
+        - "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230209-llvm-15-mpich-deb"
+    # NOTE: I don't think this is possible, but ideally we would share this
+    # variable with the .gitlab-ci.yml
+    image: "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230209-llvm-15-mpich-deb"
     volumes:
       - .:/home/parcoach/sources
   ubi:
@@ -30,10 +48,12 @@ services:
         - MPI_SHA256=e166dbe876e13a50c2882e11193fecbc4362e89e6e7b6deeb69bf095c0f4fc4c
         - NINJA_VERSION=1.11.1
         - NINJA_SHA256=b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77
-        - LLVM_VERSION=15.0.6
+        - LLVM_VERSION=15.0.7
         - TESTS_VERSION=20221130
+        - CMAKE_VERSION=3.25.2
+        - CMAKE_SHA256=783da74f132fd1fea91b8236d267efa4df5b91c5eec1dea0a87f0cf233748d99
       tags:
-        - "parcoach:ubi-8.6-build-20221129-ninja-1.11.1-mpi-4.1.4-llvm-15.0.6-tests-20221130"
-    image: "parcoach:ubi-8.6-build-20221129-ninja-1.11.1-mpi-4.1.4-llvm-15.0.6-tests-20221130"
+        - "registry.gitlab.inria.fr/parcoach/parcoach:ubi-8.6-build-20230213-ninja-1.11.1-mpi-4.1.4-llvm-15.0.7-tests-20221130"
+    image: "registry.gitlab.inria.fr/parcoach/parcoach:ubi-8.6-build-20230213-ninja-1.11.1-mpi-4.1.4-llvm-15.0.7-tests-20221130"
     volumes:
       - .:/home/parcoach/sources

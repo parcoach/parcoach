@@ -1,0 +1,9 @@
+# -*- Python -*-
+
+# Configuration file for the 'lit' test runner.
+lit_config.load_config(config, '@CMAKE_CURRENT_BINARY_DIR@/../lit.cfg')
+
+# Basically inherit everything except for the name and root folders.
+config.name = 'MPI-RMA'
+config.test_source_root = '@CMAKE_CURRENT_SOURCE_DIR@'
+config.test_exec_root = '@CMAKE_CURRENT_BINARY_DIR@'

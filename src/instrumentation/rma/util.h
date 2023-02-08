@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#if __DEBUG
+#ifndef NDEBUG
 #define LOG fprintf
 #else
 #define LOG(...)                                                               \

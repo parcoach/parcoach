@@ -12,14 +12,11 @@
   tags:
     - linux,large
 
-# If we'd need to create another image we'd duplicate this job, and create a
-# new image tag.
-build-linux-image:
+build-linux-images:
   extends: .build-test-image
-  variables:
-    IMAGE_TAG: $LINUX_IMAGE_TAG
-
-build-rhel-image:
-  extends: .build-test-image
-  variables:
-    IMAGE_TAG: $RHEL_IMAGE_TAG
+  parallel:
+    matrix:
+      - IMAGE_TAG:
+        - $LINUX_IMAGE_TAG_OMPI
+        - $LINUX_IMAGE_TAG_MPICH
+        - $RHEL_IMAGE_TAG

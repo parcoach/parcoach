@@ -14,11 +14,10 @@ ARG NINJA_SHA256
 COPY rhel/install-ninja.sh /scripts
 RUN if [ -n "$NINJA_VERSION" ]; then /scripts/install-ninja.sh ${NINJA_VERSION} ${NINJA_SHA256}; fi
 
-# Install MPI
-ARG MPI_VERSION
-ARG MPI_SHA256
-COPY rhel/install-mpi.sh /scripts
-RUN if [ -n "$MPI_VERSION" ]; then /scripts/install-mpi.sh ${MPI_VERSION} ${MPI_SHA256}; fi
+COPY scripts/install-cmake.sh /scripts
+ARG CMAKE_VERSION
+ARG CMAKE_SHA256
+RUN if [ -n "$CMAKE_VERSION" ]; then /scripts/install-cmake.sh ${CMAKE_VERSION} ${CMAKE_SHA256} && cmake --version; fi
 
 # Install llvm if needed
 # This ARG is needed because ARG-s defined before FROM are outside of build stage.
@@ -26,6 +25,15 @@ ARG LLVM_VERSION
 COPY rhel/install-llvm.sh /scripts
 COPY rhel/llvm.cmake /scripts
 RUN if [ -n "$LLVM_VERSION" ]; then /scripts/install-llvm.sh ${LLVM_VERSION}; fi
+
+# Install MPI
+ARG MPI_VERSION
+ARG MPI_SHA256
+COPY rhel/install-mpi.sh /scripts
+RUN if [ -n "$MPI_VERSION" ]; then /scripts/install-mpi.sh ${MPI_VERSION} ${MPI_SHA256}; fi
+
+# This fixes running RMA codes within docker.
+ENV OMPI_MCA_btl_vader_single_copy_mechanism=none
 
 ARG TESTS_VERSION
 COPY rhel/install-tests-essentials.sh /scripts

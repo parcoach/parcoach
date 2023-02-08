@@ -1,12 +1,11 @@
 #pragma once
-// TODO: rename this to "RMAPasses" or something.
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Passes/PassBuilder.h"
 
-namespace parcoach {
-struct LocalConcurrencyDetectionPass
-    : public llvm::PassInfoMixin<LocalConcurrencyDetectionPass> {
+namespace parcoach::rma {
+struct RMAInstrumentationPass
+    : public llvm::PassInfoMixin<RMAInstrumentationPass> {
   llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
 };
 
@@ -41,4 +40,4 @@ public:
   Result run(llvm::Function &F, llvm::FunctionAnalysisManager &);
 };
 
-} // namespace parcoach
+} // namespace parcoach::rma

@@ -26,7 +26,7 @@ int new_Win_create(void *base, MPI_Aint size, int disp_unit, MPI_Info info,
 
   int ret = PMPI_Win_create(base, size, disp_unit, info, comm, win);
 
-  rma_analyzer_start(base, size, comm, win, C);
+  rma_analyzer_start(base, size, comm, win);
 
   return ret;
 }
@@ -39,7 +39,7 @@ int new_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info, MPI_Comm comm,
 
   int ret = PMPI_Win_allocate(size, disp_unit, info, comm, baseptr, win);
 
-  rma_analyzer_start(baseptr, size, comm, win, C);
+  rma_analyzer_start(baseptr, size, comm, win);
 
   return ret;
 }

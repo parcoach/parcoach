@@ -17,8 +17,6 @@
 
 #define DO_REDUCE 1
 
-typedef enum Lang { NONE, C, FORT } Lang;
-
 /* This structure contains the global state of the RMA analyzer
  * associated to a specific window */
 typedef struct rma_analyzer_state {
@@ -85,8 +83,7 @@ void rma_analyzer_save_interval_all_wins(uint64_t address, uint64_t size,
                                          char *filename);
 
 /* Initialize the RMA analyzer */
-void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win,
-                        Lang language);
+void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win);
 
 /* Free the resources used by the RMA analyzer */
 void rma_analyzer_stop(MPI_Win win);

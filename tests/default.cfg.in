@@ -10,3 +10,9 @@ config.substitutions.append(('%not', '@NOT_BIN@'))
 
 if @PARCOACH_ENABLE_COVERAGE@:
   config.environment['LLVM_PROFILE_FILE'] = '@PROFILE_FILE@'
+
+if @PARCOACH_ENABLE_FORTRAN@:
+  config.available_features.add('fortran')
+
+if @PARCOACH_ENABLE_INSTRUMENTATION@:
+  config.available_features.add('instrumentation')

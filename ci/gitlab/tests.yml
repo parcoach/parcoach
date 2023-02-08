@@ -16,23 +16,26 @@ test-releases:
         sudo rpm -i packages/*.rpm
         export CC=clang
         export CXX=clang++
+        export FC=flang-new
       else
         tar -xf packages/*-${TYPE}-Linux.tar.gz -C install
         export PARCOACH_INSTALL_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))"
         export LLVM_TOOLS_BINARY_DIR="$(dirname $(find /usr/lib -name FileCheck))"
+        export FC=flang-new-15
       fi
     - mkdir build
     - cmake tests -G Ninja -B build
       -C caches/Tests-releases.cmake
+      -DCMAKE_Fortran_FLAGS="-flang-experimental-exec"
       -DPARCOACH_VERSION_SUFFIX=$VERSION_SUFFIX
     - cmake --build build --target run-tests
 
 # This is the default debug+assert build+tests in-tree
 test-asserts:
   stage: tests
-  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG"
+  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG_OMPI"
   needs:
-    - build-linux-image
+    - build-linux-images
   tags:
     - linux,large
   cache: !reference [.pipenv-template, cache]

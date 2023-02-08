@@ -1,15 +1,32 @@
 cmake_minimum_required(VERSION 3.18)
+
 project(PARCOACH)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(CMakePolicy)
 include(Variables)
 include(ParcoachOptions)
+
+set(PARCOACH_LANGUAGES C CXX)
+if(PARCOACH_ENABLE_FORTRAN)
+  # I'm not sure doing this is "clean" as per CMake usage, but it allows to not
+  # bother installing a CMake version different from the system's if we're not
+  # using fortran.
+  # CMake 3.24 is the first version to be able to detect LLVMFlang.
+  cmake_minimum_required(VERSION 3.24)
+  LIST(APPEND PARCOACH_LANGUAGES Fortran)
+endif()
+enable_language(${PARCOACH_LANGUAGES})
+
 include(Helpers)
 
 message(STATUS "This is PARCOACH ${PACKAGE_VERSION}")
 message(STATUS "You need LLVM ${REQUIRED_LLVM_VERSION} to build this project")
 message(STATUS "Using CXX Compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Using C Compiler: ${CMAKE_C_COMPILER}")
+if(PARCOACH_ENABLE_FORTRAN)
+  message(STATUS "Using Fortran Compiler: ${CMAKE_Fortran_COMPILER}")
+endif()
+
 
 include(FindLLVM)
 

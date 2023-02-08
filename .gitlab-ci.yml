@@ -7,8 +7,10 @@ stages:
 variables:
   # If we need to update llvm we can just change the version here, and the
   # image will be recreated.
-  LINUX_IMAGE_TAG: "ubuntu-focal-build-20221125-llvm-15"
-  RHEL_IMAGE_TAG: "ubi-8.6-build-20221129-ninja-1.11.1-mpi-4.1.4-llvm-15.0.6-tests-20221130"
+  LINUX_IMAGE_TAG: "ubuntu-focal-build-20230209-llvm-15"
+  LINUX_IMAGE_TAG_OMPI: "ubuntu-focal-build-20230209-llvm-15-openmpi-deb"
+  LINUX_IMAGE_TAG_MPICH: "ubuntu-focal-build-20230209-llvm-15-mpich-deb"
+  RHEL_IMAGE_TAG: "ubi-8.6-build-20230213-ninja-1.11.1-mpi-4.1.4-llvm-15.0.7-tests-20221130"
   PIPENV_VENV_IN_PROJECT: "true"
   # NOTE: this is not quite accurate as we may get either a small/medium/large
   # runner, but it's better than nothing!

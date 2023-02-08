@@ -19,14 +19,20 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     parcoach REQUIRED
     HINTS ${PARCOACH_INSTALL_DIR}/bin)
   if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
+    set(PARCOACH_LIB_DIR ${PARCOACH_INSTALL_DIR}/lib)
     find_library(PARCOACH_MPI_INSTR_LIB
       Instrumentation REQUIRED
-      HINTS ${PARCOACH_INSTALL_DIR}/lib)
+      HINTS ${PARCOACH_LIB_DIR})
+  endif()
+  if(PARCOACH_ENABLE_FORTRAN)
+    enable_language(Fortran)
+    message(STATUS "Using Fortran Compiler: ${CMAKE_Fortran_COMPILER}")
   endif()
 else()
   set(PARCOACH_BIN ${CMAKE_BINARY_DIR}/parcoach)
-  if(PARCOACH_ENABLE_MPI)
+  if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
     set(PARCOACH_MPI_INSTR_LIB Instrumentation)
+    set(PARCOACH_LIB_DIR ${CMAKE_BINARY_DIR}/src/instrumentation)
   endif()
 endif()
 
@@ -43,6 +49,8 @@ set(PARCOACH_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for li
 
 parcoach_canonicalize_cmake_booleans(
   PARCOACH_ENABLE_COVERAGE
+  PARCOACH_ENABLE_INSTRUMENTATION
+  PARCOACH_ENABLE_FORTRAN
   )
 set(DEFAULT_LIT_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/default.cfg")
 

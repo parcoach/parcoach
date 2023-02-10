@@ -1,5 +1,6 @@
 # For now only MPI tests are supported through CMake
 find_package(MPI REQUIRED)
+message(STATUS "Using mpicc: ${MPI_C_COMPILER}")
 
 if(PARCOACH_ENABLE_INSTRUMENTATION)
   find_program(MPI_RUN_BIN NAMES mpirun REQUIRED)

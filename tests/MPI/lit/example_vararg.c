@@ -1,4 +1,4 @@
-// RUN: %clang %mpi_c_flags -g -S -emit-llvm %s -fno-builtin -o %t_libc.ll
+// RUN: %mpicc -g -S -emit-llvm %s -fno-builtin -o %t_libc.ll
 // RUN: %parcoach -check-mpi -disable-output %t_libc.ll 2>&1 | %filecheck %s
 // CHECK: warning: MPI_Reduce line {{[0-9]+}} possibly not called by all processes because of conditional(s) line(s)  {{[0-9]+}}
 #include "mpi.h"

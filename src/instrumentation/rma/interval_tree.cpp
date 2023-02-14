@@ -1,9 +1,12 @@
 #include "interval_tree.h"
 #include <assert.h>
 #include <inttypes.h>
+#include <iostream>
+#include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
 
+using namespace std;
 static inline unsigned long max(unsigned long A, unsigned long B) {
   return (A > B ? A : B);
 }
@@ -11,8 +14,7 @@ static inline unsigned long max(unsigned long A, unsigned long B) {
 /*create a new interval Search tree Node */
 
 Interval_tree *new_interval_tree(Interval *i) {
-  Interval_tree *temp;
-  temp = malloc(sizeof(Interval_tree));
+  Interval_tree *temp = new Interval_tree;
   temp->itv = i;
   temp->left = temp->right = NULL;
   temp->tree_size = 1;
@@ -64,6 +66,11 @@ Interval *overlap_search(Interval_tree *root, Interval *i) {
     return NULL;
   uint64_t low_bound = get_low_bound(i);
   uint64_t low_bound_root = get_low_bound(root->itv);
+  RMA_DEBUG({
+    cerr << "search between two intervals\n";
+    print_interval(*root->itv);
+    print_interval(*i);
+  });
 
   /*check if the given interval overlaps with root*/
   if (if_intersects(*root->itv, *i))
@@ -104,8 +111,8 @@ void free_interval_tree(Interval_tree *root) {
 
   free_interval_tree(root->left);
   free_interval_tree(root->right);
-  free(root->itv);
-  free(root);
+  delete root->itv;
+  delete root;
 }
 
 void print_interval_tree_stats(Interval_tree *root) {
@@ -117,43 +124,3 @@ void print_interval_tree_stats(Interval_tree *root) {
            root->tree_max_depth);
   }
 }
-
-/*
-int main()
-{
- Interval *A = create_interval(16,21, READ);
- Interval *B = create_interval(8,9, READ);
- Interval *C = create_interval(25,30, READ);
- Interval *D = create_interval(15,23, READ);
- Interval *E = create_interval(17,19, READ);
- Interval *F = create_interval(5,8, READ);
- Interval *G = create_interval(26,28,READ);
- Interval *H = create_interval(0,3,READ);
- Interval *I = create_interval(20,21,READ);
- Interval *J = create_interval(6,10,READ);
- Interval_tree *my_tree = NULL;
- my_tree = new_interval_tree(A);
- printf("The root of this tree is : [%"PRIu64 ", %"PRIu64 "]\n",A->low_bound,
-A->up_bound); if(!overlap_search(my_tree,B)) insert_interval_tree(my_tree, B);
- if(!overlap_search(my_tree,C))
-  insert_interval_tree(my_tree, C);
- if(!overlap_search(my_tree,D))
-  insert_interval_tree(my_tree, D);
- if(!overlap_search(my_tree,E))
-  insert_interval_tree(my_tree, E);
- if(!overlap_search(my_tree,F))
-  insert_interval_tree(my_tree, F);
- if(!overlap_search(my_tree,G))
-  insert_interval_tree(my_tree, G);
-
- if(!overlap_search(my_tree,H))
-  insert_interval_tree(my_tree, H);
- if(!overlap_search(my_tree,I))
-  insert_interval_tree(my_tree, I);
- if(!overlap_search(my_tree,J))
-  insert_interval_tree(my_tree, J);
- printf("Inorder traversal of the constructed Interval Tree is :\n");
- in_order_print_tree(my_tree);
- free(my_tree);
-}
-*/

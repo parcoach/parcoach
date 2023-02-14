@@ -2,6 +2,7 @@
 #define __INTERVAL_TREE__H__
 
 #include "interval.h"
+#include <stdbool.h>
 
 /*structure to represent a node in Interval Search Tree */
 typedef struct Interval_tree {
@@ -23,7 +24,7 @@ void insert_interval_tree(Interval_tree *root, Interval *i);
 
 /*This function aims to check if given two intervals overlap*/
 
-_Bool do_overlap(Interval i, Interval j);
+bool do_overlap(Interval i, Interval j);
 
 /*The main function that checks if the given interval overlap with another
  * interval in the interval tree */

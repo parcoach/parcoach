@@ -1,60 +1,30 @@
 #include "rma_analyzer.h"
-#include <assert.h>
-#include <errno.h>
-#include <inttypes.h>
-#include <limits.h>
+
 #include <mpi.h>
-#include <pthread.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 
-// #define USE_LIST 1
-#define USE_TREE 1
+#include <iostream>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <thread>
 
+using namespace std;
+namespace {
+map<MPI_Win, std::unique_ptr<rma_analyzer_state>> States;
 /******************************************************
  *             RMA Analyzer global state              *
  ******************************************************/
 
-rma_analyzer_state *state_htbl = NULL;
-static int win_mpi_tag_id[RMA_ANALYZER_MAX_WIN] = {0};
+int win_mpi_tag_id[RMA_ANALYZER_MAX_WIN] = {0};
 
 /* Activate or deactivate window filtering. Activated by default. */
-static int rma_analyzer_filter_window = 1;
-
-/******************************************************
- *    RMA Analyzer MPI Fortran/C wrapper routines     *
- ******************************************************/
-
-/******************************************************
- *             RMA Analyzer routines                  *
- ******************************************************/
-
-/* Get the RMA analyzer state associated to the window */
-rma_analyzer_state *rma_analyzer_get_state(MPI_Win win) {
-  rma_analyzer_state *current, *next;
-  rma_analyzer_state *state = NULL;
-  HASH_ITER(hh, state_htbl, current, next) {
-    if (current->state_win == win) {
-      state = current;
-    }
-  }
-  /*HASH_FIND_PTR(state_htbl, &win, state);*/
-  if (NULL == state) {
-    LOG(stderr, "Error : no state found for %p in %s, exiting now\n",
-        (void *)win, __func__);
-    exit(EXIT_FAILURE);
-  }
-
-  return state;
-}
+int rma_analyzer_filter_window = 1;
 
 /* Checks if there is an active epoch currently profiled by the RMA
  * Analyzer for the specified window. Used by LOAD/STORE overloading
  * routines to filter unneeeded registering */
-static int rma_analyzer_is_active_epoch(MPI_Win win) {
-  LOG(stderr, "Getting state in %s\n", __func__);
+int rma_analyzer_is_active_epoch(MPI_Win win) {
+  RMA_DEBUG(cerr << "Getting state in " << __func__ << "\n");
   rma_analyzer_state *state = rma_analyzer_get_state(win);
   return (state->active_epoch > 0);
 }
@@ -63,58 +33,55 @@ static int rma_analyzer_is_active_epoch(MPI_Win win) {
  * can be detected. Returns 1 if the interval has been saved, 0
  * otherwise: this means that the interval has been filtered out. */
 int rma_analyzer_save_interval(Interval *itv, MPI_Win win) {
-  LOG(stderr, "Getting state in %s\n", __func__);
+  RMA_DEBUG(cerr << "Getting state in " << __func__ << "\n");
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
   if ((!rma_analyzer_filter_window) ||
       ((get_low_bound(itv) >= state->win_base) &&
        (get_up_bound(itv) < (state->win_base + state->win_size)))) {
-    pthread_mutex_lock(&state->list_mutex);
+    scoped_lock Lock(state->ListMutex);
 
-    Interval *overlap_itv = NULL;
-#ifdef USE_TREE
-    overlap_itv = overlap_search(state->local_tree, itv);
-    if (overlap_itv != NULL)
-#else
-    if (if_intersects_interval_list(*itv, state->local_list))
-#endif
-    {
-      LOG(stderr, "Error : there is an intersection between the intervals in "
+    RMA_DEBUG({
+      cerr << "overlap search for:\n";
+      print_interval(*itv);
+    });
+    Interval *overlap_itv = overlap_search(state->local_tree, itv);
+    if (overlap_itv != NULL) {
+      RMA_DEBUG(
+          cerr << "Error : there is an intersection between the intervals in "
                   "this List!!\n");
       /* TODO: If you want to end the program instead of just printing an
        * error, this is here that you should do it */
       if (overlap_itv != NULL) {
-        int access_type = get_access_type(itv);
-        char *filename = get_filename(itv);
+        Access_type access_type = get_access_type(itv);
+        char *filename = itv->filename;
         int fileline = get_fileline(itv);
-        int overlap_access_type = get_access_type(overlap_itv);
-        char *overlap_filename = get_filename(overlap_itv);
+        Access_type overlap_access_type = get_access_type(overlap_itv);
+        char *overlap_filename = overlap_itv->filename;
         int overlap_fileline = get_fileline(overlap_itv);
-        fprintf(stderr, "Error when inserting memory access of type %s ",
-                access_type_to_str(access_type));
-        fprintf(stderr, "from file %s at line %d ", filename, fileline);
-        fprintf(stderr, "with already inserted interval of type %s ",
-                access_type_to_str(overlap_access_type));
-        fprintf(stderr, "from file %s at line %d.\n", overlap_filename,
-                overlap_fileline);
-        fprintf(stderr, "The program will be exiting now with MPI_Abort.\n");
+        ostringstream Err;
+        Err << "Error when inserting memory access of type "
+            << access_type_to_str(access_type) << " from file " << filename
+            << " at line " << fileline << " "
+            << "with already inserted interval of type "
+            << access_type_to_str(overlap_access_type) << " from file "
+            << overlap_filename << " at line " << overlap_fileline << ".\n"
+            << "The program will be exiting now with MPI_Abort.\n";
+        // Emit the error all at once.
+        cerr << Err.str();
       }
       MPI_Abort(MPI_COMM_WORLD, 1);
     } else {
-      LOG(stderr, "Fine, there is no intersection between the intervals in "
+      RMA_DEBUG(
+          cerr << "Fine, there is no intersection between the intervals in "
                   "this List !\n");
     }
 
-#ifdef USE_TREE
-    if (state->local_tree == NULL)
+    if (state->local_tree == NULL) {
       state->local_tree = new_interval_tree(itv);
-    else
+    } else {
       insert_interval_tree(state->local_tree, itv);
-#else
-    state->local_list = insert_interval_head(state->local_list, *itv);
-#endif
-
-    pthread_mutex_unlock(&state->list_mutex);
+    }
 
     return 1;
   }
@@ -123,40 +90,13 @@ int rma_analyzer_save_interval(Interval *itv, MPI_Win win) {
   return 0;
 }
 
-/* Save the interval given in parameter in all active windows.
- * Especially used for load and store instructions */
-// static int count = 0;
-void rma_analyzer_save_interval_all_wins(uint64_t address, uint64_t size,
-                                         Access_type access_type, int fileline,
-                                         char *filename) {
-  rma_analyzer_state *current, *next;
-  int ret;
-  // count ++;
-  // if(count == 1000000)
-  //{
-  //  printf(".");
-  //  count = 0;
-  // }
-  HASH_ITER(hh, state_htbl, current, next) {
-    if (rma_analyzer_is_active_epoch(current->state_win)) {
-      Interval *saved_itv = create_interval(address, address + size,
-                                            access_type, fileline, filename);
-
-      ret = rma_analyzer_save_interval(saved_itv, current->state_win);
-
-      if (!ret)
-        free(saved_itv);
-      // print_interval_list(current->local_list);
-    }
-  }
-}
-
 /* This routine is only to be called by the communication checking
  * thread. It checks if an interval has landed locally, and returns
  * only if an interval has been received. On return, the received_itv
- * parameter has been filled with a new interval. */
-void rma_analyzer_check_communication(Interval *received_itv, MPI_Win win) {
-  LOG(stderr, "Getting state in %s\n", __func__);
+ * parameter has been filled with a new interval.
+ * Returns true if the thread should exit. */
+bool rma_analyzer_check_communication(Interval *received_itv, MPI_Win win) {
+  RMA_DEBUG(cerr << "Getting state in " << __func__ << "\n");
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
   int nb_loops = 0;
@@ -170,8 +110,7 @@ void rma_analyzer_check_communication(Interval *received_itv, MPI_Win win) {
     if ((state->thread_end == 1) && (state->count == state->value)) {
       MPI_Cancel(&mpi_request);
       state->count = 0;
-      pthread_exit(NULL);
-      return;
+      return true;
     }
 
     /* Yield the thread when looping too much to reduce the pressure on
@@ -186,60 +125,31 @@ void rma_analyzer_check_communication(Interval *received_itv, MPI_Win win) {
   }
   state->count++;
   mpi_flag = 0;
+  return false;
 }
 
 /* This function is needed to receive the intervals and do comparaisons */
-void *rma_analyzer_comm_check_thread(void *args) {
+void rma_analyzer_comm_check_thread(MPI_Win win) {
   uint64_t low_bound, up_bound;
   Access_type access_type;
   int fileline, ret;
-  char *filename = NULL;
-  MPI_Win win = *(MPI_Win *)args;
-  free(args);
 
-  LOG(stderr, "Getting state in %s\n", __func__);
+  RMA_DEBUG(cerr << "Getting state in " << __func__ << "\n");
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
-  /* This interval is dedicated to receive intervals from other
-   * processes during the whole lifetime of the thread. */
-  Interval *received = malloc(sizeof(Interval));
-
-  rma_analyzer_check_communication(received, win);
-
-  // LOG(stderr,"MPI process received the first ");
-  // print_interval(*received);
-
-  low_bound = get_low_bound(received);
-  up_bound = get_up_bound(received);
-  access_type = get_access_type(received);
-  filename = get_filename(received);
-  fileline = get_fileline(received);
-
-  /* Create the interval to add in the list.
-   * Add the window offset to the received interval to match the local
-   * pointers addresses and find conflicts between remote and local
-   * accesses */
-  Interval *saved_interval =
-      create_interval(low_bound + state->win_base, up_bound + state->win_base,
-                      access_type, fileline, filename);
-
-  ret = rma_analyzer_save_interval(saved_interval, win);
-
-  if (!ret)
-    free(saved_interval);
-
-  // print_interval_list(state->local_list);
-
   while (1) {
-    rma_analyzer_check_communication(received, win);
+    /* This interval is dedicated to receive intervals from other
+     * processes during the whole lifetime of the thread. */
 
-    // LOG(stderr,"MPI process received ");
-    // print_interval(*received);
+    Interval *received = new Interval;
+    if (rma_analyzer_check_communication(received, win)) {
+      return;
+    }
 
     low_bound = get_low_bound(received);
     up_bound = get_up_bound(received);
     access_type = get_access_type(received);
-    filename = get_filename(received);
+    char *filename = received->filename;
     fileline = get_fileline(received);
 
     /* Create the interval to add in the list.
@@ -252,16 +162,91 @@ void *rma_analyzer_comm_check_thread(void *args) {
 
     ret = rma_analyzer_save_interval(saved_interval, win);
 
-    if (!ret)
-      free(saved_interval);
+    if (!ret) {
+      delete saved_interval;
+    }
 
     // print_interval_list(state->local_list);
   }
 }
 
+/* This routine returns a new tag range to use for the allocation of a
+ * new window */
+int rma_analyzer_get_tag_range_id() {
+  for (int i = 0; i < RMA_ANALYZER_MAX_WIN; i++) {
+    if (win_mpi_tag_id[i] == 0) {
+      win_mpi_tag_id[i] = 1;
+      return i;
+    }
+  }
+
+  /* No tag found, return an error as -1 */
+  return -1;
+}
+
+/* Gives the tag range back to the RMA analyzer to use it for a newly
+ * allocated window */
+void rma_analyzer_free_tag_range(int tag_id) {
+  int id = (tag_id - RMA_ANALYZER_BASE_MPI_TAG) / RMA_ANALYZER_MAX_EPOCH_NUMBER;
+  win_mpi_tag_id[id] = 0;
+}
+
+} // namespace
+
+/******************************************************
+ *    RMA Analyzer MPI Fortran/C wrapper routines     *
+ ******************************************************/
+
+/******************************************************
+ *             RMA Analyzer routines                  *
+ ******************************************************/
+
+/* Get the RMA analyzer state associated to the window */
+extern "C" rma_analyzer_state *rma_analyzer_get_state(MPI_Win win) {
+  auto &State = States[win];
+
+  if (!State) {
+    RMA_DEBUG(cerr << "Error : no state found for " << (void *)win << " in "
+                   << __func__ << ", exiting now\n");
+    exit(EXIT_FAILURE);
+  }
+
+  return State.get();
+}
+
+/* Save the interval given in parameter in all active windows.
+ * Especially used for load and store instructions */
+// static int count = 0;
+extern "C" void rma_analyzer_save_interval_all_wins(uint64_t address,
+                                                    uint64_t size,
+                                                    Access_type access_type,
+                                                    int fileline,
+                                                    char *filename) {
+  // count ++;
+  // if(count == 1000000)
+  //{
+  //  printf(".");
+  //  count = 0;
+  // }
+  RMA_DEBUG(cerr << "rma_save_interval_all_wins\n");
+  for (auto &[_, State] : States) {
+    if (rma_analyzer_is_active_epoch(State->state_win)) {
+      Interval *saved_itv = create_interval(address, address + size,
+                                            access_type, fileline, filename);
+      RMA_DEBUG(print_interval(*saved_itv));
+      int ret = rma_analyzer_save_interval(saved_itv, State->state_win);
+
+      if (!ret) {
+        delete saved_itv;
+      }
+      // print_interval_list(current->local_list);
+    }
+  }
+}
+
 /* This routine initializes the state variables needed for the
  * communication checking thread to work and starts it. */
-void rma_analyzer_init_comm_check_thread(MPI_Win win) {
+extern "C" void rma_analyzer_init_comm_check_thread(MPI_Win win) {
   LOG(stderr, "Getting state in %s\n", __func__);
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
@@ -271,16 +256,15 @@ void rma_analyzer_init_comm_check_thread(MPI_Win win) {
   state->thread_end = 0;
   state->count_epoch++;
   state->active_epoch = 1;
-  MPI_Win *tmp = malloc(sizeof(MPI_Win));
-  *tmp = win;
-  (void)pthread_create(&state->threadId, NULL, &rma_analyzer_comm_check_thread,
-                       tmp);
+
+  state->Thread = thread(&rma_analyzer_comm_check_thread, win);
 }
 
 /* This routine clears the state variables needed for the
  * communication checking thread to work. It should be called after
  * any call to pthread_join() for the communication checking thread. */
-void rma_analyzer_clear_comm_check_thread(int do_reduce, MPI_Win win) {
+extern "C" void rma_analyzer_clear_comm_check_thread(int do_reduce,
+                                                     MPI_Win win) {
   LOG(stderr, "Getting state in %s\n", __func__);
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
@@ -309,22 +293,17 @@ void rma_analyzer_clear_comm_check_thread(int do_reduce, MPI_Win win) {
 
   /* Switch the flag to check the end of the thread, and wait for it */
   state->thread_end = 1;
-  pthread_join(state->threadId, NULL);
+  state->Thread.join();
   LOG(stderr, "I passed the pthread join\n");
 
   /* Clear the state of the communication checking thread */
   state->count = 0;
   state->active_epoch = 0;
 
-#ifdef USE_TREE
   // print_interval_tree_stats(state->local_tree);
   // in_order_print_tree(state->local_tree);
   free_interval_tree(state->local_tree);
   state->local_tree = NULL;
-#else
-  // print_interval_list(state->local_list);
-  free_interval_list(&state->local_list);
-#endif
 }
 
 /* This routine initializes the state variables needed for the communication
@@ -332,14 +311,13 @@ void rma_analyzer_clear_comm_check_thread(int do_reduce, MPI_Win win) {
  * by a synchronization. This is particularly used for in-window
  * synchronizations that are not attached to a specific window, such as
  * MPI_Barrier.  */
-void rma_analyzer_init_comm_check_thread_all_wins() {
-  rma_analyzer_state *current, *next;
-  HASH_ITER(hh, state_htbl, current, next) {
+extern "C" void rma_analyzer_init_comm_check_thread_all_wins() {
+  for (auto &[_, State] : States) {
     /* Only restarts if the epoch has not been really stopped, but the flag has
      * been flipped by a synchronization inside the epoch */
-    if ((0 == rma_analyzer_is_active_epoch(current->state_win)) &&
-        (1 == current->from_sync)) {
-      rma_analyzer_init_comm_check_thread(current->state_win);
+    if ((0 == rma_analyzer_is_active_epoch(State->state_win)) &&
+        (1 == State->from_sync)) {
+      rma_analyzer_init_comm_check_thread(State->state_win);
     }
   }
 }
@@ -348,12 +326,11 @@ void rma_analyzer_init_comm_check_thread_all_wins() {
  * checking thread to work on all windows. This is particularly used for
  * in-window synchronizations that are not attached to a specific window, such
  * as Barrier.  */
-void rma_analyzer_clear_comm_check_thread_all_wins(int do_reduce) {
-  rma_analyzer_state *current, *next;
-  HASH_ITER(hh, state_htbl, current, next) {
-    if (rma_analyzer_is_active_epoch(current->state_win)) {
-      rma_analyzer_clear_comm_check_thread(do_reduce, current->state_win);
-      current->from_sync = 1;
+extern "C" void rma_analyzer_clear_comm_check_thread_all_wins(int do_reduce) {
+  for (auto &[_, State] : States) {
+    if (rma_analyzer_is_active_epoch(State->state_win)) {
+      rma_analyzer_clear_comm_check_thread(do_reduce, State->state_win);
+      State->from_sync = 1;
     }
   }
 }
@@ -361,7 +338,7 @@ void rma_analyzer_clear_comm_check_thread_all_wins(int do_reduce) {
 /* This routine takes care of the update of the local list with the
  * new interval and the sending of the detected interval to the remote
  * peer */
-void rma_analyzer_update_on_comm_send(
+extern "C" void rma_analyzer_update_on_comm_send(
     uint64_t local_address, uint64_t local_size, uint64_t target_disp,
     uint64_t target_size, int target_rank, Access_type local_access_type,
     Access_type target_access_type, int fileline, char *filename, MPI_Win win) {
@@ -374,7 +351,7 @@ void rma_analyzer_update_on_comm_send(
                       local_access_type, fileline, filename);
 
   // LOG(stderr,"local ");
-  // print_interval(*local_itv);
+  RMA_DEBUG(print_interval(*local_itv));
 
   rma_analyzer_save_interval(local_itv, win);
   // print_interval_list(state->local_list);
@@ -383,6 +360,7 @@ void rma_analyzer_update_on_comm_send(
   Interval *target_itv =
       create_interval(target_disp, target_disp + target_size - 1,
                       target_access_type, fileline, filename);
+  RMA_DEBUG(print_interval(*target_itv));
 
   // print_interval(*target_itv);
   /* Send the struct Interval with interval_datatype MPI datatype to the target
@@ -394,30 +372,9 @@ void rma_analyzer_update_on_comm_send(
   state->array[target_rank]++;
 }
 
-/* This routine returns a new tag range to use for the allocation of a
- * new window */
-int rma_analyzer_get_tag_range_id() {
-  for (int i = 0; i < RMA_ANALYZER_MAX_WIN; i++) {
-    if (win_mpi_tag_id[i] == 0) {
-      win_mpi_tag_id[i] = 1;
-      return i;
-    }
-  }
-
-  /* No tag found, return an error as -1 */
-  return -1;
-}
-
-/* Gives the tag range back to the RMA analyzer to use it for a newly
- * allocated window */
-void rma_analyzer_free_tag_range(int tag_id) {
-  int id = (tag_id - RMA_ANALYZER_BASE_MPI_TAG) / RMA_ANALYZER_MAX_EPOCH_NUMBER;
-  win_mpi_tag_id[id] = 0;
-}
-
 /* Initialize the RMA analyzer */
-void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
-                        MPI_Win *win) {
+extern "C" void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
+                                   MPI_Win *win) {
   LOG(stderr, "Starting RMA analyzer\n");
 
   /* Check if filtering of the window has been deactivated by env */
@@ -426,21 +383,16 @@ void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
     rma_analyzer_filter_window = atoi(tmp);
   }
 
-  rma_analyzer_state *new_state = malloc(sizeof(rma_analyzer_state));
+  unique_ptr<rma_analyzer_state> new_state = make_unique<rma_analyzer_state>();
 
   new_state->state_win = *win;
   new_state->win_base = (uint64_t)base;
   new_state->win_size = (size_t)size;
   new_state->win_comm = comm;
   MPI_Comm_size(new_state->win_comm, &(new_state->size_comm));
-  new_state->array = malloc(sizeof(int) * new_state->size_comm);
+  new_state->array = new int[new_state->size_comm];
 
-  pthread_mutex_init(&new_state->list_mutex, NULL);
-#ifdef USE_TREE
-  new_state->local_tree = NULL;
-#else
-  new_state->local_list = create_interval_list();
-#endif
+  new_state->local_tree = nullptr;
 
   /* Create the MPI Datatype needed to exchange intervals */
   int struct_size = sizeof(Interval);
@@ -470,20 +422,20 @@ void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
   new_state->active_epoch = 0;
   new_state->from_sync = 0;
 
-  HASH_ADD_PTR(state_htbl, state_win, new_state);
   LOG(stderr, "New state window added for window %p\n",
       (void *)new_state->state_win);
+  States.emplace(*win, std::move(new_state));
 }
 
 /* Free the resources used by the RMA analyzer */
-void rma_analyzer_stop(MPI_Win win) {
+extern "C" void rma_analyzer_stop(MPI_Win win) {
   LOG(stderr, "Getting state in %s\n", __func__);
   // If we've reached that point, no conflicts have been detected.
-  printf("PARCOACH: stopping RMA analyzer, no issues found.");
+  printf("PARCOACH: stopping RMA analyzer, no issues found.\n");
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
   rma_analyzer_free_tag_range(state->mpi_tag);
-  free(state->array);
+  delete[] state->array;
   MPI_Type_free(&state->interval_datatype);
-  HASH_DEL(state_htbl, state);
+  States.erase(win);
 }

@@ -3,21 +3,27 @@
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <iostream>
 #include <limits.h>
 #include <mpi.h>
+#include <sstream>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 
-static float temps;
-static clock_t t1, t2;
+using namespace std;
+namespace {
+float temps;
+clock_t t1, t2;
+} // namespace
 
 /******************************************************
  *          Beginning of epochs functions             *
  ******************************************************/
 
+extern "C" {
 /* This function is used to spawn the thread that would excute the
  * communication checking thread function at the win_create stage */
 int new_Win_create(void *base, MPI_Aint size, int disp_unit, MPI_Info info,
@@ -131,7 +137,13 @@ int new_Get(void *origin_addr, int origin_count, MPI_Datatype origin_datatype,
   uint64_t local_address = (uint64_t)origin_addr;
   uint64_t local_size = 0;
   uint64_t target_size = 0;
-  LOG(stderr, "DEBUG INFO: new_Get at line %d in file %s\n", line, filename);
+  RMA_DEBUG({
+    Err << "DEBUG INFO: new_Get at line " << line << "in file " << filename
+        << "\n"
+        << "oaddr:" << local_address << ", ocount: " << origin_count
+        << ", tdisp: " << target_disp << ", tcount: " << target_count << "\n";
+    cerr << Err.str();
+  });
 
   MPI_Type_size(origin_datatype, (int *)&local_size);
   local_size *= origin_count;
@@ -233,4 +245,5 @@ int new_Barrier(MPI_Comm comm) {
   rma_analyzer_init_comm_check_thread_all_wins();
 
   return PMPI_Barrier(comm);
+}
 }

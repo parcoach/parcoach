@@ -1,14 +1,15 @@
-# FIXME: just check MPI_FOUND
-find_package(MPI REQUIRED)
+if(NOT MPI_FOUND)
+  message(FATAL_ERROR "find_package(MPI) should have been called before!")
+endif()
+
 find_package(Threads REQUIRED)
 
 set(RMA_DYNAMIC_SOURCES
-  interval.c
-  interval_list.c
-  interval_tree.c
-  rma_analyzer.c
-  rma_analyzer_mpi_c_overload.c
-  rma_analyzer_load_store_overload.c
+  interval.cpp
+  interval_tree.cpp
+  rma_analyzer.cpp
+  rma_analyzer_mpi_c_overload.cpp
+  rma_analyzer_load_store_overload.cpp
   )
 set(RMA_DYNAMIC_LIBS
   MPI::MPI_C
@@ -17,7 +18,7 @@ set(RMA_DYNAMIC_LIBS
 
 if(PARCOACH_ENABLE_FORTRAN)
   list(APPEND RMA_DYNAMIC_SOURCES
-    rma_analyzer_mpi_fort_overload.c
+    rma_analyzer_mpi_fort_overload.cpp
     )
   list(APPEND RMA_DYNAMIC_LIBS
     MPI::MPI_Fortran
@@ -26,10 +27,8 @@ endif()
 
 set(RMA_DYNAMIC_HEADERS
   interval.h
-  interval_list.h
   interval_tree.h
   rma_analyzer.h
-  uthash.h
   util.h
   )
 add_sources_to_format(SOURCES ${RMA_DYNAMIC_SOURCES} ${RMA_DYNAMIC_HEADERS})

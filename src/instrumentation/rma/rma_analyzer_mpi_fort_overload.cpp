@@ -18,6 +18,7 @@ static clock_t t1, t2;
  *     Fortran prototype definitions used in code     *
  ******************************************************/
 
+extern "C" {
 int mpi_win_create_(int *base, int *size, int *disp_unit, int *info, int *comm,
                     int *win, int *res);
 int mpi_win_allocate_(int *size, int *disp_unit, int *info, int *comm,
@@ -345,4 +346,5 @@ int new_barrier_(int *comm, int *_) {
 
   mpi_barrier_(comm, &ret);
   return ret;
+}
 }

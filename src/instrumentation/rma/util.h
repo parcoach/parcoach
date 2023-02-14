@@ -1,7 +1,4 @@
-#ifndef __UTIL__H__
-#define __UTIL__H__
-
-#include <stdio.h>
+#pragma once
 
 #ifndef NDEBUG
 #define LOG fprintf
@@ -11,4 +8,14 @@
   } while (0)
 #endif // __DEBUG
 
-#endif // __UTIL_H__
+#ifndef NDEBUG
+#define RMA_DEBUG(X)                                                           \
+  {                                                                            \
+    ostringstream Err;                                                         \
+    X;                                                                         \
+  }
+#else
+#define RMA_DEBUG(...)                                                         \
+  do {                                                                         \
+  } while (0)
+#endif

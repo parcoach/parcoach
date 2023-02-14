@@ -1,4 +1,6 @@
-find_package(MPI REQUIRED)
+if(NOT MPI_FOUND)
+  message(FATAL_ERROR "find_package(MPI) should have been called before!")
+endif()
 
 add_sources_to_format(SOURCES MPI_DynamicCheck.c)
 add_library(MPI_DynamicCheck OBJECT MPI_DynamicCheck.c)

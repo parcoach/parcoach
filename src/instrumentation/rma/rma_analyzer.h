@@ -2,14 +2,14 @@
 #define __RMA_ANALYZER__H__
 
 #include "interval.h"
-#include "interval_list.h"
 #include "interval_tree.h"
-#include "uthash.h"
-#include "util.h"
 #include <mpi.h>
-#include <pthread.h>
 
-#define RMA_ANALYZER_BASE_MPI_TAG USHRT_MAX
+#include <limits>
+#include <mutex>
+#include <thread>
+
+#define RMA_ANALYZER_BASE_MPI_TAG std::numeric_limits<unsigned short>::max()
 /* Maximum number of epochs during the lifetime of a window */
 #define RMA_ANALYZER_MAX_EPOCH_NUMBER 1024
 /* Maximum number of windows supported simultaneously */
@@ -19,16 +19,15 @@
 
 /* This structure contains the global state of the RMA analyzer
  * associated to a specific window */
-typedef struct rma_analyzer_state {
+struct rma_analyzer_state {
   /* Key of RMA analyzer state hash table */
   MPI_Win state_win;
-  pthread_t threadId;
-  pthread_mutex_t list_mutex;
+  std::thread Thread;
+  std::mutex ListMutex;
   uint64_t win_base;
   size_t win_size;
   MPI_Comm win_comm;
   MPI_Datatype interval_datatype;
-  Interval_list *local_list;
   Interval_tree *local_tree;
   int size_comm;
   int mpi_tag;
@@ -40,8 +39,9 @@ typedef struct rma_analyzer_state {
   volatile int count;
   volatile int active_epoch;
   volatile int from_sync;
-  UT_hash_handle hh;
-} rma_analyzer_state;
+};
+
+extern "C" {
 
 /* Get the RMA analyzer state associated to the window */
 rma_analyzer_state *rma_analyzer_get_state(MPI_Win win);
@@ -87,5 +87,6 @@ void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win);
 
 /* Free the resources used by the RMA analyzer */
 void rma_analyzer_stop(MPI_Win win);
+}
 
 #endif // __RMA_ANALYZER_H__

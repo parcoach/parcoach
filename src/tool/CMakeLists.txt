@@ -27,7 +27,7 @@ call_llvm_helper(
   ${TOOL_SOURCES}
   ${LLVM_DYLIB_OPTION}
   DEPENDS
-  aSSA
+  ParcoachPasses
   )
 
-target_link_libraries(parcoach PRIVATE aSSA)
+target_link_libraries(parcoach PRIVATE ParcoachPasses)

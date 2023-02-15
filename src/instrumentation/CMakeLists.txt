@@ -3,8 +3,8 @@ find_package(MPI REQUIRED)
 # Avoid including any C++ bindings.
 add_compile_definitions(OMPI_SKIP_MPICXX MPICH_SKIP_MPICXX)
 
-add_library(Instrumentation SHARED)
-install(TARGETS Instrumentation)
+add_library(ParcoachInstrumentation SHARED)
+install(TARGETS ParcoachInstrumentation)
 
 add_subdirectory(mpi)
 if(PARCOACH_ENABLE_RMA)

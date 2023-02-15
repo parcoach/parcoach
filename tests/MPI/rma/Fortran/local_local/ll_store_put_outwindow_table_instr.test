@@ -2,6 +2,6 @@
 // RUN: c_file=$(echo %s | sed 's/_instr.test/.f90/')
 // RUN: %mpifort -g -S -emit-llvm "$c_file" -o %t.ll
 // RUN: %parcoach -check=rma -o %t_instr.ll %t.ll
-// RUN: %mpifort %t_instr.ll -L%libdir -lInstrumentation -o %t.bin
-// RUN: LD_LIBRARY_PATH=%libdir:$LD_LIBRARY_PATH %mpiexec -np 3 %t.bin 2>&1 | %filecheck %s
+// RUN: %mpifort %t_instr.ll %instr_flags -o %t.bin
+// RUN: %ld_lib_path %mpiexec -np 3 %t.bin 2>&1 | %filecheck %s
 // CHECK: PARCOACH: {{.*}}no issues found

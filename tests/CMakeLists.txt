@@ -14,6 +14,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   enable_testing()
 endif()
 
+set(PARCOACH_MPI_INSTR_LIB_NAME ParcoachInstrumentation)
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   find_program(PARCOACH_BIN
     parcoach REQUIRED
@@ -21,17 +22,18 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
     set(PARCOACH_LIB_DIR ${PARCOACH_INSTALL_DIR}/lib)
     find_library(PARCOACH_MPI_INSTR_LIB
-      Instrumentation REQUIRED
+      ${PARCOACH_MPI_INSTR_LIB_NAME} REQUIRED
       HINTS ${PARCOACH_LIB_DIR})
   endif()
   if(PARCOACH_ENABLE_FORTRAN)
+    cmake_minimum_required(VERSION 3.24)
     enable_language(Fortran)
     message(STATUS "Using Fortran Compiler: ${CMAKE_Fortran_COMPILER}")
   endif()
 else()
   set(PARCOACH_BIN ${CMAKE_BINARY_DIR}/parcoach)
   if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
-    set(PARCOACH_MPI_INSTR_LIB Instrumentation)
+    set(PARCOACH_MPI_INSTR_LIB ${PARCOACH_MPI_INSTR_LIB_NAME})
     set(PARCOACH_LIB_DIR ${CMAKE_BINARY_DIR}/src/instrumentation)
   endif()
 endif()

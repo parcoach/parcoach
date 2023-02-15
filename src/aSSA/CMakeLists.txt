@@ -55,7 +55,7 @@ endif()
 
 call_llvm_helper(
   add_llvm_library
-  aSSA
+  ParcoachPasses
   ${ASSA_SOURCES}
   ${PARCOACH_LIB_TYPE}
   ${LLVM_DYLIB_OPTION}
@@ -63,5 +63,5 @@ call_llvm_helper(
   )
 
 if(PARCOACH_ENABLE_RMA)
-  target_link_libraries(aSSA PRIVATE RMA)
+  target_link_libraries(ParcoachPasses PRIVATE ParcoachRMA)
 endif()

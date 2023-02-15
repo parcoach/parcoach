@@ -33,7 +33,9 @@ config.test_exec_root = '@CMAKE_CURRENT_BINARY_DIR@'
 config.substitutions.append(('%mpicc', '@MPI_C_COMPILER@'))
 config.substitutions.append(('%mpifort', '@MPI_Fortran_COMPILER@ @CMAKE_Fortran_FLAGS@'))
 config.substitutions.append(('%mpiexec', '@MPIEXEC_EXECUTABLE@'))
-config.substitutions.append(('%libdir', '@PARCOACH_LIB_DIR@'))
+# FIXME: Change the lib when everything has moved to lit.
+config.substitutions.append(('%instr_flags', '-L@PARCOACH_LIB_DIR@ -l@PARCOACH_MPI_INSTR_LIB_NAME@'))
+config.substitutions.append(('%ld_lib_path', 'LD_LIBRARY_PATH=@PARCOACH_LIB_DIR@:$LD_LIBRARY_PATH'))
 
 # It's not quite possible to detect which MPI library is being used, so just
 # setup the CC for known usages.

@@ -18,7 +18,7 @@ endif()
 
 call_llvm_helper(
   add_llvm_library
-  RMA
+  ParcoachRMA
   ${RMA_PASS_SOURCES}
   ${PARCOACH_LIB_TYPE}
   ${LLVM_DYLIB_OPTION}

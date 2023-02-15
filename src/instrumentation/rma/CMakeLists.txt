@@ -36,4 +36,4 @@ add_library(RMADynamic OBJECT ${RMA_DYNAMIC_SOURCES})
 set_property(TARGET RMADynamic PROPERTY POSITION_INDEPENDENT_CODE 1)
 target_link_libraries(RMADynamic PRIVATE ${RMA_DYNAMIC_LIBS})
 
-target_link_libraries(Instrumentation RMADynamic)
+target_link_libraries(ParcoachInstrumentation RMADynamic)

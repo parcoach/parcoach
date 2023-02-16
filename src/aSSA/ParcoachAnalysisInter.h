@@ -16,18 +16,18 @@ class ParcoachAnalysisInter : public ParcoachAnalysis {
   using CollSet = std::string;
   // typedef bool Visited;
   enum Visited { white, grey, black };
-  using ComCollMap = std::map<const llvm::Value *, CollSet>;
+  using ComCollMap = std::map<llvm::Value const *, CollSet>;
 
-  using BBVisitedMap = std::map<const llvm::BasicBlock *, Visited>;
+  using BBVisitedMap = std::map<llvm::BasicBlock const *, Visited>;
 
   // FIXME: if we have a way to represent an empty "CollList", we don't
   // event need the unique_ptr.
-  using VCollListMap = std::map<const llvm::Value *, std::unique_ptr<CollList>>;
-  using CollListMap = std::map<const llvm::BasicBlock *, VCollListMap>;
+  using VCollListMap = std::map<llvm::Value const *, std::unique_ptr<CollList>>;
+  using CollListMap = std::map<llvm::BasicBlock const *, VCollListMap>;
 
-  using CollMap = std::map<const llvm::BasicBlock *, CollSet>;
+  using CollMap = std::map<llvm::BasicBlock const *, CollSet>;
 
-  using CollperFuncMap = std::map<const llvm::Function *, CollSet>;
+  using CollperFuncMap = std::map<llvm::Function const *, CollSet>;
 
 public:
   ParcoachAnalysisInter(llvm::Module &M, DepGraphDCF *DG,

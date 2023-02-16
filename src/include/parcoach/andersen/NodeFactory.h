@@ -24,13 +24,13 @@ public:
 private:
   AndersNodeType type;
   NodeIndex idx, mergeTarget;
-  const llvm::Value *value;
-  AndersNode(AndersNodeType t, unsigned i, const llvm::Value *v = nullptr)
+  llvm::Value const *value;
+  AndersNode(AndersNodeType t, unsigned i, llvm::Value const *v = nullptr)
       : type(t), idx(i), mergeTarget(i), value(v) {}
 
 public:
   NodeIndex getIndex() const { return idx; }
-  const llvm::Value *getValue() const { return value; }
+  llvm::Value const *getValue() const { return value; }
 
   friend class AndersNodeFactory;
 };
@@ -45,7 +45,7 @@ public:
 class AndersNodeFactory {
 public:
   // The largest unsigned int is reserved for invalid index
-  static const unsigned InvalidIndex;
+  static unsigned const InvalidIndex;
 
 private:
   // The set of nodes
@@ -59,40 +59,40 @@ private:
 
   // valueNodeMap - This map indicates the AndersNode* that a particular Value*
   // corresponds to
-  llvm::DenseMap<const llvm::Value *, NodeIndex> valueNodeMap;
+  llvm::DenseMap<llvm::Value const *, NodeIndex> valueNodeMap;
 
   // ObjectNodes - This map contains entries for each memory object in the
   // program: globals, alloca's and mallocs. We are able to represent them as
   // llvm::Value* because we're modeling the heap with the simplest
   // allocation-site approach
-  llvm::DenseMap<const llvm::Value *, NodeIndex> objNodeMap;
+  llvm::DenseMap<llvm::Value const *, NodeIndex> objNodeMap;
 
   // returnMap - This map contains an entry for each function in the program
   // that returns a ptr.
-  llvm::DenseMap<const llvm::Function *, NodeIndex> returnMap;
+  llvm::DenseMap<llvm::Function const *, NodeIndex> returnMap;
 
   // varargMap - This map contains the entry used to represent all pointers
   // passed through the varargs portion of a function call for a particular
   // function.  An entry is not present in this map for functions that do not
   // take variable arguments.
-  llvm::DenseMap<const llvm::Function *, NodeIndex> varargMap;
+  llvm::DenseMap<llvm::Function const *, NodeIndex> varargMap;
 
 public:
   AndersNodeFactory();
 
   // Factory methods
-  NodeIndex createValueNode(const llvm::Value *val = nullptr);
-  NodeIndex createObjectNode(const llvm::Value *val = nullptr);
-  NodeIndex createReturnNode(const llvm::Function *f);
-  NodeIndex createVarargNode(const llvm::Function *f);
+  NodeIndex createValueNode(llvm::Value const *val = nullptr);
+  NodeIndex createObjectNode(llvm::Value const *val = nullptr);
+  NodeIndex createReturnNode(llvm::Function const *f);
+  NodeIndex createVarargNode(llvm::Function const *f);
 
   // Map lookup interfaces (return InvalidIndex if value not found)
-  NodeIndex getValueNodeFor(const llvm::Value *val) const;
-  NodeIndex getValueNodeForConstant(const llvm::Constant *c) const;
-  NodeIndex getObjectNodeFor(const llvm::Value *val) const;
-  NodeIndex getObjectNodeForConstant(const llvm::Constant *c) const;
-  NodeIndex getReturnNodeFor(const llvm::Function *f) const;
-  NodeIndex getVarargNodeFor(const llvm::Function *f) const;
+  NodeIndex getValueNodeFor(llvm::Value const *val) const;
+  NodeIndex getValueNodeForConstant(llvm::Constant const *c) const;
+  NodeIndex getObjectNodeFor(llvm::Value const *val) const;
+  NodeIndex getObjectNodeForConstant(llvm::Constant const *c) const;
+  NodeIndex getReturnNodeFor(llvm::Function const *f) const;
+  NodeIndex getVarargNodeFor(llvm::Function const *f) const;
 
   // Node merge interfaces
   void mergeNode(NodeIndex n0, NodeIndex n1); // Merge n1 into n0
@@ -115,13 +115,13 @@ public:
   NodeIndex getNullObjectNode() const { return NullObjectIndex; }
 
   // Value getters
-  const llvm::Value *getValueForNode(NodeIndex i) const {
+  llvm::Value const *getValueForNode(NodeIndex i) const {
     return nodes.at(i).getValue();
   }
-  void getAllocSites(std::vector<const llvm::Value *> &) const;
+  void getAllocSites(std::vector<llvm::Value const *> &) const;
 
   // Value remover
-  void removeNodeForValue(const llvm::Value *val) { valueNodeMap.erase(val); }
+  void removeNodeForValue(llvm::Value const *val) { valueNodeMap.erase(val); }
 
   // Size getters
   unsigned getNumNodes() const { return nodes.size(); }

@@ -30,9 +30,8 @@ cl::opt<std::string> optDumpSSAFunc("dump-ssa-func",
 MemorySSA::MemorySSA(Module &M, Andersen const &PTA, PTACallGraph const &CG,
                      MemReg const &Regions, ModRefAnalysisResult *MRA,
                      ExtInfo const &extInfo, ModuleAnalysisManager &AM)
-    : computeMuChiTime(0), computePhiTime(0), renameTime(0),
-      computePhiPredicatesTime(0), PTA(PTA), CG(CG), Regions(Regions), MRA(MRA),
-      extInfo(extInfo), curDF(NULL), curDT(NULL) {
+    : PTA(PTA), CG(CG), Regions(Regions), MRA(MRA), extInfo(extInfo),
+      curDF(NULL), curDT(NULL) {
   buildSSA(M, AM);
 }
 
@@ -69,7 +68,7 @@ void MemorySSA::buildSSA(llvm::Module &M, llvm::ModuleAnalysisManager &AM) {
   }
 }
 
-void MemorySSA::buildSSA(const Function *F, DominatorTree &DT,
+void MemorySSA::buildSSA(Function const *F, DominatorTree &DT,
                          DominanceFrontier &DF, PostDominatorTree &PDT) {
   curDF = &DF;
   curDT = &DT;
@@ -78,35 +77,30 @@ void MemorySSA::buildSSA(const Function *F, DominatorTree &DT,
   usedRegs.clear();
   regDefToBBMap.clear();
 
-  double t1, t2, t3, t4, t5;
+  {
+    TimeTraceScope TTS("parcoach::MemorySSA::ComputeMuChi");
+    computeMuChi(F);
+  }
 
-  t1 = gettime();
+  {
+    TimeTraceScope TTS("parcoach::MemorySSA::ComputePhi");
+    computePhi(F);
+  }
 
-  computeMuChi(F);
+  {
+    TimeTraceScope TTS("parcoach::MemorySSA::Rename");
+    rename(F);
+  }
 
-  t2 = gettime();
-
-  computePhi(F);
-
-  t3 = gettime();
-
-  rename(F);
-
-  t4 = gettime();
-
-  computePhiPredicates(F);
-
-  t5 = gettime();
-
-  computeMuChiTime += t2 - t1;
-  computePhiTime += t3 - t2;
-  renameTime += t4 - t3;
-  computePhiPredicatesTime += t5 - t4;
+  {
+    TimeTraceScope TTS("parcoach::MemorySSA::ComputePhiPredicates");
+    computePhiPredicates(F);
+  }
 }
 
-void MemorySSA::computeMuChi(const Function *F) {
+void MemorySSA::computeMuChi(Function const *F) {
   for (auto I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    const Instruction *inst = &*I;
+    Instruction const *inst = &*I;
 
     /* Call Site */
     if (isCallSite(inst)) {
@@ -118,7 +112,7 @@ void MemorySSA::computeMuChi(const Function *F) {
 
       // indirect call
       if (callee == NULL) {
-        for (const Function *mayCallee : CG.getIndirectCallMap().lookup(inst)) {
+        for (Function const *mayCallee : CG.getIndirectCallMap().lookup(inst)) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
 
@@ -146,8 +140,8 @@ void MemorySSA::computeMuChi(const Function *F) {
      * the load instruction.
      */
     if (isa<LoadInst>(inst)) {
-      const LoadInst *LI = cast<LoadInst>(inst);
-      std::vector<const Value *> ptsSet;
+      LoadInst const *LI = cast<LoadInst>(inst);
+      std::vector<Value const *> ptsSet;
       bool Found = PTA.getPointsToSet(LI->getPointerOperand(), ptsSet);
       assert(Found && "Load not found in MSSA");
       if (!Found)
@@ -171,8 +165,8 @@ void MemorySSA::computeMuChi(const Function *F) {
      * the store instruction.
      */
     if (isa<StoreInst>(inst)) {
-      const StoreInst *SI = cast<StoreInst>(inst);
-      std::vector<const Value *> ptsSet;
+      StoreInst const *SI = cast<StoreInst>(inst);
+      std::vector<Value const *> ptsSet;
       bool Found = PTA.getPointsToSet(SI->getPointerOperand(), ptsSet);
       assert(Found && "Store not found in MSSA");
       if (!Found)
@@ -280,8 +274,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
         }
       }
 
-      std::vector<const Value *> ptsSet;
-      std::vector<const Value *> argPtsSet;
+      std::vector<Value const *> ptsSet;
+      std::vector<Value const *> argPtsSet;
       bool Found = PTA.getPointsToSet(arg, argPtsSet);
       assert(Found && "arg not found in MSSA");
       if (!Found)
@@ -306,9 +300,9 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
       }
 
       // Chis
-      if (i >= info->nbArgs) {
+      if (i >= info->NbArgs) {
         assert(callee->isVarArg());
-        if (info->argIsMod[info->nbArgs - 1]) {
+        if (info->ArgIsMod[info->NbArgs - 1]) {
           for (auto *r : regs) {
             if (MRA->inGlobalKillSet(r))
               continue;
@@ -319,7 +313,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
           }
         }
       } else {
-        if (info->argIsMod[i]) {
+        if (info->ArgIsMod[i]) {
           for (auto *r : regs) {
             if (MRA->inGlobalKillSet(r))
               continue;
@@ -333,8 +327,8 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
     }
 
     // Chi for return value if it is a pointer
-    if (info && info->retIsMod && CI->getType()->isPointerTy()) {
-      std::vector<const Value *> ptsSet;
+    if (info && info->RetIsMod && CI->getType()->isPointerTy()) {
+      std::vector<Value const *> ptsSet;
       bool Found = PTA.getPointsToSet(CI, ptsSet);
       assert(Found && "CI not found in MSSA");
       if (!Found)
@@ -358,7 +352,7 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
   // If the callee is not a declaration we create a Mu(Chi) for each region
   // in Ref(Mod) callee.
   else {
-    const Function *caller = inst->getParent()->getParent();
+    Function const *caller = inst->getParent()->getParent();
     MemRegSet killSet = MRA->getFuncKill(caller);
 
     // Create Mu for each region \in ref(callee)
@@ -382,21 +376,21 @@ void MemorySSA::computeMuChiForCalledFunction(CallBase *inst,
   }
 }
 
-void MemorySSA::computePhi(const Function *F) {
+void MemorySSA::computePhi(Function const *F) {
   // For each memory region used, compute basic blocks where phi must be
   // inserted.
   for (auto *r : usedRegs) {
-    std::vector<const BasicBlock *> worklist;
-    std::set<const BasicBlock *> domFronPlus;
-    std::set<const BasicBlock *> work;
+    std::vector<BasicBlock const *> worklist;
+    std::set<BasicBlock const *> domFronPlus;
+    std::set<BasicBlock const *> work;
 
-    for (const BasicBlock *X : regDefToBBMap[r]) {
+    for (BasicBlock const *X : regDefToBBMap[r]) {
       worklist.push_back(X);
       work.insert(X);
     }
 
     while (!worklist.empty()) {
-      const BasicBlock *X = worklist.back();
+      BasicBlock const *X = worklist.back();
       worklist.pop_back();
 
       auto it = curDF->find(const_cast<BasicBlock *>(X));
@@ -424,7 +418,7 @@ void MemorySSA::computePhi(const Function *F) {
   }
 }
 
-void MemorySSA::rename(const Function *F) {
+void MemorySSA::rename(Function const *F) {
   std::map<MemRegEntry *, unsigned> C;
   std::map<MemRegEntry *, std::vector<MSSAVar *>> S;
 
@@ -446,7 +440,7 @@ void MemorySSA::rename(const Function *F) {
   renameBB(F, &F->getEntryBlock(), C, S);
 }
 
-void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
+void MemorySSA::renameBB(Function const *F, llvm::BasicBlock const *X,
                          std::map<MemRegEntry *, unsigned> &C,
                          std::map<MemRegEntry *, std::vector<MSSAVar *>> &S) {
   // Compute LHS for PHI
@@ -467,7 +461,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
   //   push i onto S(V)
   //   C(V) <- i + 1
   for (auto I = X->begin(), E = X->end(); I != E; ++I) {
-    const Instruction *inst = &*I;
+    Instruction const *inst = &*I;
 
     if (isCallSite(inst)) {
       CallBase *cs(const_cast<CallBase *>(cast<CallBase>(inst)));
@@ -504,7 +498,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     }
 
     if (isa<StoreInst>(inst)) {
-      const StoreInst *SI = cast<StoreInst>(inst);
+      StoreInst const *SI = cast<StoreInst>(inst);
       for (auto &chi : storeToChiMap[SI]) {
         auto *V = chi->region;
         unsigned i = C[V];
@@ -516,7 +510,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     }
 
     if (isa<LoadInst>(inst)) {
-      const LoadInst *LI = cast<LoadInst>(inst);
+      LoadInst const *LI = cast<LoadInst>(inst);
       for (auto &mu : loadToMuMap[LI])
         mu->var = S[mu->region].back();
     }
@@ -532,7 +526,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
   //   For each Phi function F in Y
   //     Replace operands V by Vi  where i = Top(S(V))
   for (auto I = succ_begin(X), E = succ_end(X); I != E; ++I) {
-    const BasicBlock *Y = *I;
+    BasicBlock const *Y = *I;
     for (auto &phi : bbToPhiMap[Y]) {
       unsigned index = whichPred(X, Y);
       phi->opsVar[index] = S[phi->region].back();
@@ -543,7 +537,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
   DomTreeNode *DTnode = curDT->getNode(const_cast<BasicBlock *>(X));
   assert(DTnode);
   for (auto I = DTnode->begin(), E = DTnode->end(); I != E; ++I) {
-    const BasicBlock *Y = (*I)->getBlock();
+    BasicBlock const *Y = (*I)->getBlock();
     renameBB(F, Y, C, S);
   }
 
@@ -554,7 +548,7 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
     S[V].pop_back();
   }
   for (auto I = X->begin(), E = X->end(); I != E; ++I) {
-    const Instruction *inst = &*I;
+    Instruction const *inst = &*I;
 
     if (isa<CallInst>(inst)) {
       CallBase *cs(const_cast<CallBase *>(cast<CallBase>(inst)));
@@ -584,16 +578,16 @@ void MemorySSA::renameBB(const Function *F, const llvm::BasicBlock *X,
   }
 }
 
-void MemorySSA::computePhiPredicates(const llvm::Function *F) {
+void MemorySSA::computePhiPredicates(llvm::Function const *F) {
   ValueSet preds;
 
-  for (const BasicBlock &bb : *F) {
+  for (BasicBlock const &bb : *F) {
     for (auto &phi : bbToPhiMap[&bb]) {
       computeMSSAPhiPredicates(phi.get());
     }
 
-    for (const Instruction &inst : bb) {
-      const PHINode *phi = dyn_cast<PHINode>(&inst);
+    for (Instruction const &inst : bb) {
+      PHINode const *phi = dyn_cast<PHINode>(&inst);
       if (!phi)
         continue;
       computeLLVMPhiPredicates(phi);
@@ -601,7 +595,7 @@ void MemorySSA::computePhiPredicates(const llvm::Function *F) {
   }
 }
 
-void MemorySSA::computeLLVMPhiPredicates(const llvm::PHINode *phi) {
+void MemorySSA::computeLLVMPhiPredicates(llvm::PHINode const *phi) {
   // For each argument of the PHINode
   for (unsigned i = 0; i < phi->getNumIncomingValues(); ++i) {
     // Get IPDF
@@ -610,23 +604,23 @@ void MemorySSA::computeLLVMPhiPredicates(const llvm::PHINode *phi) {
 
     for (unsigned n = 0; n < IPDF.size(); ++n) {
       // Push conditions of each BB in the IPDF
-      const Instruction *ti = IPDF[n]->getTerminator();
+      Instruction const *ti = IPDF[n]->getTerminator();
       assert(ti);
 
       if (isa<BranchInst>(ti)) {
-        const BranchInst *bi = cast<BranchInst>(ti);
+        BranchInst const *bi = cast<BranchInst>(ti);
         assert(bi);
 
         if (bi->isUnconditional())
           continue;
 
-        const Value *cond = bi->getCondition();
+        Value const *cond = bi->getCondition();
 
         llvmPhiToPredMap[phi].insert(cond);
       } else if (isa<SwitchInst>(ti)) {
-        const SwitchInst *si = cast<SwitchInst>(ti);
+        SwitchInst const *si = cast<SwitchInst>(ti);
         assert(si);
-        const Value *cond = si->getCondition();
+        Value const *cond = si->getCondition();
         llvmPhiToPredMap[phi].insert(cond);
       }
     }
@@ -643,31 +637,31 @@ void MemorySSA::computeMSSAPhiPredicates(MSSAPhi *phi) {
 
     for (unsigned n = 0; n < IPDF.size(); ++n) {
       // Push conditions of each BB in the IPDF
-      const Instruction *ti = IPDF[n]->getTerminator();
+      Instruction const *ti = IPDF[n]->getTerminator();
       assert(ti);
 
       if (isa<BranchInst>(ti)) {
-        const BranchInst *bi = cast<BranchInst>(ti);
+        BranchInst const *bi = cast<BranchInst>(ti);
         assert(bi);
 
         if (bi->isUnconditional())
           continue;
 
-        const Value *cond = bi->getCondition();
+        Value const *cond = bi->getCondition();
 
         phi->preds.insert(cond);
       } else if (isa<SwitchInst>(ti)) {
-        const SwitchInst *si = cast<SwitchInst>(ti);
+        SwitchInst const *si = cast<SwitchInst>(ti);
         assert(si);
-        const Value *cond = si->getCondition();
+        Value const *cond = si->getCondition();
         phi->preds.insert(cond);
       }
     }
   }
 }
 
-unsigned MemorySSA::whichPred(const BasicBlock *pred,
-                              const BasicBlock *succ) const {
+unsigned MemorySSA::whichPred(BasicBlock const *pred,
+                              BasicBlock const *succ) const {
   unsigned index = 0;
   for (auto I = pred_begin(succ), E = pred_end(succ); I != E; ++I, ++index) {
     if (pred == *I)
@@ -677,7 +671,7 @@ unsigned MemorySSA::whichPred(const BasicBlock *pred,
   return index;
 }
 
-void MemorySSA::dumpMSSA(const llvm::Function *F) {
+void MemorySSA::dumpMSSA(llvm::Function const *F) {
   std::string filename = F->getName().str();
   filename.append("-assa.ll");
   errs() << "Writing '" << filename << "' ...\n";
@@ -687,7 +681,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
   // Function header
   stream << "define " << *F->getReturnType() << " @" << F->getName().str()
          << "(";
-  for (const Argument &arg : F->args())
+  for (Argument const &arg : F->args())
     stream << arg << ", ";
   stream << ") {\n";
 
@@ -697,7 +691,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
 
   // For each basic block
   for (auto BI = F->begin(), BE = F->end(); BI != BE; ++BI) {
-    const BasicBlock *bb = &*BI;
+    BasicBlock const *bb = &*BI;
 
     // BB name
     stream << bb->getName().str() << ":\n";
@@ -707,28 +701,28 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
       stream << phi->region->getName() << phi->var->version << " = phi( ";
       for (auto I : phi->opsVar)
         stream << phi->region->getName() << I.second->version << ", ";
-      for (const Value *v : phi->preds)
+      for (Value const *v : phi->preds)
         stream << getValueLabel(v) << ", ";
       stream << ")\n";
     }
 
     // For each instruction
     for (auto I = bb->begin(), E = bb->end(); I != E; ++I) {
-      const Instruction *inst = &*I;
+      Instruction const *inst = &*I;
 
       // LLVM Phi node: print predicates
-      if (const PHINode *PHI = dyn_cast<PHINode>(inst)) {
+      if (PHINode const *PHI = dyn_cast<PHINode>(inst)) {
         stream << getValueLabel(PHI) << " = phi(";
-        for (const Value *incoming : PHI->incoming_values())
+        for (Value const *incoming : PHI->incoming_values())
           stream << getValueLabel(incoming) << ", ";
-        for (const Value *pred : llvmPhiToPredMap[PHI])
+        for (Value const *pred : llvmPhiToPredMap[PHI])
           stream << getValueLabel(pred) << ", ";
         stream << ")\n";
         continue;
       }
 
       // Load inst
-      if (const LoadInst *LI = dyn_cast<LoadInst>(inst)) {
+      if (LoadInst const *LI = dyn_cast<LoadInst>(inst)) {
         stream << getValueLabel(LI) << " = mu(";
 
         for (auto &mu : loadToMuMap[LI])
@@ -750,7 +744,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
       }
 
       // Call inst
-      if (const CallInst *CI = dyn_cast<CallInst>(inst)) {
+      if (CallInst const *CI = dyn_cast<CallInst>(inst)) {
         if (isIntrinsicDbgInst(CI))
           continue;
 
@@ -789,7 +783,7 @@ void MemorySSA::dumpMSSA(const llvm::Function *F) {
 }
 
 void MemorySSA::createArtificalChiForCalledFunction(
-    llvm::CallBase *CS, const llvm::Function *callee) {
+    llvm::CallBase *CS, llvm::Function const *callee) {
   // Not sure if we need mod/ref info here, we can just create entry/exit chi
   // for each pointer arguments and then only connect the exit/return chis of
   // modified arguments in the dep graph.
@@ -811,7 +805,7 @@ void MemorySSA::createArtificalChiForCalledFunction(
 
   // Create artifical entry and exit chi for each pointer argument.
   unsigned argId = 0;
-  for (const Argument &arg : callee->args()) {
+  for (Argument const &arg : callee->args()) {
     if (!arg.getType()->isPointerTy()) {
       argId++;
       continue;
@@ -846,14 +840,6 @@ void MemorySSA::createArtificalChiForCalledFunction(
     auto &RetChi = ItRet->second;
     RetChi->var = std::make_unique<MSSAVar>(RetChi.get(), 0, nullptr);
   }
-}
-
-void MemorySSA::printTimers() const {
-  errs() << "compute Mu/Chi time : " << computeMuChiTime * 1.0e3 << " ms\n";
-  errs() << "compute Phi time : " << computePhiTime * 1.0e3 << " ms\n";
-  errs() << "compute Rename Chi time : " << renameTime * 1.0e3 << " ms\n";
-  errs() << "compute Phi Predicates time : " << computePhiPredicatesTime * 1.0e3
-         << " ms\n";
 }
 
 AnalysisKey MemorySSAAnalysis::Key;

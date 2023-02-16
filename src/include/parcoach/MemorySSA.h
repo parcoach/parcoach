@@ -32,41 +32,41 @@ class MemorySSA {
   using MuSet = std::set<MSSAMu *>;
   using ChiSet = std::set<MSSAChi *>;
   using PhiSet = std::set<MSSAPhi *>;
-  using BBSet = std::set<const llvm::BasicBlock *>;
-  using ValueSet = std::set<const llvm::Value *>;
+  using BBSet = std::set<llvm::BasicBlock const *>;
+  using ValueSet = std::set<llvm::Value const *>;
 
   // Chi and Mu annotations
-  using LoadToMuMap = llvm::ValueMap<const llvm::LoadInst *, MuOwnerSet>;
-  using StoreToChiMap = llvm::ValueMap<const llvm::StoreInst *, ChiOwnerSet>;
-  using CallSiteToMuSetMap = llvm::ValueMap<const llvm::CallBase *, MuOwnerSet>;
+  using LoadToMuMap = llvm::ValueMap<llvm::LoadInst const *, MuOwnerSet>;
+  using StoreToChiMap = llvm::ValueMap<llvm::StoreInst const *, ChiOwnerSet>;
+  using CallSiteToMuSetMap = llvm::ValueMap<llvm::CallBase const *, MuOwnerSet>;
   using CallSiteToChiSetMap = llvm::ValueMap<llvm::CallBase *, ChiOwnerSet>;
   using FuncCallSiteToChiMap =
-      llvm::ValueMap<const llvm::Function *,
+      llvm::ValueMap<llvm::Function const *,
                      std::map<llvm::CallBase *, std::unique_ptr<MSSAChi>>>;
   using FuncCallSiteToArgChiMap =
-      llvm::ValueMap<const llvm::Function *,
+      llvm::ValueMap<llvm::Function const *,
                      std::map<llvm::CallBase *, std::map<unsigned, MSSAChi *>>>;
 
   // Phis
-  using BBToPhiMap = llvm::ValueMap<const llvm::BasicBlock *, PhiOwnerSet>;
+  using BBToPhiMap = llvm::ValueMap<llvm::BasicBlock const *, PhiOwnerSet>;
   using MemRegToBBMap = std::map<MemRegEntry *, BBSet>;
-  using LLVMPhiToPredMap = llvm::ValueMap<const llvm::PHINode *, ValueSet>;
+  using LLVMPhiToPredMap = llvm::ValueMap<llvm::PHINode const *, ValueSet>;
 
   // Map functions to entry Chi set and return Mu set
-  using FunToEntryChiMap = llvm::ValueMap<const llvm::Function *, ChiOwnerSet>;
-  using FunToReturnMuMap = llvm::ValueMap<const llvm::Function *, MuOwnerSet>;
+  using FunToEntryChiMap = llvm::ValueMap<llvm::Function const *, ChiOwnerSet>;
+  using FunToReturnMuMap = llvm::ValueMap<llvm::Function const *, MuOwnerSet>;
 
   using FunRegToEntryChiMap =
-      llvm::ValueMap<const llvm::Function *,
+      llvm::ValueMap<llvm::Function const *,
                      std::map<MemRegEntry *, MSSAChi *>>;
   using FunRegToReturnMuMap =
-      llvm::ValueMap<const llvm::Function *, std::map<MemRegEntry *, MSSAMu *>>;
+      llvm::ValueMap<llvm::Function const *, std::map<MemRegEntry *, MSSAMu *>>;
 
-  using FuncToChiMap = llvm::ValueMap<const llvm::Function *, MSSAChi *>;
+  using FuncToChiMap = llvm::ValueMap<llvm::Function const *, MSSAChi *>;
   using FuncToArgChiMap =
-      llvm::ValueMap<const llvm::Function *, std::map<unsigned, MSSAChi *>>;
+      llvm::ValueMap<llvm::Function const *, std::map<unsigned, MSSAChi *>>;
   using FuncToCallBaseSet =
-      llvm::ValueMap<const llvm::Function *, std::set<llvm::CallBase *>>;
+      llvm::ValueMap<llvm::Function const *, std::set<llvm::CallBase *>>;
 
 public:
   MemorySSA(llvm::Module &M, Andersen const &PTA, PTACallGraph const &CG,
@@ -74,19 +74,17 @@ public:
             ExtInfo const &extInfo, llvm::ModuleAnalysisManager &AM);
   virtual ~MemorySSA();
 
-  void printTimers() const;
-
 private:
-  void dumpMSSA(const llvm::Function *F);
+  void dumpMSSA(llvm::Function const *F);
 
   void buildSSA(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
-  void buildSSA(const llvm::Function *F, llvm::DominatorTree &DT,
+  void buildSSA(llvm::Function const *F, llvm::DominatorTree &DT,
                 llvm::DominanceFrontier &DF, llvm::PostDominatorTree &PDT);
 
   void createArtificalChiForCalledFunction(llvm::CallBase *CB,
-                                           const llvm::Function *callee);
+                                           llvm::Function const *callee);
 
-  void computeMuChi(const llvm::Function *F);
+  void computeMuChi(llvm::Function const *F);
 
   void computeMuChiForCalledFunction(llvm::CallBase *inst,
                                      llvm::Function *callee);
@@ -98,23 +96,18 @@ private:
   // the control dependence graph,” ACM Trans. Program. Lang. Syst.,
   // vol. 13, no. 4, pp. 451–490, Oct. 1991.
   // http://doi.acm.org/10.1145/115372.115320
-  void computePhi(const llvm::Function *F);
-  void rename(const llvm::Function *F);
-  void renameBB(const llvm::Function *F, const llvm::BasicBlock *X,
+  void computePhi(llvm::Function const *F);
+  void rename(llvm::Function const *F);
+  void renameBB(llvm::Function const *F, llvm::BasicBlock const *X,
                 std::map<MemRegEntry *, unsigned> &C,
                 std::map<MemRegEntry *, std::vector<MSSAVar *>> &S);
 
-  void computePhiPredicates(const llvm::Function *F);
-  void computeLLVMPhiPredicates(const llvm::PHINode *phi);
+  void computePhiPredicates(llvm::Function const *F);
+  void computeLLVMPhiPredicates(llvm::PHINode const *phi);
   void computeMSSAPhiPredicates(MSSAPhi *phi);
 
-  unsigned whichPred(const llvm::BasicBlock *pred,
-                     const llvm::BasicBlock *succ) const;
-
-  double computeMuChiTime;
-  double computePhiTime;
-  double renameTime;
-  double computePhiPredicatesTime;
+  unsigned whichPred(llvm::BasicBlock const *pred,
+                     llvm::BasicBlock const *succ) const;
 
 protected:
   Andersen const &PTA;

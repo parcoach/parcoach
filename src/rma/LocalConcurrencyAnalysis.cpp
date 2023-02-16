@@ -14,8 +14,8 @@ class LCDAnalysis {
   enum Color { WHITE, GREY, BLACK };
   enum ACCESS { READ, WRITE };
   enum ACCESS getInstructionType(Instruction *I);
-  using BBColorMap = DenseMap<const BasicBlock *, Color>;
-  using BBMap = DenseMap<const BasicBlock *, bool>;
+  using BBColorMap = DenseMap<BasicBlock const *, Color>;
+  using BBMap = DenseMap<BasicBlock const *, bool>;
   using BBMemMap = std::map<BasicBlock *, ValueMap<Value *, Instruction *>>;
   BBColorMap ColorMap;
   BBMap LheaderMap;

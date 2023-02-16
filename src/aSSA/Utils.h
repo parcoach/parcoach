@@ -6,36 +6,34 @@
 
 #include <vector>
 
-bool isCallSite(const llvm::Instruction *inst);
+bool isCallSite(llvm::Instruction const *inst);
 
-std::string getValueLabel(const llvm::Value *v);
-std::string getCallValueLabel(const llvm::Value *v);
+std::string getValueLabel(llvm::Value const *v);
+std::string getCallValueLabel(llvm::Value const *v);
 
 std::vector<llvm::BasicBlock *>
 iterated_postdominance_frontier(llvm::PostDominatorTree &PDT,
                                 llvm::BasicBlock *BB);
 
-std::set<const llvm::Value *>
+std::set<llvm::Value const *>
 computeIPDFPredicates(llvm::PostDominatorTree &PDT, llvm::BasicBlock *BB);
 
-const llvm::Value *getReturnValue(const llvm::Function *F);
+llvm::Value const *getReturnValue(llvm::Function const *F);
 
-double gettime();
+bool isIntrinsicDbgFunction(llvm::Function const *F);
 
-bool isIntrinsicDbgFunction(const llvm::Function *F);
+bool isIntrinsicDbgInst(llvm::Instruction const *I);
 
-bool isIntrinsicDbgInst(const llvm::Instruction *I);
+bool functionDoesNotRet(llvm::Function const *F);
 
-bool functionDoesNotRet(const llvm::Function *F);
+llvm::Value const *getBasicBlockCond(llvm::BasicBlock const *BB);
 
-const llvm::Value *getBasicBlockCond(const llvm::BasicBlock *BB);
-
-unsigned getBBSetIntersectionSize(const std::set<const llvm::BasicBlock *> S1,
-                                  const std::set<const llvm::BasicBlock *> S2);
+unsigned getBBSetIntersectionSize(const std::set<llvm::BasicBlock const *> S1,
+                                  const std::set<llvm::BasicBlock const *> S2);
 
 unsigned
-getInstSetIntersectionSize(const std::set<const llvm::Instruction *> S1,
-                           const std::set<const llvm::Instruction *> S2);
+getInstSetIntersectionSize(const std::set<llvm::Instruction const *> S1,
+                           const std::set<llvm::Instruction const *> S2);
 
 // This is a small helper to always get a valid - possibly empty - range
 // contained in a const container.

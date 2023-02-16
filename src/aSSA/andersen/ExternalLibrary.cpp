@@ -9,7 +9,7 @@
 
 using namespace llvm;
 
-static const char *noopFuncs[] = {
+static char const *noopFuncs[] = {
     "log", "log10", "exp", "exp2", "exp10", "strcmp", "strncmp", "strlen",
     "atoi", "atof", "atol", "atoll", "remove", "unlink", "rename", "memcmp",
     "free", "execl", "execlp", "execle", "execv", "execvp", "chmod", "puts",
@@ -43,7 +43,7 @@ static const char *noopFuncs[] = {
     // this list in the future
     "setrlimit", "getrlimit", nullptr};
 
-static const char *mallocFuncs[] = {"malloc",
+static char const *mallocFuncs[] = {"malloc",
                                     "valloc",
                                     "calloc",
                                     "_Znwj",
@@ -61,22 +61,22 @@ static const char *mallocFuncs[] = {"malloc",
                                     "posix_memalign",
                                     nullptr};
 
-static const char *reallocFuncs[] = {"realloc", "strtok", "strtok_r", nullptr};
+static char const *reallocFuncs[] = {"realloc", "strtok", "strtok_r", nullptr};
 
-static const char *retArg0Funcs[] = {
+static char const *retArg0Funcs[] = {
     "fgets",    "gets",       "stpcpy",  "strcat",  "strchr",
     "strcpy",   "strerror_r", "strncat", "strncpy", "strpbrk",
     "strptime", "strrchr",    "strstr",  "getcwd",  nullptr};
 
-static const char *retArg1Funcs[] = {
+static char const *retArg1Funcs[] = {
     // Actually the return value of signal() will NOT alias its second argument,
     // but if you call it twice the return values may alias. We're making
     // conservative assumption here
     "signal", nullptr};
 
-static const char *retArg2Funcs[] = {"freopen", nullptr};
+static char const *retArg2Funcs[] = {"freopen", nullptr};
 
-static const char *memcpyFuncs[] = {"llvm.memcpy.i32",
+static char const *memcpyFuncs[] = {"llvm.memcpy.i32",
                                     "llvm.memcpy.p0i8.p0i8.i32",
                                     "llvm.memcpy.i64",
                                     "llvm.memcpy.p0i8.p0i8.i64",
@@ -89,10 +89,10 @@ static const char *memcpyFuncs[] = {"llvm.memcpy.i32",
                                     "bcopy",
                                     nullptr};
 
-static const char *convertFuncs[] = {"strtod",  "strtof",  "strtol", "strtold",
+static char const *convertFuncs[] = {"strtod",  "strtof",  "strtol", "strtold",
                                      "strtoll", "strtoul", nullptr};
 
-static bool lookupName(const char *table[], const char *str) {
+static bool lookupName(char const *table[], char const *str) {
   for (unsigned i = 0; table[i] != nullptr; ++i) {
     if (strcmp(table[i], str) == 0)
       return true;
@@ -105,7 +105,7 @@ static bool lookupName(const char *table[], const char *str) {
 // add the constraints and return true. If this is a call to an unknown
 // function, return false.
 bool Andersen::addConstraintForExternalLibrary(CallBase const &cs,
-                                               const Function *f) {
+                                               Function const *f) {
   assert(f != nullptr && "called function is nullptr!");
   assert((f->isDeclaration() || f->isIntrinsic()) &&
          "Not an external function!");
@@ -122,7 +122,7 @@ bool Andersen::addConstraintForExternalLibrary(CallBase const &cs,
   // Library calls that might allocate memory.
   if (lookupName(mallocFuncs, f->getName().data()) ||
       (isReallocLike && !isa<ConstantPointerNull>(cs.getArgOperand(0)))) {
-    const Instruction *inst = &cs;
+    Instruction const *inst = &cs;
 
     // Create the obj node
     NodeIndex objIndex = nodeFactory.createObjectNode(inst);
@@ -218,8 +218,8 @@ bool Andersen::addConstraintForExternalLibrary(CallBase const &cs,
   }
 
   if (f->getName() == "llvm.va_start") {
-    const Instruction *inst = &cs;
-    const Function *parentF = inst->getParent()->getParent();
+    Instruction const *inst = &cs;
+    Function const *parentF = inst->getParent()->getParent();
     assert(parentF->getFunctionType()->isVarArg());
     NodeIndex arg0Index = nodeFactory.getValueNodeFor(cs.getArgOperand(0));
     assert(arg0Index != AndersNodeFactory::InvalidIndex &&

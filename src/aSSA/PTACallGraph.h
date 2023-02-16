@@ -52,7 +52,7 @@ private:
 class PTACallGraph {
 public:
   using FunctionMapTy =
-      std::map<const llvm::Function *, std::unique_ptr<PTACallGraphNode>>;
+      std::map<llvm::Function const *, std::unique_ptr<PTACallGraphNode>>;
   using iterator = FunctionMapTy::iterator;
   using const_iterator = FunctionMapTy::const_iterator;
 
@@ -67,7 +67,7 @@ private:
 
   PTACallGraphNode *ProgEntry;
 
-  std::set<const llvm::Function *> reachableFunctions;
+  std::set<llvm::Function const *> reachableFunctions;
 
   /// \brief This node has edges to all external functions and those internal
   /// functions that have their address taken.
@@ -81,10 +81,10 @@ private:
   /// functions that it calls.
   void addToCallGraph(llvm::Function const &F);
 
-  llvm::ValueMap<const llvm::Instruction *, std::set<const llvm::Function *>>
+  llvm::ValueMap<llvm::Instruction const *, std::set<llvm::Function const *>>
       indirectCallMap;
 
-  PTACallGraphNode *getOrInsertFunction(const llvm::Function *F);
+  PTACallGraphNode *getOrInsertFunction(llvm::Function const *F);
 
 public:
   explicit PTACallGraph(llvm::Module const &M, Andersen const &AA);
@@ -98,7 +98,7 @@ public:
     return ExternalCallingNode;
   }
 
-  bool isReachableFromEntry(const llvm::Function &F) const;
+  bool isReachableFromEntry(llvm::Function const &F) const;
   auto const &getIndirectCallMap() const { return indirectCallMap; }
 };
 
@@ -123,7 +123,7 @@ public:
 
 namespace llvm {
 
-template <> struct GraphTraits<const PTACallGraphNode *> {
+template <> struct GraphTraits<PTACallGraphNode const *> {
   using NodeType = const PTACallGraphNode;
   using NodeRef = NodeType *;
 
@@ -143,9 +143,9 @@ template <> struct GraphTraits<const PTACallGraphNode *> {
 };
 
 template <>
-struct GraphTraits<const PTACallGraph *>
-    : public GraphTraits<const PTACallGraphNode *> {
-  static NodeType *getEntryNode(const PTACallGraph *CGN) {
+struct GraphTraits<PTACallGraph const *>
+    : public GraphTraits<PTACallGraphNode const *> {
+  static NodeType *getEntryNode(PTACallGraph const *CGN) {
     return CGN->getExternalCallingNode(); // Start at the external node!
   }
 };

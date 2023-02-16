@@ -1,5 +1,6 @@
 find_package(MPI REQUIRED)
 
+set(CMAKE_CXX_CLANG_TIDY "")
 # Avoid including any C++ bindings.
 add_compile_definitions(OMPI_SKIP_MPICXX MPICH_SKIP_MPICXX)
 

@@ -10,20 +10,20 @@ namespace parcoach {
 cl::OptionCategory ParcoachCategory("Parcoach options");
 
 namespace {
-cl::opt<bool> clOptOmpTaint("check-omp",
-                            cl::desc("enable OpenMP collectives checking"),
-                            cl::cat(ParcoachCategory));
-cl::opt<bool> clOptMpiTaint("check-mpi",
-                            cl::desc("enable MPI collectives checking"),
-                            cl::cat(ParcoachCategory));
+cl::opt<bool> OptOmpTaint("check-omp",
+                          cl::desc("enable OpenMP collectives checking"),
+                          cl::cat(ParcoachCategory));
+cl::opt<bool> OptMpiTaint("check-mpi",
+                          cl::desc("enable MPI collectives checking"),
+                          cl::cat(ParcoachCategory));
 
-cl::opt<bool> clOptCudaTaint("check-cuda",
-                             cl::desc("enable CUDA collectives checking"),
-                             cl::cat(ParcoachCategory));
+cl::opt<bool> OptCudaTaint("check-cuda",
+                           cl::desc("enable CUDA collectives checking"),
+                           cl::cat(ParcoachCategory));
 
-cl::opt<bool> clOptUpcTaint("check-upc",
-                            cl::desc("enable UPC collectives checking"),
-                            cl::cat(ParcoachCategory));
+cl::opt<bool> OptUpcTaint("check-upc",
+                          cl::desc("enable UPC collectives checking"),
+                          cl::cat(ParcoachCategory));
 
 // This sets the default paradigme to MPI; it's likely what we want.
 cl::opt<parcoach::Paradigm> ActivatedParadigm(
@@ -57,22 +57,24 @@ Options const &Options::get() {
 }
 
 Options::Options() {
-  if (clOptMpiTaint) {
+  if (OptMpiTaint) {
     ActivatedParadigm = Paradigm::MPI;
 #ifdef PARCOACH_ENABLE_OPENMP
-  } else if (clOptOmpTaint) {
+  } else if (OptOmpTaint) {
     ActivatedParadigm = Paradigm::OMP;
 #endif
 #ifdef PARCOACH_ENABLE_UPC
-  } else if (clOptUpcTaint) {
+  } else if (OptUpcTaint) {
     ActivatedParadigm = Paradigm::UPC;
 #endif
 #ifdef PARCOACH_ENABLE_CUDA
-  } else if (clOptCudaTaint) {
+  } else if (OptCudaTaint) {
     ActivatedParadigm = Paradigm::CUDA;
 #endif
   }
 }
 
-bool Options::isActivated(Paradigm P) const { return P == ActivatedParadigm; }
+bool Options::isActivated(Paradigm Par) const {
+  return Par == ActivatedParadigm;
+}
 } // namespace parcoach

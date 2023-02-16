@@ -35,7 +35,7 @@ void ModRefAnalysisResult::visitAllocaInst(AllocaInst &I) {
 }
 
 void ModRefAnalysisResult::visitLoadInst(LoadInst &I) {
-  std::vector<const Value *> ptsSet;
+  std::vector<Value const *> ptsSet;
   bool Found = PTA.getPointsToSet(I.getPointerOperand(), ptsSet);
   // FIXME: should this be an actual error?
   assert(Found && "Load not found");
@@ -52,7 +52,7 @@ void ModRefAnalysisResult::visitLoadInst(LoadInst &I) {
 }
 
 void ModRefAnalysisResult::visitStoreInst(StoreInst &I) {
-  std::vector<const Value *> ptsSet;
+  std::vector<Value const *> ptsSet;
   bool Found = PTA.getPointsToSet(I.getPointerOperand(), ptsSet);
   // FIXME: should this be an actual error?
   assert(Found && "Store not found");
@@ -75,7 +75,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
   // modified in the callee.
 
   CallInst *CI = cast<CallInst>(&CB);
-  const Function *callee = CI->getCalledFunction();
+  Function const *callee = CI->getCalledFunction();
 #if defined(PARCOACH_ENABLE_CUDA) || defined(PARCOACH_ENABLE_OPENMP)
   Collective const *Coll = callee ? Collective::find(*callee) : nullptr;
 #endif
@@ -106,7 +106,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
   // indirect call
   if (!callee) {
     bool mayCallExternalFunction = false;
-    for (const Function *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
+    for (Function const *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
       if (mayCallee->isDeclaration() && !isIntrinsicDbgFunction(mayCallee)) {
         mayCallExternalFunction = true;
         break;
@@ -142,7 +142,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
       }
     }
 
-    std::vector<const Value *> argPtsSet;
+    std::vector<Value const *> argPtsSet;
 
     bool Found = PTA.getPointsToSet(arg, argPtsSet);
     assert(Found && "arg not found in ModRefAnalysisResult");
@@ -164,12 +164,12 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
 
       if (info) {
         // Variadic argument
-        if (i >= info->nbArgs) {
+        if (i >= info->NbArgs) {
           // errs() << "Function: " << callee->getName() << " in " <<
           // callee->getParent()->getName() << "\n";
           assert(callee->isVarArg());
 
-          if (info->argIsMod[info->nbArgs - 1]) {
+          if (info->ArgIsMod[info->NbArgs - 1]) {
             for (auto *r : regs) {
               if (globalKillSet.find(r) != globalKillSet.end())
                 continue;
@@ -178,7 +178,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
           }
         } else {
           // Normal argument
-          if (info->argIsMod[i]) {
+          if (info->ArgIsMod[i]) {
             for (auto *r : regs) {
               if (globalKillSet.find(r) != globalKillSet.end())
                 continue;
@@ -188,7 +188,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         }
       }
     } else { // indirect call
-      for (const Function *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
+      for (Function const *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
         if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
           continue;
 
@@ -198,10 +198,10 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         }
 
         // Variadic argument
-        if (i >= info->nbArgs) {
+        if (i >= info->NbArgs) {
           assert(mayCallee->isVarArg());
 
-          if (info->argIsMod[info->nbArgs - 1]) {
+          if (info->ArgIsMod[info->NbArgs - 1]) {
             for (auto *r : regs) {
               if (globalKillSet.find(r) != globalKillSet.end())
                 continue;
@@ -212,7 +212,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
 
         // Normal argument
         else {
-          if (info->argIsMod[i]) {
+          if (info->ArgIsMod[i]) {
             for (auto *r : regs) {
               if (globalKillSet.find(r) != globalKillSet.end())
                 continue;
@@ -229,7 +229,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
     auto const *info = extInfo.getExtModInfo(callee);
 
     if (callee->getReturnType()->isPointerTy()) {
-      std::vector<const Value *> retPtsSet;
+      std::vector<Value const *> retPtsSet;
       bool Found = PTA.getPointsToSet(CI, retPtsSet);
       assert(Found && "callee not found in ModRefAnalysisResult");
       if (!Found) {
@@ -244,7 +244,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
         funcRefMap[curFunc].insert(r);
       }
 
-      if (info && info->retIsMod) {
+      if (info && info->RetIsMod) {
         for (auto *r : regs) {
           if (globalKillSet.find(r) != globalKillSet.end())
             continue;
@@ -255,14 +255,14 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
   }
 
   else {
-    for (const Function *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
+    for (Function const *mayCallee : CG.getIndirectCallMap().lookup(CI)) {
       if (!mayCallee->isDeclaration() || isIntrinsicDbgFunction(mayCallee))
         continue;
 
       auto const *info = extInfo.getExtModInfo(mayCallee);
 
       if (mayCallee->getReturnType()->isPointerTy()) {
-        std::vector<const Value *> retPtsSet;
+        std::vector<Value const *> retPtsSet;
         bool Found = PTA.getPointsToSet(CI, retPtsSet);
         assert(Found && "CI not found in ModRefAnalysisResult");
         if (!Found) {
@@ -276,7 +276,7 @@ void ModRefAnalysisResult::visitCallBase(CallBase &CB) {
           funcRefMap[curFunc].insert(r);
         }
 
-        if (info && info->retIsMod) {
+        if (info && info->RetIsMod) {
           for (auto *r : regs) {
             if (globalKillSet.find(r) != globalKillSet.end())
               continue;
@@ -292,10 +292,10 @@ void ModRefAnalysisResult::analyze(Module &M) {
   TimeTraceScope TTS("ModRefAnalysis");
   // Compute global kill set containing regions whose allocation sites are
   // in functions not reachable from prog entry.
-  std::vector<const Value *> allocSites;
+  std::vector<Value const *> allocSites;
   PTA.getAllAllocationSites(allocSites);
-  for (const Value *v : allocSites) {
-    const Instruction *inst = dyn_cast<Instruction>(v);
+  for (Value const *v : allocSites) {
+    Instruction const *inst = dyn_cast<Instruction>(v);
     if (!inst)
       continue;
     if (CG.isReachableFromEntry(*inst->getParent()->getParent()))
@@ -324,12 +324,12 @@ void ModRefAnalysisResult::analyze(Module &M) {
     // For each function in the SCC compute kill sets
     // from callee not in the SCC and update mod/ref sets accordingly.
     for (PTACallGraphNode const *node : nodeVec) {
-      const Function *F = node->getFunction();
+      Function const *F = node->getFunction();
       if (F == NULL)
         continue;
 
       for (auto it : *node) {
-        const Function *callee = it.second->getFunction();
+        Function const *callee = it.second->getFunction();
         if (callee == NULL || F == callee)
           continue;
 
@@ -381,7 +381,7 @@ void ModRefAnalysisResult::analyze(Module &M) {
       changed = false;
 
       for (PTACallGraphNode const *node : nodeVec) {
-        const Function *F = node->getFunction();
+        Function const *F = node->getFunction();
         if (F == NULL)
           continue;
 
@@ -389,7 +389,7 @@ void ModRefAnalysisResult::analyze(Module &M) {
         unsigned refSize = funcRefMap[F].size();
 
         for (auto it : *node) {
-          const Function *callee = it.second->getFunction();
+          Function const *callee = it.second->getFunction();
           if (callee == NULL || F == callee)
             continue;
 
@@ -418,15 +418,15 @@ void ModRefAnalysisResult::analyze(Module &M) {
   }
 }
 
-MemRegSet ModRefAnalysisResult::getFuncMod(const Function *F) const {
+MemRegSet ModRefAnalysisResult::getFuncMod(Function const *F) const {
   return funcModMap.lookup(F);
 }
 
-MemRegSet ModRefAnalysisResult::getFuncRef(const Function *F) const {
+MemRegSet ModRefAnalysisResult::getFuncRef(Function const *F) const {
   return funcRefMap.lookup(F);
 }
 
-MemRegSet ModRefAnalysisResult::getFuncKill(const Function *F) const {
+MemRegSet ModRefAnalysisResult::getFuncKill(Function const *F) const {
   return funcKillMap.lookup(F);
 }
 

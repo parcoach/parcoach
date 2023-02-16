@@ -25,7 +25,7 @@ cl::opt<bool> EnableHU("enable-hu",
 namespace {
 
 struct SparseBitVectorHash {
-  std::size_t operator()(const SparseBitVector<> &vec) const {
+  std::size_t operator()(SparseBitVector<> const &vec) const {
     std::size_t ret = 0;
     for (auto const &idx : vec)
       ret ^= idx;
@@ -34,8 +34,8 @@ struct SparseBitVectorHash {
 };
 
 struct SparseBitVectorKeyEqual {
-  bool operator()(const SparseBitVector<> &lhs,
-                  const SparseBitVector<> &rhs) const {
+  bool operator()(SparseBitVector<> const &lhs,
+                  SparseBitVector<> const &rhs) const {
     return lhs == rhs;
   }
 };
@@ -130,7 +130,7 @@ protected:
     for (auto const &mapping : predGraph) {
       printPredecessorGraphNode(errs(), mapping.first);
       errs() << "  -->  ";
-      const SparseBitVectorGraphNode &sNode = mapping.second;
+      SparseBitVectorGraphNode const &sNode = mapping.second;
       for (auto const &idx : sNode) {
         printPredecessorGraphNode(errs(), idx);
         errs() << ", ";
@@ -158,7 +158,7 @@ protected:
         os << "\"]\n";
         hasLabel[mapping.first] = true;
       }
-      const SparseBitVectorGraphNode &sNode = mapping.second;
+      SparseBitVectorGraphNode const &sNode = mapping.second;
       for (auto const &idx : sNode) {
         if (!hasLabel[idx]) {
           os << "\tnode" << idx << " [label = \"";
@@ -191,8 +191,8 @@ protected:
     return predGraph.getOrInsertNode(getMergeTargetRep(idx));
   }
   // Specify how to process the non-rep nodes if a cycle is found
-  void processNodeOnCycle(const NodeType *node,
-                          const NodeType *repNode) override {
+  void processNodeOnCycle(NodeType const *node,
+                          NodeType const *repNode) override {
     NodeIndex nodeIdx = node->getNodeIndex();
     NodeIndex repIdx = repNode->getNodeIndex();
     mergeTarget[nodeIdx] = getMergeTargetRep(repIdx);
@@ -204,7 +204,7 @@ protected:
   }
 
   // Specify how to process the rep nodes if a cycle is found
-  void processCycleRepNode(const NodeType *node) override {
+  void processCycleRepNode(NodeType const *node) override {
     propagateLabel(node->getNodeIndex());
   }
 
@@ -415,7 +415,7 @@ private:
     bool allSame = true;
     unsigned lastSeenLabel = 0;
     SparseBitVector<> predLabels;
-    const SparseBitVectorGraphNode *sNode = predGraph.getNodeWithIndex(node);
+    SparseBitVectorGraphNode const *sNode = predGraph.getNodeWithIndex(node);
     if (sNode != nullptr) {
       for (auto const &pred : *sNode) {
         NodeIndex predRep = getMergeTargetRep(pred);

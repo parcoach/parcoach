@@ -15,8 +15,8 @@ struct Registry {
   }
 
   ~Registry() {
-    for (auto &It : Data) {
-      delete It.second;
+    for (auto const &ItC : Data) {
+      delete ItC.second;
     }
   }
 
@@ -62,5 +62,7 @@ Collective const *Collective::find(Function const &F) {
   return {};
 }
 
-bool Collective::isCollective(Function const &F) { return Collective::find(F); }
+bool Collective::isCollective(Function const &F) {
+  return Collective::find(F) != nullptr;
+}
 } // namespace parcoach

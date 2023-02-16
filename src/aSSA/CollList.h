@@ -8,26 +8,26 @@
 
 // FIXME: leaks -> unique_ptr somewhere
 class CollList {
-  bool navs;
+  bool Navs;
 
   llvm::SmallVector<llvm::BasicBlock const *, 4> Sources;
-  std::vector<std::string> names;
+  std::vector<std::string> Names;
 
 public:
   // Construct new list node
-  CollList(llvm::StringRef coll, const llvm::BasicBlock *src);
-  CollList(CollList const *coll, const llvm::BasicBlock *src);
+  CollList(llvm::StringRef Coll, llvm::BasicBlock const *Src);
+  CollList(CollList const *Coll, llvm::BasicBlock const *Src);
   CollList() = default;
   CollList(CollList const &) = default;
   ~CollList() = default;
 
-  bool isNAVS() const { return navs; }
-  bool isSource(const llvm::BasicBlock *src) const {
-    return Sources.front() == src;
+  bool isNAVS() const { return Navs; }
+  bool isSource(llvm::BasicBlock const *Src) const {
+    return Sources.front() == Src;
   }
 
   unsigned getDepth() const { return Sources.size(); };
-  const std::vector<std::string> &getNames() const { return names; }
+  std::vector<std::string> const &getNames() const { return Names; }
 
   void push(llvm::StringRef Collective, llvm::BasicBlock const *Source,
             bool ForcePush = false);
@@ -39,16 +39,16 @@ public:
   std::string toString() const;
 #endif
 
-  bool operator<(const CollList &O) const {
+  bool operator<(CollList const &O) const {
     std::string CollMap = toCollMap();
     std::string OCollMap = O.toCollMap();
-    unsigned d1 = getDepth();
-    unsigned d2 = O.getDepth();
-    return std::tie(d1, navs, CollMap) < std::tie(d2, O.navs, OCollMap);
+    unsigned D1 = getDepth();
+    unsigned D2 = O.getDepth();
+    return std::tie(D1, Navs, CollMap) < std::tie(D2, O.Navs, OCollMap);
     // return std::tie(navs, CollMap) < std::tie(O.navs, OCollMap);
   }
 
-  bool operator==(const CollList &O) const {
+  bool operator==(CollList const &O) const {
     return !(*this < O) && !(O < *this);
   }
 };

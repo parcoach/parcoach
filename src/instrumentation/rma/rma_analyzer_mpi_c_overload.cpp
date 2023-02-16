@@ -104,7 +104,7 @@ int new_Win_post(MPI_Group group, int assert, MPI_Win win) {
 /* MPI_Put is used to one-sidedly send data to the window of another
  * process it's used here to retrieve the interval
  * [offset, offset+size[ and send it to the target with MPI_Send */
-int new_Put(const void *origin_addr, int origin_count,
+int new_Put(void const *origin_addr, int origin_count,
             MPI_Datatype origin_datatype, int target_rank, MPI_Aint target_disp,
             int target_count, MPI_Datatype target_datatype, MPI_Win win,
             char *filename, int line) {
@@ -159,7 +159,7 @@ int new_Get(void *origin_addr, int origin_count, MPI_Datatype origin_datatype,
 }
 
 /* An atomic put that does the same as MPI_Put here ! */
-int new_Accumulate(const void *origin_addr, int origin_count,
+int new_Accumulate(void const *origin_addr, int origin_count,
                    MPI_Datatype origin_datatype, int target_rank,
                    MPI_Aint target_disp, int target_count,
                    MPI_Datatype target_datatype, MPI_Op op, MPI_Win win) {

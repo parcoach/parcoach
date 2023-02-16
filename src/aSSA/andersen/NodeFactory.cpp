@@ -9,7 +9,7 @@
 
 using namespace llvm;
 
-const unsigned AndersNodeFactory::InvalidIndex =
+unsigned const AndersNodeFactory::InvalidIndex =
     std::numeric_limits<unsigned int>::max();
 
 AndersNodeFactory::AndersNodeFactory() {
@@ -30,86 +30,91 @@ AndersNodeFactory::AndersNodeFactory() {
   assert(nodes.size() == 4);
 }
 
-NodeIndex AndersNodeFactory::createValueNode(const Value *val) {
+NodeIndex AndersNodeFactory::createValueNode(Value const *Val) {
   // errs() << "inserting " << *val << "\n";
-  unsigned nextIdx = nodes.size();
-  nodes.push_back(AndersNode(AndersNode::VALUE_NODE, nextIdx, val));
-  if (val != nullptr) {
-    assert(!valueNodeMap.count(val) &&
+  unsigned NextIdx = nodes.size();
+  nodes.push_back(AndersNode(AndersNode::VALUE_NODE, NextIdx, Val));
+  if (Val != nullptr) {
+    assert(!valueNodeMap.count(Val) &&
            "Trying to insert two mappings to revValueNodeMap!");
-    valueNodeMap[val] = nextIdx;
+    valueNodeMap[Val] = NextIdx;
   }
 
-  return nextIdx;
+  return NextIdx;
 }
 
-NodeIndex AndersNodeFactory::createObjectNode(const Value *val) {
-  unsigned nextIdx = nodes.size();
-  nodes.push_back(AndersNode(AndersNode::OBJ_NODE, nextIdx, val));
-  if (val != nullptr) {
-    assert(!objNodeMap.count(val) &&
+NodeIndex AndersNodeFactory::createObjectNode(Value const *Val) {
+  unsigned NextIdx = nodes.size();
+  nodes.push_back(AndersNode(AndersNode::OBJ_NODE, NextIdx, Val));
+  if (Val != nullptr) {
+    assert(!objNodeMap.count(Val) &&
            "Trying to insert two mappings to revObjNodeMap!");
-    objNodeMap[val] = nextIdx;
+    objNodeMap[Val] = NextIdx;
   }
 
-  return nextIdx;
+  return NextIdx;
 }
 
-NodeIndex AndersNodeFactory::createReturnNode(const llvm::Function *f) {
-  unsigned nextIdx = nodes.size();
-  nodes.push_back(AndersNode(AndersNode::VALUE_NODE, nextIdx, f));
+NodeIndex AndersNodeFactory::createReturnNode(llvm::Function const *F) {
+  unsigned NextIdx = nodes.size();
+  nodes.push_back(AndersNode(AndersNode::VALUE_NODE, NextIdx, F));
 
-  assert(!returnMap.count(f) && "Trying to insert two mappings to returnMap!");
-  returnMap[f] = nextIdx;
+  assert(!returnMap.count(F) && "Trying to insert two mappings to returnMap!");
+  returnMap[F] = NextIdx;
 
-  return nextIdx;
+  return NextIdx;
 }
 
-NodeIndex AndersNodeFactory::createVarargNode(const llvm::Function *f) {
-  unsigned nextIdx = nodes.size();
-  nodes.push_back(AndersNode(AndersNode::OBJ_NODE, nextIdx, f));
+NodeIndex AndersNodeFactory::createVarargNode(llvm::Function const *F) {
+  unsigned NextIdx = nodes.size();
+  nodes.push_back(AndersNode(AndersNode::OBJ_NODE, NextIdx, F));
 
-  assert(!varargMap.count(f) && "Trying to insert two mappings to varargMap!");
-  varargMap[f] = nextIdx;
+  assert(!varargMap.count(F) && "Trying to insert two mappings to varargMap!");
+  varargMap[F] = NextIdx;
 
-  return nextIdx;
+  return NextIdx;
 }
 
-NodeIndex AndersNodeFactory::getValueNodeFor(const Value *val) const {
-  if (const Constant *c = dyn_cast<Constant>(val))
-    if (!isa<GlobalValue>(c))
-      return getValueNodeForConstant(c);
+NodeIndex AndersNodeFactory::getValueNodeFor(Value const *Val) const {
+  if (Constant const *C = dyn_cast<Constant>(Val)) {
+    if (!isa<GlobalValue>(C)) {
+      return getValueNodeForConstant(C);
+    }
+  }
 
   // errs() << "looking up " << *val << "\n";
-  auto itr = valueNodeMap.find(val);
-  if (itr == valueNodeMap.end())
+  auto ItV = valueNodeMap.find(Val);
+  if (ItV == valueNodeMap.end()) {
     return InvalidIndex;
-  else
-    return itr->second;
+  }
+  return ItV->second;
 }
 
 NodeIndex
-AndersNodeFactory::getValueNodeForConstant(const llvm::Constant *c) const {
-  assert(isa<PointerType>(c->getType()) && "Not a constant pointer!");
+AndersNodeFactory::getValueNodeForConstant(llvm::Constant const *C) const {
+  assert(isa<PointerType>(C->getType()) && "Not a constant pointer!");
 
-  if (isa<ConstantPointerNull>(c) || isa<UndefValue>(c))
+  if (isa<ConstantPointerNull>(C) || isa<UndefValue>(C)) {
     return getNullPtrNode();
-  else if (const GlobalValue *gv = dyn_cast<GlobalValue>(c))
-    return getValueNodeFor(gv);
-  else if (const ConstantExpr *ce = dyn_cast<ConstantExpr>(c)) {
-    switch (ce->getOpcode()) {
+  }
+  if (GlobalValue const *GV = dyn_cast<GlobalValue>(C)) {
+    return getValueNodeFor(GV);
+  }
+
+  if (ConstantExpr const *CE = dyn_cast<ConstantExpr>(C)) {
+    switch (CE->getOpcode()) {
     // Pointer to any field within a struct is treated as a pointer to the first
     // field
     case Instruction::GetElementPtr:
-      return getValueNodeFor(c->getOperand(0));
+      return getValueNodeFor(C->getOperand(0));
     case Instruction::IntToPtr:
     case Instruction::PtrToInt:
       return getUniversalPtrNode();
     case Instruction::BitCast:
     case Instruction::AddrSpaceCast:
-      return getValueNodeForConstant(ce->getOperand(0));
+      return getValueNodeForConstant(CE->getOperand(0));
     default:
-      errs() << "Constant Expr not yet handled: " << *ce << "\n";
+      errs() << "Constant Expr not yet handled: " << *CE << "\n";
       llvm_unreachable(0);
     }
   }
@@ -118,40 +123,44 @@ AndersNodeFactory::getValueNodeForConstant(const llvm::Constant *c) const {
   return InvalidIndex;
 }
 
-NodeIndex AndersNodeFactory::getObjectNodeFor(const Value *val) const {
-  if (const Constant *c = dyn_cast<Constant>(val))
-    if (!isa<GlobalValue>(c))
-      return getObjectNodeForConstant(c);
+NodeIndex AndersNodeFactory::getObjectNodeFor(Value const *Val) const {
+  if (Constant const *C = dyn_cast<Constant>(Val)) {
+    if (!isa<GlobalValue>(C)) {
+      return getObjectNodeForConstant(C);
+    }
+  }
 
-  auto itr = objNodeMap.find(val);
-  if (itr == objNodeMap.end())
+  auto ItV = objNodeMap.find(Val);
+  if (ItV == objNodeMap.end()) {
     return InvalidIndex;
-  else
-    return itr->second;
+  }
+  return ItV->second;
 }
 
 NodeIndex
-AndersNodeFactory::getObjectNodeForConstant(const llvm::Constant *c) const {
-  assert(isa<PointerType>(c->getType()) && "Not a constant pointer!");
+AndersNodeFactory::getObjectNodeForConstant(llvm::Constant const *C) const {
+  assert(isa<PointerType>(C->getType()) && "Not a constant pointer!");
 
-  if (isa<ConstantPointerNull>(c))
+  if (isa<ConstantPointerNull>(C)) {
     return getNullObjectNode();
-  else if (const GlobalValue *gv = dyn_cast<GlobalValue>(c))
-    return getObjectNodeFor(gv);
-  else if (const ConstantExpr *ce = dyn_cast<ConstantExpr>(c)) {
-    switch (ce->getOpcode()) {
+  }
+  if (GlobalValue const *GV = dyn_cast<GlobalValue>(C)) {
+    return getObjectNodeFor(GV);
+  }
+  if (ConstantExpr const *CE = dyn_cast<ConstantExpr>(C)) {
+    switch (CE->getOpcode()) {
     // Pointer to any field within a struct is treated as a pointer to the first
     // field
     case Instruction::GetElementPtr:
-      return getObjectNodeForConstant(ce->getOperand(0));
+      return getObjectNodeForConstant(CE->getOperand(0));
     case Instruction::IntToPtr:
     case Instruction::PtrToInt:
       return getUniversalObjNode();
     case Instruction::BitCast:
     case Instruction::AddrSpaceCast:
-      return getObjectNodeForConstant(ce->getOperand(0));
+      return getObjectNodeForConstant(CE->getOperand(0));
     default:
-      errs() << "Constant Expr not yet handled: " << *ce << "\n";
+      errs() << "Constant Expr not yet handled: " << *CE << "\n";
       llvm_unreachable(0);
     }
   }
@@ -160,104 +169,111 @@ AndersNodeFactory::getObjectNodeForConstant(const llvm::Constant *c) const {
   return InvalidIndex;
 }
 
-NodeIndex AndersNodeFactory::getReturnNodeFor(const llvm::Function *f) const {
-  auto itr = returnMap.find(f);
-  if (itr == returnMap.end())
+NodeIndex AndersNodeFactory::getReturnNodeFor(llvm::Function const *F) const {
+  auto ItF = returnMap.find(F);
+  if (ItF == returnMap.end()) {
     return InvalidIndex;
-  else
-    return itr->second;
-}
-
-NodeIndex AndersNodeFactory::getVarargNodeFor(const llvm::Function *f) const {
-  auto itr = varargMap.find(f);
-  if (itr == varargMap.end())
-    return InvalidIndex;
-  else
-    return itr->second;
-}
-
-void AndersNodeFactory::mergeNode(NodeIndex n0, NodeIndex n1) {
-  assert(n0 < nodes.size() && n1 < nodes.size());
-  nodes[n1].mergeTarget = n0;
-}
-
-NodeIndex AndersNodeFactory::getMergeTarget(NodeIndex n) {
-  assert(n < nodes.size());
-  NodeIndex ret = nodes[n].mergeTarget;
-  if (ret != n) {
-    std::vector<NodeIndex> path(1, n);
-    while (ret != nodes[ret].mergeTarget) {
-      path.push_back(ret);
-      ret = nodes[ret].mergeTarget;
-    }
-    for (auto idx : path)
-      nodes[idx].mergeTarget = ret;
   }
-  assert(ret < nodes.size());
-  return ret;
+  return ItF->second;
 }
 
-NodeIndex AndersNodeFactory::getMergeTarget(NodeIndex n) const {
-  assert(n < nodes.size());
-  NodeIndex ret = nodes[n].mergeTarget;
-  while (ret != nodes[ret].mergeTarget)
-    ret = nodes[ret].mergeTarget;
-  return ret;
+NodeIndex AndersNodeFactory::getVarargNodeFor(llvm::Function const *F) const {
+  auto ItF = varargMap.find(F);
+  if (ItF == varargMap.end()) {
+    return InvalidIndex;
+  }
+  return ItF->second;
+}
+
+void AndersNodeFactory::mergeNode(NodeIndex N0, NodeIndex N1) {
+  assert(N0 < nodes.size() && N1 < nodes.size());
+  nodes[N1].mergeTarget = N0;
+}
+
+NodeIndex AndersNodeFactory::getMergeTarget(NodeIndex N) {
+  assert(N < nodes.size());
+  NodeIndex Ret = nodes[N].mergeTarget;
+  if (Ret != N) {
+    std::vector<NodeIndex> Path(1, N);
+    while (Ret != nodes[Ret].mergeTarget) {
+      Path.push_back(Ret);
+      Ret = nodes[Ret].mergeTarget;
+    }
+    for (auto Idx : Path) {
+      nodes[Idx].mergeTarget = Ret;
+    }
+  }
+  assert(Ret < nodes.size());
+  return Ret;
+}
+
+NodeIndex AndersNodeFactory::getMergeTarget(NodeIndex N) const {
+  assert(N < nodes.size());
+  NodeIndex Ret = nodes[N].mergeTarget;
+  while (Ret != nodes[Ret].mergeTarget) {
+    Ret = nodes[Ret].mergeTarget;
+  }
+  return Ret;
 }
 
 void AndersNodeFactory::getAllocSites(
-    std::vector<const llvm::Value *> &allocSites) const {
-  allocSites.clear();
-  allocSites.reserve(objNodeMap.size());
-  for (auto const &mapping : objNodeMap)
-    allocSites.push_back(mapping.first);
+    std::vector<llvm::Value const *> &AllocSites) const {
+  AllocSites.clear();
+  AllocSites.reserve(objNodeMap.size());
+  for (auto const &Mapping : objNodeMap) {
+    AllocSites.push_back(Mapping.first);
+  }
 }
 
 #ifndef NDEBUG
-void AndersNodeFactory::dumpNode(NodeIndex idx) const {
-  const AndersNode &n = nodes.at(idx);
-  if (n.type == AndersNode::VALUE_NODE)
+void AndersNodeFactory::dumpNode(NodeIndex Idx) const {
+  AndersNode const &N = nodes.at(Idx);
+  if (N.type == AndersNode::VALUE_NODE) {
     errs() << "[V ";
-  else if (n.type == AndersNode::OBJ_NODE)
+  } else if (N.type == AndersNode::OBJ_NODE) {
     errs() << "[O ";
-  else {
+  } else {
     assert(false && "Wrong type number!");
   }
-  errs() << "#" << n.idx << "]";
+  errs() << "#" << N.idx << "]";
 }
 
 void AndersNodeFactory::dumpNodeInfo() const {
   errs() << "\n----- Print AndersNodeFactory Info -----\n";
-  for (auto const &node : nodes) {
-    dumpNode(node.getIndex());
+  for (auto const &Node : nodes) {
+    dumpNode(Node.getIndex());
     errs() << ", val = ";
-    const Value *val = node.getValue();
-    if (val == nullptr)
+    Value const *Val = Node.getValue();
+    if (Val == nullptr) {
       errs() << "nullptr";
-    else if (isa<Function>(val))
-      errs() << "  <func> " << val->getName();
-    else
-      errs() << *val;
+    } else if (isa<Function>(Val)) {
+      errs() << "  <func> " << Val->getName();
+    } else {
+      errs() << *Val;
+    }
     errs() << "\n";
   }
 
   errs() << "\nReturn Map:\n";
-  for (auto const &mapping : returnMap)
-    errs() << mapping.first->getName() << "  -->>  [Node #" << mapping.second
+  for (auto const &Mapping : returnMap) {
+    errs() << Mapping.first->getName() << "  -->>  [Node #" << Mapping.second
            << "]\n";
+  }
   errs() << "\nVararg Map:\n";
-  for (auto const &mapping : varargMap)
-    errs() << mapping.first->getName() << "  -->>  [Node #" << mapping.second
+  for (auto const &Mapping : varargMap) {
+    errs() << Mapping.first->getName() << "  -->>  [Node #" << Mapping.second
            << "]\n";
+  }
   errs() << "----- End of Print -----\n";
 }
 
 void AndersNodeFactory::dumpRepInfo() const {
   errs() << "\n----- Print Node Merge Info -----\n";
-  for (NodeIndex i = 0, e = nodes.size(); i < e; ++i) {
-    NodeIndex rep = getMergeTarget(i);
-    if (rep != i)
-      errs() << i << " -> " << rep << "\n";
+  for (NodeIndex I = 0, E = nodes.size(); I < E; ++I) {
+    NodeIndex Rep = getMergeTarget(I);
+    if (Rep != I) {
+      errs() << I << " -> " << Rep << "\n";
+    }
   }
   errs() << "----- End of Print -----\n";
 }

@@ -12,15 +12,15 @@ private:
   typedef typename MapIterator::value_type::second_type MapValueType;
 
 public:
-  explicit MapValueIterator(const MapIterator &i) : itr(i) {}
+  explicit MapValueIterator(MapIterator const &i) : itr(i) {}
 
-  bool operator==(const MapValueIterator &other) { return itr == other.itr; }
-  bool operator!=(const MapValueIterator &other) { return !(*this == other); }
+  bool operator==(MapValueIterator const &other) { return itr == other.itr; }
+  bool operator!=(MapValueIterator const &other) { return !(*this == other); }
 
-  const MapValueType &operator*() { return itr->second; }
-  const MapValueType &operator*() const { return itr->second; }
+  MapValueType const &operator*() { return itr->second; }
+  MapValueType const &operator*() const { return itr->second; }
 
-  const MapValueType *operator->() const { return &(itr->second); }
+  MapValueType const *operator->() const { return &(itr->second); }
 
   // Pre-increment
   MapValueIterator &operator++() {

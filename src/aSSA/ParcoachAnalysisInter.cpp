@@ -123,11 +123,11 @@ bool ParcoachAnalysisInter::useDataflow() const { return !optNoDataFlow; }
 void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
   LLVM_DEBUG(dbgs() << "setCollSet " << BB << "\n");
   for (auto i = BB->rbegin(), e = BB->rend(); i != e; ++i) {
-    const Instruction *inst = &*i;
+    Instruction const *inst = &*i;
 
     // errs() << "call? " << dyn_cast<CallInst>(inst) << "\n";
 
-    if (const CallInst *CI = dyn_cast<CallInst>(inst)) {
+    if (CallInst const *CI = dyn_cast<CallInst>(inst)) {
       Function *callee = CI->getCalledFunction();
 
       // if (callee != NULL)
@@ -135,7 +135,7 @@ void ParcoachAnalysisInter::setCollSet(BasicBlock *BB) {
 
       //// Indirect calls
       if (callee == NULL) {
-        for (const Function *mayCallee :
+        for (Function const *mayCallee :
              PTACG.getIndirectCallMap().lookup(inst)) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
@@ -201,8 +201,8 @@ void ParcoachAnalysisInter::dump() {
 void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
   LLVM_DEBUG(dbgs() << "== setMPICollSet on " << BB << "\n");
   for (auto i = BB->rbegin(), e = BB->rend(); i != e; ++i) {
-    const Instruction *inst = &*i;
-    if (const CallInst *CI = dyn_cast<CallInst>(inst)) {
+    Instruction const *inst = &*i;
+    if (CallInst const *CI = dyn_cast<CallInst>(inst)) {
       Function *callee = CI->getCalledFunction();
 
       //// Indirect call
@@ -210,7 +210,7 @@ void ParcoachAnalysisInter::setMPICollSet(BasicBlock *BB) {
         LLVM_DEBUG(dbgs() << "Indirect call map size: "
                           << PTACG.getIndirectCallMap().lookup(inst).size()
                           << "\n");
-        for (const Function *mayCallee :
+        for (Function const *mayCallee :
              PTACG.getIndirectCallMap().lookup(inst)) {
           if (isIntrinsicDbgFunction(mayCallee))
             continue;
@@ -309,7 +309,7 @@ void ParcoachAnalysisInter::cmpAndUpdateMPICollSet(llvm::BasicBlock *header,
                                                    llvm::BasicBlock *pred) {
   LLVM_DEBUG(dbgs() << "----- cmpAndUpdate -----\n");
   LLVM_DEBUG(dbgs() << "Pred: " << pred << ", Header: " << header << "\n");
-  SetVector<const Value *> comm;
+  SetVector<Value const *> comm;
 
   for (auto &com : mpiCollListMap[pred])
     comm.insert(com.first);
@@ -833,7 +833,7 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
   for (Instruction &I : Candidates) {
     // Debug info (line in the source code, file)
     // Warning info
-    const char *ProgName = "PARCOACH";
+    char const *ProgName = "PARCOACH";
     SMDiagnostic Diag;
     SmallVector<DebugLoc, 2> Conditionals;
 
@@ -868,7 +868,7 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
     bool isColWarningParcoach = false;
 
     // Get conditionals from the callsite
-    std::set<const BasicBlock *> callIPDF;
+    std::set<BasicBlock const *> callIPDF;
     DG->getCallInterIPDF(&CI, callIPDF);
     // For the summary-based approach, use the following instead of the previous
     // line
@@ -877,7 +877,7 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
     if (!callIPDF.empty())
       nbCollectivesCondCalled++;
 
-    for (const BasicBlock *BB : callIPDF) {
+    for (BasicBlock const *BB : callIPDF) {
       // Is this node detected as potentially dangerous by parcoach?
       if (!Options::get().isActivated(Paradigm::MPI) && collMap[BB] != "NAVS") {
         continue;
@@ -891,10 +891,10 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
       conditionSetParcoachOnly.insert(BB);
 
       // Is this condition tainted?
-      const Value *cond = getBasicBlockCond(BB);
+      Value const *cond = getBasicBlockCond(BB);
 
       if (!cond || (!optNoDataFlow && !DG->isTaintedValue(cond))) {
-        const Instruction *instE = BB->getTerminator();
+        Instruction const *instE = BB->getTerminator();
         DebugLoc locE = instE->getDebugLoc();
         // errs() << "-> not tainted\n";
         continue;
@@ -904,7 +904,7 @@ void ParcoachAnalysisInter::checkCollectives(Function *F) {
       conditionSet.insert(BB);
 
       DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
-      const Instruction *inst = BB->getTerminator();
+      Instruction const *inst = BB->getTerminator();
       DebugLoc loc = inst->getDebugLoc();
       Conditionals.push_back(loc);
 

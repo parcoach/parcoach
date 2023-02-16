@@ -14,7 +14,7 @@ namespace {
 std::string const PARCOACH_BIN_NAME{"parcoach"};
 }
 
-int main(int argc, const char **argv) {
+int main(int argc, char const **argv) {
   ++argv;
   --argc;
 

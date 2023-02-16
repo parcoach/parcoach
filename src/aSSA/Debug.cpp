@@ -12,26 +12,27 @@ static cl::opt<bool, true> DebugOpt("debug", cl::desc("Enable debug output"),
 
 namespace {
 struct DebugOnlyOpt {
-  void operator=(const std::string &Val) const {
-    if (Val.empty())
+  void operator=(std::string const &Val) const {
+    if (Val.empty()) {
       return;
+    }
     DebugFlag = true;
-    SmallVector<StringRef, 8> dbgTypes;
-    StringRef(Val).split(dbgTypes, ',', -1, false);
+    SmallVector<StringRef> DbgTypes;
+    StringRef(Val).split(DbgTypes, ',', -1, false);
     // Unfortunately, without this extra string copy, using the StringRef
     // pointers lead to some issues where each debug type is not properly
     // pushed.
-    std::vector<std::string> stringDbgTypes(dbgTypes.begin(), dbgTypes.end());
-    std::vector<const char *> rawDbgTypes(dbgTypes.size());
-    std::transform(stringDbgTypes.begin(), stringDbgTypes.end(),
-                   rawDbgTypes.begin(),
-                   [](std::string &s) { return s.data(); });
+    std::vector<std::string> StringDbgTypes(DbgTypes.begin(), DbgTypes.end());
+    std::vector<char const *> RawDbgTypes(DbgTypes.size());
+    std::transform(StringDbgTypes.begin(), StringDbgTypes.end(),
+                   RawDbgTypes.begin(),
+                   [](std::string &S) { return S.data(); });
 
-    setCurrentDebugTypes(rawDbgTypes.data(), rawDbgTypes.size());
+    setCurrentDebugTypes(RawDbgTypes.data(), RawDbgTypes.size());
   }
 };
 
-static cl::opt<DebugOnlyOpt, false, cl::parser<std::string>> DebugOnlyOptVal(
+cl::opt<DebugOnlyOpt, false, cl::parser<std::string>> DebugOnlyOptVal(
     "debug-only",
     cl::desc("Enable a specific type of debug output (comma separated list "
              "of types)"),

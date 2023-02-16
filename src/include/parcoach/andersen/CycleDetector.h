@@ -23,12 +23,12 @@ public:
 
 private:
   // The SCC stack
-  std::stack<const NodeType *> sccStack;
+  std::stack<NodeType const *> sccStack;
   // Map from NodeIndex to DFS number. Nodes that are not in the map are never
   // visited
-  llvm::DenseMap<const NodeType *, unsigned> dfsNum;
+  llvm::DenseMap<NodeType const *, unsigned> dfsNum;
   // The "inComponent" array in Nutilla's improved SCC algorithm
-  llvm::DenseSet<const NodeType *> inComponent;
+  llvm::DenseSet<NodeType const *> inComponent;
   // DFS timestamp
   unsigned timestamp;
 
@@ -60,7 +60,7 @@ private:
     // Cycle detected
     inComponent.insert(node);
     while (!sccStack.empty()) {
-      const NodeType *cycleNode = sccStack.top();
+      NodeType const *cycleNode = sccStack.top();
       if (dfsNum[cycleNode] < myTimeStamp)
         break;
 
@@ -78,10 +78,10 @@ protected:
   // nodes has not been merged into another node)
   virtual NodeType *getRep(NodeIndex node) = 0;
   // Specify how to process the non-rep nodes if a cycle is found
-  virtual void processNodeOnCycle(const NodeType *node,
-                                  const NodeType *repNode) = 0;
+  virtual void processNodeOnCycle(NodeType const *node,
+                                  NodeType const *repNode) = 0;
   // Specify how to process the rep nodes if a cycle is found
-  virtual void processCycleRepNode(const NodeType *node) = 0;
+  virtual void processCycleRepNode(NodeType const *node) = 0;
 
   // Running the cycle detection algorithm on a given graph G
   void runOnGraph(GraphType *graph) {

@@ -70,21 +70,21 @@ private:
   std::map<NodeIndex, AndersPtsSet> ptsGraph;
 
   // Three main phases
-  void collectConstraints(const llvm::Module &);
+  void collectConstraints(llvm::Module const &);
 #ifdef ANDERSEN_ENABLE_OPTIMIZATIONS
   void optimizeConstraints();
 #endif
   void solveConstraints();
 
   // Helper functions for constraint collection
-  void collectConstraintsForGlobals(const llvm::Module &);
-  void collectConstraintsForInstruction(const llvm::Instruction *);
-  void addGlobalInitializerConstraints(NodeIndex, const llvm::Constant *);
+  void collectConstraintsForGlobals(llvm::Module const &);
+  void collectConstraintsForInstruction(llvm::Instruction const *);
+  void addGlobalInitializerConstraints(NodeIndex, llvm::Constant const *);
   void addConstraintForCall(llvm::CallBase const &CB);
   bool addConstraintForExternalLibrary(llvm::CallBase const &CB,
-                                       const llvm::Function *f);
+                                       llvm::Function const *f);
   void addArgumentConstraintForCall(llvm::CallBase const &CB,
-                                    const llvm::Function *f);
+                                    llvm::Function const *f);
 
   // Helper functions for constraint optimization
   NodeIndex getRefNodeIndex(NodeIndex n) const;
@@ -92,7 +92,7 @@ private:
 
 #ifndef NDEBUG
   // For debugging
-  void dumpConstraint(const AndersConstraint &) const;
+  void dumpConstraint(AndersConstraint const &) const;
   void dumpConstraints() const;
   void dumpConstraintsPlainVanilla() const;
   void dumpPtsGraphPlainVanilla() const;
@@ -101,19 +101,19 @@ private:
 public:
   //	static char ID;
 
-  bool runOnModule(const llvm::Module &M);
+  bool runOnModule(llvm::Module const &M);
 
   // Given a llvm pointer v,
   // - Return false if the analysis doesn't know where v points to. In other
   // words, the client must conservatively assume v can points to everything.
   // - Return true otherwise, and the points-to set of v is put into the second
   // argument.
-  bool getPointsToSet(const llvm::Value *v,
-                      std::vector<const llvm::Value *> &ptsSet) const;
+  bool getPointsToSet(llvm::Value const *v,
+                      std::vector<llvm::Value const *> &ptsSet) const;
   // Put all allocation sites (i.e. all memory objects identified by the
   // analysis) into the first arugment
   void
-  getAllAllocationSites(std::vector<const llvm::Value *> &allocSites) const;
+  getAllAllocationSites(std::vector<llvm::Value const *> &allocSites) const;
 
   //	friend class AndersenAAResult;
 };

@@ -42,7 +42,7 @@ private:
     return copyEdges.empty() && loadEdges.empty() && storeEdges.empty();
   }
 
-  void mergeEdges(const ConstraintGraphNode &other) {
+  void mergeEdges(ConstraintGraphNode const &other) {
     copyEdges.insert(other.copyEdges.begin(), other.copyEdges.end());
     loadEdges.insert(other.loadEdges.begin(), other.loadEdges.end());
     storeEdges.insert(other.storeEdges.begin(), other.storeEdges.end());
@@ -135,7 +135,7 @@ public:
     if (itr == graph.end())
       return;
 
-    const ConstraintGraphNode &srcNode = itr->second;
+    ConstraintGraphNode const &srcNode = itr->second;
     itr = graph.find(dst);
     if (itr == graph.end()) {
       ConstraintGraphNode dstNode(dst);
@@ -178,15 +178,15 @@ public:
   typedef MapValueIterator<ConstraintGraph::const_iterator> NodeIterator;
   typedef ConstraintGraphNode::iterator ChildIterator;
 
-  static inline ChildIterator child_begin(const NodeType *n) {
+  static inline ChildIterator child_begin(NodeType const *n) {
     return n->begin();
   }
-  static inline ChildIterator child_end(const NodeType *n) { return n->end(); }
+  static inline ChildIterator child_end(NodeType const *n) { return n->end(); }
 
-  static inline NodeIterator node_begin(const ConstraintGraph *g) {
+  static inline NodeIterator node_begin(ConstraintGraph const *g) {
     return NodeIterator(g->begin());
   }
-  static inline NodeIterator node_end(const ConstraintGraph *g) {
+  static inline NodeIterator node_end(ConstraintGraph const *g) {
     return NodeIterator(g->end());
   }
 };
@@ -266,7 +266,7 @@ private:
   }
 
   void buildOfflineConstraintGraph(
-      const std::vector<AndersConstraint> &constraints) {
+      std::vector<AndersConstraint> const &constraints) {
     for (auto const &c : constraints) {
       NodeIndex srcTgt = nodeFactory.getMergeTarget(c.getSrc());
       NodeIndex dstTgt = nodeFactory.getMergeTarget(c.getDest());
@@ -294,13 +294,13 @@ private:
   }
 
   // Specify how to process the non-rep nodes if a cycle is found
-  void processNodeOnCycle(const NodeType *node,
-                          const NodeType *repNode) override {
+  void processNodeOnCycle(NodeType const *node,
+                          NodeType const *repNode) override {
     scc.set(node->getNodeIndex());
   }
 
   // Specify how to process the rep nodes if a cycle is found
-  void processCycleRepNode(const NodeType *node) override {
+  void processCycleRepNode(NodeType const *node) override {
     // A trivial cycle is not interesting
     if (scc.count() == 0)
       return;
@@ -326,7 +326,7 @@ private:
   }
 
 public:
-  OfflineCycleDetector(const std::vector<AndersConstraint> &cs,
+  OfflineCycleDetector(std::vector<AndersConstraint> const &cs,
                        AndersNodeFactory &n)
       : nodeFactory(n) {
     // Build the offline constraint graph first before we move on
@@ -358,7 +358,7 @@ public:
 };
 
 void buildConstraintGraph(ConstraintGraph &cGraph,
-                          const std::vector<AndersConstraint> &constraints,
+                          std::vector<AndersConstraint> const &constraints,
                           AndersNodeFactory &nodeFactory,
                           std::map<NodeIndex, AndersPtsSet> &ptsGraph) {
   for (auto const &c : constraints) {
@@ -393,14 +393,14 @@ private:
   AndersNodeFactory &nodeFactory;
   ConstraintGraph &constraintGraph;
   std::map<NodeIndex, AndersPtsSet> &ptsGraph;
-  const DenseSet<NodeIndex> &candidates;
+  DenseSet<NodeIndex> const &candidates;
 
   NodeType *getRep(NodeIndex idx) override {
     return constraintGraph.getOrInsertNode(nodeFactory.getMergeTarget(idx));
   }
   // Specify how to process the non-rep nodes if a cycle is found
-  void processNodeOnCycle(const NodeType *node,
-                          const NodeType *repNode) override {
+  void processNodeOnCycle(NodeType const *node,
+                          NodeType const *repNode) override {
     NodeIndex repIdx = nodeFactory.getMergeTarget(repNode->getNodeIndex());
     NodeIndex cycleIdx = nodeFactory.getMergeTarget(node->getNodeIndex());
     // errs() << "Collapse node " << cycleIdx << " with node " << repIdx <<
@@ -409,14 +409,14 @@ private:
     collapseNodes(repIdx, cycleIdx, nodeFactory, ptsGraph, constraintGraph);
   }
   // Specify how to process the rep nodes if a cycle is found
-  void processCycleRepNode(const NodeType *node) override {
+  void processCycleRepNode(NodeType const *node) override {
     // Do nothing, I guess?
   }
 
 public:
   OnlineCycleDetector(AndersNodeFactory &n, ConstraintGraph &co,
                       std::map<NodeIndex, AndersPtsSet> &p,
-                      const DenseSet<NodeIndex> &ca)
+                      DenseSet<NodeIndex> const &ca)
       : nodeFactory(n), constraintGraph(co), ptsGraph(p), candidates(ca) {}
 
   void run() override {
@@ -500,7 +500,7 @@ void Andersen::solveConstraints() {
       if (ptsItr != ptsGraph.end()) {
         // Check indirect constraints and add copy edge to the constraint graph
         // if necessary
-        const AndersPtsSet &ptsSet = ptsItr->second;
+        AndersPtsSet const &ptsSet = ptsItr->second;
 
         // This is where we perform HCD: check if node has a collapse target,
         // and if it does, merge them immediately

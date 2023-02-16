@@ -16,28 +16,28 @@ namespace parcoach {
 class ExtInfo {
 public:
   struct ModInfo {
-    unsigned nbArgs;
-    bool retIsMod;
-    std::vector<bool> argIsMod;
+    unsigned NbArgs;
+    bool RetIsMod;
+    std::vector<bool> ArgIsMod;
   };
 
   struct DepInfo {
-    unsigned nbArgs;
-    std::map<int, std::vector<int>> argsDeps;
-    std::vector<int> retDeps;
+    unsigned NbArgs;
+    std::map<int, std::vector<int>> ArgsDeps;
+    std::vector<int> RetDeps;
   };
 
-  ExtInfo(llvm::Module &m);
+  ExtInfo(llvm::Module &M);
   ~ExtInfo();
 
-  const ModInfo *getExtModInfo(const llvm::Function *F) const;
+  ModInfo const *getExtModInfo(llvm::Function const *F) const;
 #if 0
   const DepInfo *getExtDepInfo(const llvm::Function *F) const;
 #endif
 
 private:
-  llvm::StringMap<const ModInfo *> extModInfoMap;
-  llvm::StringMap<const DepInfo *> extDepInfoMap;
+  llvm::StringMap<ModInfo const *> ExtModInfoMap;
+  llvm::StringMap<DepInfo const *> ExtDepInfoMap;
 };
 
 class ExtInfoAnalysis : public llvm::AnalysisInfoMixin<ExtInfoAnalysis> {
@@ -46,7 +46,7 @@ class ExtInfoAnalysis : public llvm::AnalysisInfoMixin<ExtInfoAnalysis> {
 
 public:
   using Result = std::unique_ptr<ExtInfo>;
-  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  static Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 
 } // namespace parcoach

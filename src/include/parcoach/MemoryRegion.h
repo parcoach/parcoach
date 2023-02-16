@@ -30,23 +30,23 @@ using FunctionToValueSetMap =
     llvm::ValueMap<llvm::Function const *, std::set<llvm::Value const *>>;
 
 class MemReg {
-  llvm::ValueMap<const llvm::Value *, std::unique_ptr<MemRegEntry>>
+  llvm::ValueMap<llvm::Value const *, std::unique_ptr<MemRegEntry>>
       valueToRegMap;
   MemRegSet sharedCudaRegions;
   FunctionToMemRegSetMap func2SharedOmpRegs;
 
-  void createRegion(const llvm::Value *v);
-  void setOmpSharedRegions(const llvm::Function *F, MemRegVector &regs);
+  void createRegion(llvm::Value const *v);
+  void setOmpSharedRegions(llvm::Function const *F, MemRegVector &regs);
 
 public:
 #ifndef NDEBUG
   void dumpRegions() const;
 #endif
-  MemRegEntry *getValueRegion(const llvm::Value *v) const;
-  void getValuesRegion(std::vector<const llvm::Value *> &ptsSet,
+  MemRegEntry *getValueRegion(llvm::Value const *v) const;
+  void getValuesRegion(std::vector<llvm::Value const *> &ptsSet,
                        MemRegVector &regs) const;
-  const MemRegSet &getCudaSharedRegions() const;
-  const FunctionToMemRegSetMap &getOmpSharedRegions() const;
+  MemRegSet const &getCudaSharedRegions() const;
+  FunctionToMemRegSetMap const &getOmpSharedRegions() const;
   MemReg(llvm::Module &M, Andersen const &A);
   static FunctionToValueSetMap func2SharedOmpVar;
 };

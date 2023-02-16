@@ -7,12 +7,12 @@
 using namespace llvm;
 
 namespace parcoach {
-struct funcModPair {
-  const char *name;
-  const ExtInfo::ModInfo modInfo;
+struct FuncModPair {
+  char const *Name;
+  const ExtInfo::ModInfo ModInfo;
 };
 
-static const funcModPair funcModPairs[] = {
+static const FuncModPair FuncModPairs[] = {
     // {"func_name", { <nb_params>, <retval_is_pointer>, {
     // <param_1_is_modified_pointer, ..., <param_n-1_is_modified_pointer> } } }
 
@@ -975,9 +975,9 @@ static const funcModPair funcModPairs[] = {
 
     {NULL, {0, false, {}}}};
 
-struct funcDepPair {
-  const char *name;
-  const ExtInfo::DepInfo depInfo;
+struct FuncDepPair {
+  char const *Name;
+  const ExtInfo::DepInfo DepInfo;
 };
 
 // TODO
@@ -1137,20 +1137,22 @@ const ExtInfo::DepInfo *ExtInfo::getExtDepInfo(const llvm::Function *F) const {
 }
 #endif
 
-ExtInfo::ExtInfo(Module &m) {
-  for (const funcModPair *i = funcModPairs; i->name; ++i)
-    extModInfoMap[i->name] = &i->modInfo;
+ExtInfo::ExtInfo(Module &M) {
+  for (FuncModPair const *I = FuncModPairs; I->Name != nullptr; ++I) {
+    ExtModInfoMap[I->Name] = &I->ModInfo;
+  }
 
   // for (const funcDepPair *i = funcDepPairs; i->name; ++i)
   // extDepInfoMap[i->name] = &i->depInfo;
 
   SmallVector<StringRef> MissingInfo;
-  MissingInfo.reserve(m.size());
-  for (Function &F : m) {
-    if (!F.isDeclaration() || isIntrinsicDbgFunction(&F))
+  MissingInfo.reserve(M.size());
+  for (Function &F : M) {
+    if (!F.isDeclaration() || isIntrinsicDbgFunction(&F)) {
       continue;
+    }
 
-    if (!getExtModInfo(&F)) {
+    if (getExtModInfo(&F) == nullptr) {
       MissingInfo.emplace_back(F.getName());
     }
   }
@@ -1172,18 +1174,19 @@ ExtInfo::ExtInfo(Module &m) {
 
 ExtInfo::~ExtInfo() {}
 
-const ExtInfo::ModInfo *ExtInfo::getExtModInfo(const llvm::Function *F) const {
-  auto I = extModInfoMap.find(F->getName());
+ExtInfo::ModInfo const *ExtInfo::getExtModInfo(llvm::Function const *F) const {
+  auto I = ExtModInfoMap.find(F->getName());
 
-  if (I != extModInfoMap.end())
+  if (I != ExtModInfoMap.end()) {
     return I->second;
+  }
 
   return nullptr;
 }
 
 AnalysisKey ExtInfoAnalysis::Key;
-std::unique_ptr<ExtInfo> ExtInfoAnalysis::run(Module &M,
-                                              ModuleAnalysisManager &) {
+std::unique_ptr<ExtInfo>
+ExtInfoAnalysis::run(Module &M, ModuleAnalysisManager & /*unused*/) {
   TimeTraceScope TTS("parcoach::ExtInfo");
   return std::make_unique<ExtInfo>(M);
 }

@@ -31,12 +31,12 @@ Andersen AndersenAA::run(Module &M, ModuleAnalysisManager &) {
 }
 
 void Andersen::getAllAllocationSites(
-    std::vector<const llvm::Value *> &allocSites) const {
+    std::vector<llvm::Value const *> &allocSites) const {
   nodeFactory.getAllocSites(allocSites);
 }
 
-bool Andersen::getPointsToSet(const llvm::Value *v,
-                              std::vector<const llvm::Value *> &ptsSet) const {
+bool Andersen::getPointsToSet(llvm::Value const *v,
+                              std::vector<llvm::Value const *> &ptsSet) const {
   NodeIndex ptrIndex = nodeFactory.getValueNodeFor(v);
   // We have no idea what v is...
   if (ptrIndex == AndersNodeFactory::InvalidIndex ||
@@ -57,14 +57,14 @@ bool Andersen::getPointsToSet(const llvm::Value *v,
     if (v == nodeFactory.getNullObjectNode())
       continue;
 
-    const llvm::Value *val = nodeFactory.getValueForNode(v);
+    llvm::Value const *val = nodeFactory.getValueForNode(v);
     if (val != nullptr)
       ptsSet.push_back(val);
   }
   return true;
 }
 
-bool Andersen::runOnModule(const Module &M) {
+bool Andersen::runOnModule(Module const &M) {
   collectConstraints(M);
 
 #ifndef NDEBUG
@@ -100,7 +100,7 @@ bool Andersen::runOnModule(const Module &M) {
 }
 
 #ifndef NDEBUG
-void Andersen::dumpConstraint(const AndersConstraint &item) const {
+void Andersen::dumpConstraint(AndersConstraint const &item) const {
   NodeIndex dest = item.getDest();
   NodeIndex src = item.getSrc();
 

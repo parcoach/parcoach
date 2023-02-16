@@ -38,7 +38,7 @@ MemRegEntry::MemRegEntry(Value const *V)
 #ifdef PARCOACH_ENABLE_CUDA
   // Cuda shared region
   if (Options::get().isActivated(Paradigm::CUDA)) {
-    const GlobalValue *GV = dyn_cast<GlobalValue>(V);
+    GlobalValue const *GV = dyn_cast<GlobalValue>(V);
     if (GV && GV->getType()->getPointerAddressSpace() == 3) {
       cudaShared_ = true;
       // FIXME
@@ -61,11 +61,11 @@ MemRegEntry::MemRegEntry(Value const *V)
 MemReg::MemReg(Module &M, Andersen const &AA) {
   TimeTraceScope TTS("MemRegAnalysis");
   // Create regions from allocation sites.
-  std::vector<const Value *> regions;
+  std::vector<Value const *> regions;
   AA.getAllAllocationSites(regions);
 
   LLVM_DEBUG(dbgs() << regions.size() << " regions\n");
-  for (const Value *r : regions) {
+  for (Value const *r : regions) {
     createRegion(r);
   }
 
@@ -80,10 +80,10 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
   if (Options::get().isActivated(Paradigm::OMP)) {
     FunctionToMemRegSetMap func2SharedOmpReg;
     for (auto I : func2SharedOmpVar) {
-      const Function *F = I.first;
+      Function const *F = I.first;
 
-      for (const Value *v : I.second) {
-        std::vector<const Value *> ptsSet;
+      for (Value const *v : I.second) {
+        std::vector<Value const *> ptsSet;
         if (AA.getPointsToSet(v, ptsSet)) {
           MemRegVector regs;
           getValuesRegion(ptsSet, regs);
@@ -95,7 +95,7 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
 #endif
 }
 
-void MemReg::createRegion(const llvm::Value *v) {
+void MemReg::createRegion(llvm::Value const *v) {
   auto [ItEntry, _] =
       valueToRegMap.insert({v, std::make_unique<MemRegEntry>(v)});
   auto &Entry = ItEntry->second;
@@ -104,7 +104,7 @@ void MemReg::createRegion(const llvm::Value *v) {
   }
 }
 
-void MemReg::setOmpSharedRegions(const Function *F, MemRegVector &regs) {
+void MemReg::setOmpSharedRegions(Function const *F, MemRegVector &regs) {
   func2SharedOmpRegs[F].insert(regs.begin(), regs.end());
 }
 
@@ -118,7 +118,7 @@ void MemReg::dumpRegions() const {
 }
 #endif
 
-MemRegEntry *MemReg::getValueRegion(const llvm::Value *v) const {
+MemRegEntry *MemReg::getValueRegion(llvm::Value const *v) const {
   auto I = valueToRegMap.find(v);
   if (I == valueToRegMap.end())
     return NULL;
@@ -126,10 +126,10 @@ MemRegEntry *MemReg::getValueRegion(const llvm::Value *v) const {
   return I->second.get();
 }
 
-void MemReg::getValuesRegion(std::vector<const Value *> &ptsSet,
+void MemReg::getValuesRegion(std::vector<Value const *> &ptsSet,
                              MemRegVector &regs) const {
   MemRegSet regions;
-  for (const Value *v : ptsSet) {
+  for (Value const *v : ptsSet) {
     MemRegEntry *r = getValueRegion(v);
 
     if (r)
@@ -139,11 +139,11 @@ void MemReg::getValuesRegion(std::vector<const Value *> &ptsSet,
   regs.insert(regs.begin(), regions.begin(), regions.end());
 }
 
-const MemRegSet &MemReg::getCudaSharedRegions() const {
+MemRegSet const &MemReg::getCudaSharedRegions() const {
   return sharedCudaRegions;
 }
 
-const FunctionToMemRegSetMap &MemReg::getOmpSharedRegions() const {
+FunctionToMemRegSetMap const &MemReg::getOmpSharedRegions() const {
   return func2SharedOmpRegs;
 }
 

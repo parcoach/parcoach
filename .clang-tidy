@@ -1,7 +1,7 @@
 # These are LLVM checks:
 # Checks: '-*,clang-diagnostic-*,llvm-*,misc-*,-misc-const-correctness,-misc-unused-parameters,-misc-non-private-member-variables-in-classes,-misc-no-recursion,readability-identifier-naming'
 # For now let's restrict to a smaller set of checks:
-Checks: '-*,readability-*'
+Checks: '-*,readability-*,-readability-identifier-length'
 CheckOptions:
   - key:             readability-identifier-naming.ClassCase
     value:           CamelCase

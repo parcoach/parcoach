@@ -114,7 +114,7 @@ private:
   // Utils
   void resetCounters();
   enum Color { WHITE, GREY, BLACK };
-  using BBColorMap = DenseMap<const BasicBlock *, Color>;
+  using BBColorMap = DenseMap<BasicBlock const *, Color>;
   using MemMap = ValueMap<Value *, Instruction *>;
   BBColorMap ColorMap;
 };

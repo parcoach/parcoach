@@ -45,20 +45,20 @@ public:
     return conditionSetParcoachOnly.size();
   }
 
-  std::set<const llvm::BasicBlock *> const &getConditionSet() const {
+  std::set<llvm::BasicBlock const *> const &getConditionSet() const {
     return conditionSet;
   }
 
-  std::set<const llvm::BasicBlock *> const &
+  std::set<llvm::BasicBlock const *> const &
   getConditionSetParcoachOnly() const {
     return conditionSetParcoachOnly;
   }
 
-  std::set<const llvm::Instruction *> const &getWarningSet() const {
+  std::set<llvm::Instruction const *> const &getWarningSet() const {
     return warningSet;
   }
 
-  std::set<const llvm::Instruction *> const &getWarningSetParcoachOnly() const {
+  std::set<llvm::Instruction const *> const &getWarningSetParcoachOnly() const {
     return warningSetParcoachOnly;
   }
 
@@ -70,10 +70,10 @@ protected:
   unsigned nbCollectivesCondCalled;
   unsigned nbCollectivesFoundParcoachOnly;
 
-  std::set<const llvm::BasicBlock *> conditionSet;
-  std::set<const llvm::BasicBlock *> conditionSetParcoachOnly;
-  std::set<const llvm::Instruction *> warningSet;
-  std::set<const llvm::Instruction *> warningSetParcoachOnly;
+  std::set<llvm::BasicBlock const *> conditionSet;
+  std::set<llvm::BasicBlock const *> conditionSetParcoachOnly;
+  std::set<llvm::Instruction const *> warningSet;
+  std::set<llvm::Instruction const *> warningSetParcoachOnly;
 };
 
 #endif /* PARCOACHANALYSIS */

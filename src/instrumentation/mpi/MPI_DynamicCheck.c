@@ -24,7 +24,7 @@ void areequals(int *in, int *inout, int *len, MPI_Datatype *type) {
 }
 
 // Count collectives at execution time
-void count_collectives(const char *OP_name, int OP_line, char *FILE_name,
+void count_collectives(char const *OP_name, int OP_line, char *FILE_name,
                        int inst) {
   int rank;
 
@@ -56,7 +56,7 @@ void count_collectives(const char *OP_name, int OP_line, char *FILE_name,
  *  warnings = warnings emitted at compile-time
  *  FILE_name = name of the file
  */
-void check_collective_MPI(int OP_color, const char *OP_name, int OP_line,
+void check_collective_MPI(int OP_color, char const *OP_name, int OP_line,
                           char *warnings, char *FILE_name) {
   int rank;
   int sizeComm;
@@ -110,7 +110,7 @@ void check_collective_MPI(int OP_color, const char *OP_name, int OP_line,
   }
 }
 
-void check_collective_return(int OP_color, const char *OP_name, int OP_line,
+void check_collective_return(int OP_color, char const *OP_name, int OP_line,
                              char *warnings, char *FILE_name) {
   int rank;
   int sizeComm;

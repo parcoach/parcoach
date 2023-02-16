@@ -18,7 +18,7 @@ using namespace llvm;
 // Constraints list for each instruction in the program that induces a
 // constraint, and setting up the initial points-to graph.
 
-void Andersen::collectConstraints(const Module &M) {
+void Andersen::collectConstraints(Module const &M) {
   // First, the universal ptr points to universal obj, and the universal obj
   // points to itself
   constraints.emplace_back(AndersConstraint::ADDR_OF,
@@ -73,7 +73,7 @@ void Andersen::collectConstraints(const Module &M) {
   }
 }
 
-void Andersen::collectConstraintsForGlobals(const Module &M) {
+void Andersen::collectConstraintsForGlobals(Module const &M) {
   // Create a pointer and an object for each global variable
   for (auto const &globalVal : M.globals()) {
     NodeIndex gVal = nodeFactory.createValueNode(&globalVal);
@@ -129,7 +129,7 @@ void Andersen::collectConstraintsForGlobals(const Module &M) {
 }
 
 void Andersen::addGlobalInitializerConstraints(NodeIndex objNode,
-                                               const Constant *c) {
+                                               Constant const *c) {
   // errs() << "Called with node# = " << objNode << ", initializer = " << *c <<
   // "\n";
   if (c->getType()->isSingleValueType()) {
@@ -154,7 +154,7 @@ void Andersen::addGlobalInitializerConstraints(NodeIndex objNode,
   }
 }
 
-void Andersen::collectConstraintsForInstruction(const Instruction *inst) {
+void Andersen::collectConstraintsForInstruction(Instruction const *inst) {
   switch (inst->getOpcode()) {
   case Instruction::Alloca: {
     NodeIndex valNode = nodeFactory.getValueNodeFor(inst);
@@ -225,7 +225,7 @@ void Andersen::collectConstraintsForInstruction(const Instruction *inst) {
   }
   case Instruction::PHI: {
     if (inst->getType()->isPointerTy()) {
-      const PHINode *phiInst = cast<PHINode>(inst);
+      PHINode const *phiInst = cast<PHINode>(inst);
       NodeIndex dstIndex = nodeFactory.getValueNodeFor(phiInst);
       assert(dstIndex != AndersNodeFactory::InvalidIndex &&
              "Failed to find phi dst node");
@@ -350,7 +350,7 @@ void Andersen::collectConstraintsForInstruction(const Instruction *inst) {
 // - ValueNode(callsite) = ReturnNode(call target)
 // - ValueNode(formal arg) = ValueNode(actual arg)
 void Andersen::addConstraintForCall(CallBase const &CB) {
-  if (const Function *f = CB.getCalledFunction()) // Direct call
+  if (Function const *f = CB.getCalledFunction()) // Direct call
   {
     if (f->isDeclaration() || f->isIntrinsic()) // External library call
     {
@@ -408,7 +408,7 @@ void Andersen::addConstraintForCall(CallBase const &CB) {
     // For argument constraints, first search through all addr-taken functions:
     // any function that takes can take as many variables is a potential
     // candidate
-    const Module *M = CB.getParent()->getParent()->getParent();
+    Module const *M = CB.getParent()->getParent()->getParent();
     for (auto const &f : *M) {
       NodeIndex funPtrIndex = nodeFactory.getValueNodeFor(&f);
       if (funPtrIndex == AndersNodeFactory::InvalidIndex)
@@ -445,12 +445,12 @@ void Andersen::addConstraintForCall(CallBase const &CB) {
 }
 
 void Andersen::addArgumentConstraintForCall(CallBase const &CB,
-                                            const Function *f) {
+                                            Function const *f) {
   auto fItr = f->arg_begin();
   auto aItr = CB.arg_begin();
   while (fItr != f->arg_end() && aItr != CB.arg_end()) {
-    const Argument *formal = &*fItr;
-    const Value *actual = *aItr;
+    Argument const *formal = &*fItr;
+    Value const *actual = *aItr;
 
     if (formal->getType()->isPointerTy()) {
       NodeIndex fIndex = nodeFactory.getValueNodeFor(formal);
@@ -472,7 +472,7 @@ void Andersen::addArgumentConstraintForCall(CallBase const &CB,
   // Copy all pointers passed through the varargs section to the varargs node
   if (f->getFunctionType()->isVarArg()) {
     while (aItr != CB.arg_end()) {
-      const Value *actual = *aItr;
+      Value const *actual = *aItr;
       if (actual->getType()->isPointerTy()) {
         NodeIndex aIndex = nodeFactory.getValueNodeFor(actual);
         assert(aIndex != AndersNodeFactory::InvalidIndex &&

@@ -32,13 +32,13 @@ struct rma_analyzer_state {
   int size_comm;
   int mpi_tag;
   int *array;
-  volatile int value;
-  volatile int thread_end;
-  volatile int count_epoch;
-  volatile int count_fence;
-  volatile int count;
-  volatile int active_epoch;
-  volatile int from_sync;
+  int volatile value;
+  int volatile thread_end;
+  int volatile count_epoch;
+  int volatile count_fence;
+  int volatile count;
+  int volatile active_epoch;
+  int volatile from_sync;
 };
 
 extern "C" {

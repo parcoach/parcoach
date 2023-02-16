@@ -11,10 +11,10 @@ StatisticsAnalysis::run(Module &M, ModuleAnalysisManager &) {
   TimeTraceScope TTS("StatisticsAnalysis");
   Statistics Res{};
   auto IsCallInst = [](Instruction const &I) { return isa<CallInst>(I); };
-  for (const Function &F : M) {
+  for (Function const &F : M) {
     Res.Functions++;
     for (auto &I : make_filter_range(instructions(F), IsCallInst)) {
-      const CallInst &CI = cast<CallInst>(I);
+      CallInst const &CI = cast<CallInst>(I);
       if (CI.getCalledFunction()) {
         Res.DirectCalls++;
       } else {

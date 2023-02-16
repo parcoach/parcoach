@@ -29,17 +29,17 @@ public:
   bool insert(unsigned idx) { return bitvec.test_and_set(idx); }
 
   // Return true if *this is a superset of other
-  bool contains(const AndersPtsSet &other) const {
+  bool contains(AndersPtsSet const &other) const {
     return bitvec.contains(other.bitvec);
   }
 
   // intersectWith: return true if *this and other share points-to elements
-  bool intersectWith(const AndersPtsSet &other) const {
+  bool intersectWith(AndersPtsSet const &other) const {
     return bitvec.intersects(other.bitvec);
   }
 
   // Return true if the ptsset changes
-  bool unionWith(const AndersPtsSet &other) { return bitvec |= other.bitvec; }
+  bool unionWith(AndersPtsSet const &other) { return bitvec |= other.bitvec; }
 
   void clear() { bitvec.clear(); }
 
@@ -52,7 +52,7 @@ public:
     return bitvec.empty();
   }
 
-  bool operator==(const AndersPtsSet &other) const {
+  bool operator==(AndersPtsSet const &other) const {
     return bitvec == other.bitvec;
   }
 

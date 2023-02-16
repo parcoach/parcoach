@@ -34,13 +34,13 @@ public:
   NodeIndex getDest() const { return dest; }
   NodeIndex getSrc() const { return src; }
 
-  bool operator==(const AndersConstraint &RHS) const {
+  bool operator==(AndersConstraint const &RHS) const {
     return RHS.type == type && RHS.dest == dest && RHS.src == src;
   }
 
-  bool operator!=(const AndersConstraint &RHS) const { return !(*this == RHS); }
+  bool operator!=(AndersConstraint const &RHS) const { return !(*this == RHS); }
 
-  bool operator<(const AndersConstraint &RHS) const {
+  bool operator<(AndersConstraint const &RHS) const {
     if (RHS.type != type)
       return RHS.type < type;
     else if (RHS.dest != dest)

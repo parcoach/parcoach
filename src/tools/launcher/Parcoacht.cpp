@@ -91,7 +91,7 @@ struct TimeTracer {
   ~TimeTracer() {
     if (TimeTrace) {
       if (auto E = timeTraceProfilerWrite(TimeTraceFile, InputFilename)) {
-        handleAllErrors(std::move(E), [&](const StringError &SE) {
+        handleAllErrors(std::move(E), [&](StringError const &SE) {
           errs() << SE.getMessage() << "\n";
         });
         return;

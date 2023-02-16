@@ -17,12 +17,14 @@ using namespace llvm;
 namespace {
 
 std::string getCheckFunctionName(Collective const *C) {
-  if (!C) {
+  if (C == nullptr) {
     return "check_collective_return";
-  } else if (isa<MPICollective>(C)) {
+  }
+  if (isa<MPICollective>(C)) {
     return "check_collective_MPI";
 #ifdef PARCOACH_ENABLE_OPENMP
-  } else if (isa<OMPCollective>(C)) {
+  }
+  if (isa<OMPCollective>(C)) {
     return "check_collective_OMP";
 #endif
 #ifdef PARCOACH_ENABLE_UPC
@@ -40,36 +42,37 @@ std::string getCheckFunctionName(Collective const *C) {
 // --> void check_collective_UPC(int OP_color, const char* OP_name,
 // int OP_line, char* warnings, char *FILE_name)
 void insertCC(Instruction *I, Collective const *C, Function const &F,
-              int OP_line, llvm::StringRef WarningMsg, llvm::StringRef File) {
+              int OpLine, llvm::StringRef WarningMsg, llvm::StringRef File) {
   Module &M = *I->getModule();
-  IRBuilder<> builder(I);
-  IntegerType *I32Ty = builder.getInt32Ty();
-  PointerType *I8PtrTy = builder.getInt8PtrTy();
+  IRBuilder<> Builder(I);
+  IntegerType *I32Ty = Builder.getInt32Ty();
+  PointerType *I8PtrTy = Builder.getInt8PtrTy();
   // Arguments of the new function
-  std::array<Type *, 5> params{
+  unsigned constexpr NParams = 5;
+  std::array<Type *, NParams> Params{
       I32Ty,   // OP_color
       I8PtrTy, // OP_name
       I32Ty,   // OP_line
       I8PtrTy, // OP_warnings
       I8PtrTy, // FILE_name
   };
-  Value *strPtr_NAME = builder.CreateGlobalStringPtr(F.getName());
-  Value *strPtr_WARNINGS = builder.CreateGlobalStringPtr(WarningMsg);
-  Value *strPtr_FILENAME = builder.CreateGlobalStringPtr(File);
+  Value *StrPtrName = Builder.CreateGlobalStringPtr(F.getName());
+  Value *StrPtrWarnings = Builder.CreateGlobalStringPtr(WarningMsg);
+  Value *StrPtrFilename = Builder.CreateGlobalStringPtr(File);
   // Set new function name, type and arguments
-  FunctionType *FTy = FunctionType::get(builder.getVoidTy(), params, false);
-  int OP_color = C ? (int)C->K : -1;
-  std::array<Value *, 5> CallArgs = {
-      ConstantInt::get(I32Ty, OP_color), strPtr_NAME,
-      ConstantInt::get(I32Ty, OP_line), strPtr_WARNINGS, strPtr_FILENAME};
+  FunctionType *FTy = FunctionType::get(Builder.getVoidTy(), Params, false);
+  int OpColor = C != nullptr ? (int)C->K : -1;
+  std::array<Value *, NParams> CallArgs = {
+      ConstantInt::get(I32Ty, OpColor), StrPtrName,
+      ConstantInt::get(I32Ty, OpLine), StrPtrWarnings, StrPtrFilename};
   std::string FunctionName = getCheckFunctionName(C);
 
   FunctionCallee CCFunction = M.getOrInsertFunction(FunctionName, FTy);
 
   // Create new function
   CallInst::Create(CCFunction, CallArgs, "", I);
-  LLVM_DEBUG(dbgs() << "=> Insertion of " << FunctionName << " (" << OP_color
-                    << ", " << F.getName() << ", " << OP_line << ", "
+  LLVM_DEBUG(dbgs() << "=> Insertion of " << FunctionName << " (" << OpColor
+                    << ", " << F.getName() << ", " << OpLine << ", "
                     << WarningMsg << ", " << File << ")\n");
 }
 } // namespace
@@ -100,30 +103,31 @@ bool CollectiveInstrumentation::run(Function &F) {
     // Debug info (line in the source code, file)
     DebugLoc DLoc = CI.getDebugLoc();
     std::string File = "o";
-    int OP_line = -1;
+    int OpLine = -1;
     if (DLoc) {
-      OP_line = DLoc.getLine();
+      OpLine = DLoc.getLine();
       File = DLoc->getFilename().str();
     }
     // call instruction
-    Function *callee = CI.getCalledFunction();
-    assert(callee && "Callee expected to be not null");
-    auto *Coll = Collective::find(*callee);
-    StringRef CalleeName = callee->getName();
+    Function *Callee = CI.getCalledFunction();
+    assert(Callee && "Callee expected to be not null");
+    auto const *Coll = Collective::find(*Callee);
+    StringRef CalleeName = Callee->getName();
 
     // Before finalize or exit/abort
     if (CalleeName == "MPI_Finalize" || CalleeName == "MPI_Abort" ||
         CalleeName == "abort") {
       LLVM_DEBUG(dbgs() << "-> insert check before " << CalleeName << " line "
-                        << OP_line << "\n");
-      insertCC(&CI, nullptr, *callee, OP_line, WarningStr, File);
+                        << OpLine << "\n");
+      insertCC(&CI, nullptr, *Callee, OpLine, WarningStr, File);
       Changed = true;
       continue;
-    } else if (Coll) {
+    }
+    if (Coll != nullptr) {
       // Before a collective
       LLVM_DEBUG(dbgs() << "-> insert check before " << CalleeName << " line "
-                        << OP_line << "\n");
-      insertCC(&CI, Coll, *callee, OP_line, WarningStr, File);
+                        << OpLine << "\n");
+      insertCC(&CI, Coll, *Callee, OpLine, WarningStr, File);
       Changed = true;
     }
   } // END FOR

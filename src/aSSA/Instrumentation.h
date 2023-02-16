@@ -10,7 +10,8 @@ namespace parcoach {
 
 struct ParcoachInstrumentationPass
     : public llvm::PassInfoMixin<ParcoachInstrumentationPass> {
-  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+  static llvm::PreservedAnalyses run(llvm::Module &M,
+                                     llvm::ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }
 };
 

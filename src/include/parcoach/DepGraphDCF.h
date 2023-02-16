@@ -16,8 +16,8 @@ namespace parcoach {
 class DepGraphDCF : public llvm::InstVisitor<DepGraphDCF> {
 public:
   using VarSet = std::set<MSSAVar *>;
-  using ConstVarSet = std::set<const MSSAVar *>;
-  using ValueSet = std::set<const llvm::Value *>;
+  using ConstVarSet = std::set<MSSAVar const *>;
+  using ValueSet = std::set<llvm::Value const *>;
 
   DepGraphDCF(parcoach::MemorySSA *mssa, PTACallGraph const &CG,
               llvm::FunctionAnalysisManager &AM, llvm::Module &M,
@@ -26,8 +26,8 @@ public:
   virtual ~DepGraphDCF();
 
   void toDot(llvm::StringRef filename) const;
-  void dotTaintPath(const llvm::Value *v, llvm::StringRef filename,
-                    const llvm::Instruction *collective) const;
+  void dotTaintPath(llvm::Value const *v, llvm::StringRef filename,
+                    llvm::Instruction const *collective) const;
 
   // FIXME: ideally we would have two classes: one analysis result, and one
   // visitor constructing this analysis result (so that the user can't "visit"
@@ -53,14 +53,14 @@ public:
   void visitTerminator(llvm::Instruction &I);
   void visitInstruction(llvm::Instruction &I);
 
-  bool isTaintedValue(const llvm::Value *v) const;
+  bool isTaintedValue(llvm::Value const *v) const;
 
-  void getCallInterIPDF(const llvm::CallInst *call,
-                        std::set<const llvm::BasicBlock *> &ipdf) const;
+  void getCallInterIPDF(llvm::CallInst const *call,
+                        std::set<llvm::BasicBlock const *> &ipdf) const;
 
 private:
   void build();
-  void buildFunction(const llvm::Function *F);
+  void buildFunction(llvm::Function const *F);
   // Phi elimination pass.
   // A ssa Phi function can be eliminated if its operands are equivalent.
   // In this case operands are merged into a single node and the phi is replaced
@@ -79,7 +79,7 @@ private:
   parcoach::MemorySSA *mssa;
   PTACallGraph const &CG;
 
-  const llvm::Function *curFunc;
+  llvm::Function const *curFunc;
   llvm::FunctionAnalysisManager &FAM;
   llvm::Module const &M;
   bool const ContextInsensitive;
@@ -88,20 +88,20 @@ private:
   /* Graph nodes */
 
   // Map from a function to all its top-level variables nodes.
-  llvm::ValueMap<const llvm::Function *, ValueSet> funcToLLVMNodesMap;
+  llvm::ValueMap<llvm::Function const *, ValueSet> funcToLLVMNodesMap;
   // Map from a function to all its address taken ssa nodes.
-  llvm::ValueMap<const llvm::Function *, VarSet> funcToSSANodesMap;
-  std::set<const llvm::Function *> varArgNodes;
+  llvm::ValueMap<llvm::Function const *, VarSet> funcToSSANodesMap;
+  std::set<llvm::Function const *> varArgNodes;
 
   /* Graph edges */
 
   // top-level to top-level edges
-  llvm::ValueMap<const llvm::Value *, ValueSet> llvmToLLVMChildren;
-  llvm::ValueMap<const llvm::Value *, ValueSet> llvmToLLVMParents;
+  llvm::ValueMap<llvm::Value const *, ValueSet> llvmToLLVMChildren;
+  llvm::ValueMap<llvm::Value const *, ValueSet> llvmToLLVMParents;
 
   // top-level to address-taken ssa edges
-  llvm::ValueMap<const llvm::Value *, VarSet> llvmToSSAChildren;
-  llvm::ValueMap<const llvm::Value *, VarSet> llvmToSSAParents;
+  llvm::ValueMap<llvm::Value const *, VarSet> llvmToSSAChildren;
+  llvm::ValueMap<llvm::Value const *, VarSet> llvmToSSAParents;
   // address-taken ssa to top-level edges
   llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMChildren;
   llvm::DenseMap<MSSAVar *, ValueSet> ssaToLLVMParents;
@@ -115,28 +115,28 @@ private:
   void enableUPC();
   void enableCUDA();
 
-  void addEdge(const llvm::Value *s, const llvm::Value *d);
-  void addEdge(const llvm::Value *s, MSSAVar *d);
-  void addEdge(MSSAVar *s, const llvm::Value *d);
+  void addEdge(llvm::Value const *s, llvm::Value const *d);
+  void addEdge(llvm::Value const *s, MSSAVar *d);
+  void addEdge(MSSAVar *s, llvm::Value const *d);
   void addEdge(MSSAVar *s, MSSAVar *d);
-  void removeEdge(const llvm::Value *s, const llvm::Value *d);
-  void removeEdge(const llvm::Value *s, MSSAVar *d);
-  void removeEdge(MSSAVar *s, const llvm::Value *d);
+  void removeEdge(llvm::Value const *s, llvm::Value const *d);
+  void removeEdge(llvm::Value const *s, MSSAVar *d);
+  void removeEdge(MSSAVar *s, llvm::Value const *d);
   void removeEdge(MSSAVar *s, MSSAVar *d);
 
   /* PDF+ call nodes and edges */
 
   // map from a function to all its call instructions
-  llvm::ValueMap<const llvm::Function *, ValueSet> funcToCallNodes;
+  llvm::ValueMap<llvm::Function const *, ValueSet> funcToCallNodes;
   // map from call instructions to called functions
-  llvm::ValueMap<const llvm::Value *, const llvm::Function *> callToFuncEdges;
+  llvm::ValueMap<llvm::Value const *, llvm::Function const *> callToFuncEdges;
   // map from a condition to call instructions depending on that condition.
-  llvm::ValueMap<const llvm::Value *, ValueSet> condToCallEdges;
+  llvm::ValueMap<llvm::Value const *, ValueSet> condToCallEdges;
 
   // map from a function to all the call sites calling this function.
-  llvm::ValueMap<const llvm::Function *, ValueSet> funcToCallSites;
+  llvm::ValueMap<llvm::Function const *, ValueSet> funcToCallSites;
   // map from a callsite to all its conditions.
-  llvm::ValueMap<const llvm::Value *, ValueSet> callsiteToConds;
+  llvm::ValueMap<llvm::Value const *, ValueSet> callsiteToConds;
 
   /* tainted nodes */
   ValueSet taintedLLVMNodes;
@@ -146,11 +146,11 @@ private:
   ConstVarSet ssaSources;
   ValueSet valueSources;
 
-  void floodFunction(const llvm::Function *F);
-  void floodFunctionFromFunction(const llvm::Function *to,
-                                 const llvm::Function *from);
-  void resetFunctionTaint(const llvm::Function *F);
-  void computeFunctionCSTaintedConds(const llvm::Function *F);
+  void floodFunction(llvm::Function const *F);
+  void floodFunctionFromFunction(llvm::Function const *to,
+                                 llvm::Function const *from);
+  void resetFunctionTaint(llvm::Function const *F);
+  void computeFunctionCSTaintedConds(llvm::Function const *F);
   ValueSet taintedConditions;
 
   /* Graph construction for call sites*/
@@ -158,7 +158,7 @@ private:
   void connectCSChis(llvm::CallInst &I);
   void connectCSEffectiveParameters(llvm::CallInst &I);
   void connectCSEffectiveParametersExt(llvm::CallInst &I,
-                                       const llvm::Function *callee);
+                                       llvm::Function const *callee);
   void connectCSCalledReturnValue(llvm::CallInst &I);
   void connectCSRetChi(llvm::CallInst &I);
 
@@ -169,34 +169,29 @@ private:
   // This function replaces phi with op1 and removes op2.
   void eliminatePhi(MSSAPhi *phi, std::vector<MSSAVar *> ops);
 
-  void dotFunction(llvm::raw_fd_ostream &stream, const llvm::Function *F) const;
+  void dotFunction(llvm::raw_fd_ostream &stream, llvm::Function const *F) const;
   void dotExtFunction(llvm::raw_fd_ostream &stream,
-                      const llvm::Function *F) const;
-  std::string getNodeStyle(const llvm::Value *v) const;
-  std::string getNodeStyle(const MSSAVar *v) const;
-  std::string getNodeStyle(const llvm::Function *f) const;
-  std::string getCallNodeStyle(const llvm::Value *v) const;
+                      llvm::Function const *F) const;
+  std::string getNodeStyle(llvm::Value const *v) const;
+  std::string getNodeStyle(MSSAVar const *v) const;
+  std::string getNodeStyle(llvm::Function const *f) const;
+  std::string getCallNodeStyle(llvm::Value const *v) const;
 
   struct DGDebugLoc {
-    const llvm::Function *F;
+    llvm::Function const *F;
     std::string filename;
     int line;
 
-    bool operator<(const DGDebugLoc &o) const { return line < o.line; }
+    bool operator<(DGDebugLoc const &o) const { return line < o.line; }
   };
 
-  bool getDGDebugLoc(const llvm::Value *v, DGDebugLoc &DL) const;
+  bool getDGDebugLoc(llvm::Value const *v, DGDebugLoc &DL) const;
   bool getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL) const;
-  std::string getStringMsg(const llvm::Value *v) const;
+  std::string getStringMsg(llvm::Value const *v) const;
   std::string getStringMsg(MSSAVar *v) const;
   bool getDebugTrace(std::vector<DGDebugLoc> &DLs, std::string &trace,
-                     const llvm::Instruction *collective) const;
+                     llvm::Instruction const *collective) const;
   void reorderAndRemoveDup(std::vector<DGDebugLoc> &DLs) const;
-
-  /* stats */
-  double buildGraphTime;
-  double phiElimTime;
-  double floodDepTime;
 
   /* options */
   bool noPtrDep;

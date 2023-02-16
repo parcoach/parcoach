@@ -17,9 +17,9 @@ public:
                        llvm::Module &M);
   ~ModRefAnalysisResult();
 
-  MemRegSet getFuncMod(const llvm::Function *F) const;
-  MemRegSet getFuncRef(const llvm::Function *F) const;
-  MemRegSet getFuncKill(const llvm::Function *F) const;
+  MemRegSet getFuncMod(llvm::Function const *F) const;
+  MemRegSet getFuncRef(llvm::Function const *F) const;
+  MemRegSet getFuncKill(llvm::Function const *F) const;
   bool inGlobalKillSet(MemRegEntry *R) const;
 
   void visitAllocaInst(llvm::AllocaInst &I);
@@ -39,10 +39,10 @@ private:
   Andersen const &PTA;
   ExtInfo const &extInfo;
   MemReg const &Regions;
-  llvm::ValueMap<const llvm::Function *, MemRegSet> funcModMap;
-  llvm::ValueMap<const llvm::Function *, MemRegSet> funcRefMap;
-  llvm::ValueMap<const llvm::Function *, MemRegSet> funcLocalMap;
-  llvm::ValueMap<const llvm::Function *, MemRegSet> funcKillMap;
+  llvm::ValueMap<llvm::Function const *, MemRegSet> funcModMap;
+  llvm::ValueMap<llvm::Function const *, MemRegSet> funcRefMap;
+  llvm::ValueMap<llvm::Function const *, MemRegSet> funcLocalMap;
+  llvm::ValueMap<llvm::Function const *, MemRegSet> funcKillMap;
   MemRegSet globalKillSet;
 };
 

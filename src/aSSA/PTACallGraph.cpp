@@ -92,7 +92,7 @@ void PTACallGraph::addToCallGraph(Function const &F) {
   for (BasicBlock const &BB : F)
     for (Instruction const &I : BB) {
       if (auto *CI = dyn_cast<CallInst>(&I)) {
-        const Function *Callee = CI->getCalledFunction();
+        Function const *Callee = CI->getCalledFunction();
 
         if (!Callee || !Intrinsic::isLeaf(Callee->getIntrinsicID()))
           // Indirect calls of intrinsics are not allowed so no need to check.
@@ -104,11 +104,11 @@ void PTACallGraph::addToCallGraph(Function const &F) {
 
         // Indirect calls
         if (!Callee) {
-          const Value *calledValue =
+          Value const *calledValue =
               CI->getCalledOperand(); // CI.getCalledValue();
           assert(calledValue);
 
-          std::vector<const Value *> ptsSet;
+          std::vector<Value const *> ptsSet;
 
           bool Found = AA.getPointsToSet(calledValue, ptsSet);
           assert(Found && "coult not compute points to set for call inst");
@@ -120,7 +120,7 @@ void PTACallGraph::addToCallGraph(Function const &F) {
                                   (CandidateF->isVarArg() &&
                                    CI->arg_size() > CandidateF->arg_size()));
           };
-          for (const Value *v : make_filter_range(ptsSet, IsCandidateF)) {
+          for (Value const *v : make_filter_range(ptsSet, IsCandidateF)) {
             auto *LocalCallee = cast<Function>(v);
             Found = true;
 
@@ -136,11 +136,11 @@ void PTACallGraph::addToCallGraph(Function const &F) {
     }
 }
 
-bool PTACallGraph::isReachableFromEntry(const Function &F) const {
+bool PTACallGraph::isReachableFromEntry(Function const &F) const {
   return !ProgEntry || reachableFunctions.find(&F) != reachableFunctions.end();
 }
 
-PTACallGraphNode *PTACallGraph::getOrInsertFunction(const llvm::Function *F) {
+PTACallGraphNode *PTACallGraph::getOrInsertFunction(llvm::Function const *F) {
   auto &CGN = FunctionMap[F];
   if (CGN)
     return CGN.get();

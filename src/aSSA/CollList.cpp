@@ -4,13 +4,13 @@
 
 using namespace llvm;
 
-CollList::CollList(StringRef coll, BasicBlock const *src)
-    : navs{coll == "NAVS"}, Sources{src}, names{coll.str()} {}
+CollList::CollList(StringRef Coll, BasicBlock const *Src)
+    : Navs{Coll == "NAVS"}, Sources{Src}, Names{Coll.str()} {}
 
-CollList::CollList(CollList const *coll, BasicBlock const *src)
-    : navs{false}, Sources{src} {
-  if (coll) {
-    append_range(names, coll->getNames());
+CollList::CollList(CollList const *Coll, BasicBlock const *Src)
+    : Navs{false}, Sources{Src} {
+  if (Coll != nullptr) {
+    append_range(Names, Coll->getNames());
   }
 }
 
@@ -20,8 +20,8 @@ void CollList::push(StringRef Collective, BasicBlock const *Source,
     if (!isSource(Source)) {
       Sources.push_back(Source);
     }
-    names.push_back(Collective.str());
-    navs |= Collective == "NAVS";
+    Names.push_back(Collective.str());
+    Navs |= Collective == "NAVS";
   }
 }
 
@@ -31,9 +31,9 @@ void CollList::push(CollList const *CL, BasicBlock const *Source,
     if (!isSource(Source)) {
       Sources.push_back(Source);
     }
-    if (CL) {
-      append_range(names, CL->getNames());
-      navs |= CL->isNAVS();
+    if (CL != nullptr) {
+      append_range(Names, CL->getNames());
+      Navs |= CL->isNAVS();
     }
   }
 }
@@ -42,8 +42,9 @@ void CollList::push(CollList const *CL, BasicBlock const *Source,
 std::string CollList::toString() const {
   std::string Out;
   raw_string_ostream OS(Out);
-  OS << "{" << this << ", d: " << getDepth() << ", navs: " << navs
-     << ", names:" << toCollMap() << "}";
+  OS << "{" << this << ", d: " << getDepth()
+     << ", navs: " << static_cast<int>(Navs) << ", names:" << toCollMap()
+     << "}";
   return Out;
 }
 #endif
@@ -52,7 +53,7 @@ std::string CollList::toCollMap() const {
   std::string Out;
   raw_string_ostream OS(Out);
   bool First = true;
-  for (auto &Name : names) {
+  for (auto const &Name : Names) {
     if (!First) {
       OS << " ";
     }

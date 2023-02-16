@@ -45,21 +45,13 @@ option(ANDERSEN_ENABLE_OPTIMIZATIONS
 configure_file(Config.h.in ${CMAKE_CURRENT_BINARY_DIR}/Config.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-if(PARCOACH_LINK_DYLIB)
-  set(BUILDTREE "")
-else()
-  # If we don't link the dylib we're doing a full static build, in which case
-  # we just want to install the tool.
-  set(BUILDTREE "BUILDTREE_ONLY")
-endif()
-
 call_llvm_helper(
   add_llvm_library
   ParcoachPasses
   ${ASSA_SOURCES}
   ${PARCOACH_LIB_TYPE}
   ${LLVM_DYLIB_OPTION}
-  ${BUILDTREE}
+  ${PARCOACH_BUILDTREE}
   )
 
 if(PARCOACH_ENABLE_RMA)

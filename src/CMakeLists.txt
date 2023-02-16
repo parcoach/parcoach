@@ -1,11 +1,13 @@
 if(PARCOACH_BUILD_SHARED)
   set(PARCOACH_LIB_TYPE SHARED)
-else()
-  set(PARCOACH_LIB_TYPE STATIC)
-endif()
-if(PARCOACH_LINK_DYLIB)
+  set(PARCOACH_BUILDTREE "")
   set(LLVM_DYLIB_OPTION "")
 else()
+  set(PARCOACH_LIB_TYPE STATIC)
+  # This is an LLVM specific option: when adding a library with this argument
+  # it is not included in the installed targets.
+  # It's useful when linking statically as we just want to install the tool.
+  set(PARCOACH_BUILDTREE "BUILDTREE_ONLY")
   set(LLVM_DYLIB_OPTION "DISABLE_LLVM_LINK_LLVM_DYLIB")
 endif()
 

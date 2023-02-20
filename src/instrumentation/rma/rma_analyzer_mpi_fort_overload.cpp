@@ -1,18 +1,11 @@
 #include "rma_analyzer.h"
 #include "util.h"
-#include <assert.h>
-#include <errno.h>
-#include <inttypes.h>
-#include <limits.h>
 #include <mpi.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
-#include <unistd.h>
 
 static float temps;
 static clock_t t1, t2;
+using namespace parcoach::rma;
 
 /******************************************************
  *     Fortran prototype definitions used in code     *
@@ -169,7 +162,6 @@ int new_win_post_(int *group, int *assert, int *win, int *_) {
 int new_put_(int *origin_addr, int *origin_count, int *origin_datatype,
              int *target_rank, int *target_disp, int *target_count,
              int *target_datatype, int *win, int *_) {
-  LOG(stderr, "A process is accessing a put function !\n\n");
   int local_size = 0;
   int target_size = 0;
 
@@ -182,9 +174,12 @@ int new_put_(int *origin_addr, int *origin_count, int *origin_datatype,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_update_on_comm_send((uint64_t)origin_addr, local_size,
-                                   *target_disp, target_size, *target_rank,
-                                   RMA_READ, RMA_WRITE, 0, NULL, c_win);
+  rma_analyzer_update_on_comm_send(
+      Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
+             AccessType::RMA_READ, DebugInfo()),
+      Access(MemoryAccess{(uint64_t)*target_disp, (uint64_t)target_size},
+             AccessType::RMA_WRITE, DebugInfo()),
+      *target_rank, c_win);
 
   mpi_put_(origin_addr, origin_count, origin_datatype, target_rank, target_disp,
            target_count, target_datatype, win, &ret);
@@ -197,7 +192,6 @@ int new_put_(int *origin_addr, int *origin_count, int *origin_datatype,
 int new_get_(int *origin_addr, int *origin_count, int *origin_datatype,
              int *target_rank, int *target_disp, int *target_count,
              int *target_datatype, int *win, int *_) {
-  LOG(stderr, "A process is accessing a get function !\n\n");
   int local_size = 0;
   int target_size = 0;
 
@@ -210,9 +204,12 @@ int new_get_(int *origin_addr, int *origin_count, int *origin_datatype,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_update_on_comm_send((uint64_t)origin_addr, local_size,
-                                   *target_disp, target_size, *target_rank,
-                                   RMA_WRITE, RMA_READ, 0, NULL, c_win);
+  rma_analyzer_update_on_comm_send(
+      Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
+             AccessType::RMA_WRITE, DebugInfo()),
+      Access(MemoryAccess{(uint64_t)*target_disp, (uint64_t)target_size},
+             AccessType::RMA_READ, DebugInfo()),
+      *target_rank, c_win);
 
   mpi_get_(origin_addr, origin_count, origin_datatype, target_rank, target_disp,
            target_count, target_datatype, win, &ret);
@@ -223,7 +220,6 @@ int new_get_(int *origin_addr, int *origin_count, int *origin_datatype,
 int new_accumulate_(int *origin_addr, int *origin_count, int *origin_datatype,
                     int *target_rank, int *target_disp, int *target_count,
                     int *target_datatype, int *op, int *win, int *_) {
-  LOG(stderr, "A process is accessing an accumulate function !\n\n");
   int local_size = 0;
   int target_size = 0;
 
@@ -236,9 +232,12 @@ int new_accumulate_(int *origin_addr, int *origin_count, int *origin_datatype,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_update_on_comm_send((uint64_t)origin_addr, local_size,
-                                   *target_disp, target_size, *target_rank,
-                                   RMA_READ, RMA_WRITE, 0, NULL, c_win);
+  rma_analyzer_update_on_comm_send(
+      Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
+             AccessType::RMA_READ, DebugInfo()),
+      Access(MemoryAccess{(uint64_t)*target_disp, (uint64_t)target_size},
+             AccessType::RMA_WRITE, DebugInfo()),
+      *target_rank, c_win);
 
   mpi_accumulate_(origin_addr, origin_count, origin_datatype, target_rank,
                   target_disp, target_count, target_datatype, op, win, &ret);
@@ -317,9 +316,11 @@ int new_win_free_(int *win, int *_) {
 
   t2 = clock();
   temps = (float)(t2 - t1) / CLOCKS_PER_SEC;
-  LOG(stderr, "time = %f\n", temps);
-  LOG(stderr, "I passed the win_free\n");
-  LOG(stderr, "time = %f\n", temps);
+  RMA_DEBUG({
+    Err << "time = " << temps << "\n";
+    Err << "I passed the win_free\n";
+    std::cerr << Err.str();
+  });
 
   rma_analyzer_stop(c_win);
   mpi_win_free_(win, &ret);

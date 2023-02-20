@@ -1,12 +1,12 @@
 #ifndef __RMA_ANALYZER__H__
 #define __RMA_ANALYZER__H__
 
-#include "interval.h"
-#include "interval_tree.h"
+#include "Interval.h"
 #include <mpi.h>
 
 #include <limits>
 #include <mutex>
+#include <set>
 #include <thread>
 
 #define RMA_ANALYZER_BASE_MPI_TAG std::numeric_limits<unsigned short>::max()
@@ -24,11 +24,11 @@ struct rma_analyzer_state {
   MPI_Win state_win;
   std::thread Thread;
   std::mutex ListMutex;
+  std::multiset<parcoach::rma::Access> Intervals;
   uint64_t win_base;
   size_t win_size;
   MPI_Comm win_comm;
   MPI_Datatype interval_datatype;
-  Interval_tree *local_tree;
   int size_comm;
   int mpi_tag;
   int *array;
@@ -71,16 +71,13 @@ void rma_analyzer_clear_comm_check_thread_all_wins(int do_reduce);
 /* This routine takes care of the update of the local list with the
  * new interval and the sending of the detected interval to the remote
  * peer */
-void rma_analyzer_update_on_comm_send(
-    uint64_t local_address, uint64_t local_size, uint64_t target_disp,
-    uint64_t target_size, int target_rank, Access_type local_access_type,
-    Access_type target_access_type, int fileline, char *filename, MPI_Win win);
+void rma_analyzer_update_on_comm_send(parcoach::rma::Access LocalAccess,
+                                      parcoach::rma::Access TargetAccess,
+                                      int target_rank, MPI_Win win);
 
 /* Save the interval in all active windows.
  * Especially used for load and store instructions */
-void rma_analyzer_save_interval_all_wins(uint64_t address, uint64_t size,
-                                         Access_type access_type, int fileline,
-                                         char *filename);
+void rma_analyzer_save_interval_all_wins(parcoach::rma::Access Acc);
 
 /* Initialize the RMA analyzer */
 void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win);

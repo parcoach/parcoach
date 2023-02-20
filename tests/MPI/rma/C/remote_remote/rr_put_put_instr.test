@@ -5,4 +5,4 @@
 // RUN: %parcoach -check=rma -o %t_instr.ll %t.ll
 // RUN: %mpicc %t_instr.ll %instr_flags -o %t.bin
 // RUN: %ld_lib_path %not %mpiexec -np 3 %t.bin 2>&1 | %filecheck %s
-// CHECK: Error when inserting memory access {{.*}}.c at line 38 with {{.*}}.c at line 38.
+// CHECK: Error when inserting memory access {{.*}}.c:38 with {{.*}}.c:38.

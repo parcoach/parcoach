@@ -1,5 +1,7 @@
+#include "Interval.h"
 #include "rma_analyzer.h"
 #include "util.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -23,6 +25,7 @@ clock_t t1, t2;
  *          Beginning of epochs functions             *
  ******************************************************/
 
+using namespace parcoach::rma;
 extern "C" {
 /* This function is used to spawn the thread that would excute the
  * communication checking thread function at the win_create stage */
@@ -108,19 +111,24 @@ int new_Put(void const *origin_addr, int origin_count,
             MPI_Datatype origin_datatype, int target_rank, MPI_Aint target_disp,
             int target_count, MPI_Datatype target_datatype, MPI_Win win,
             char *filename, int line) {
-  LOG(stderr, "A process is accessing a put function !\n\n");
   uint64_t local_size = 0;
   uint64_t target_size = 0;
-  LOG(stderr, "DEBUG INFO: new_Put at line %d in file %s\n", line, filename);
+  RMA_DEBUG(cerr << "--new_Put at line " << line << " in file " << filename
+                 << "\n");
 
   MPI_Type_size(origin_datatype, (int *)&local_size);
   local_size *= origin_count;
   MPI_Type_size(target_datatype, (int *)&target_size);
   target_size *= target_count;
 
-  rma_analyzer_update_on_comm_send((uint64_t)origin_addr, local_size,
-                                   target_disp, target_size, target_rank,
-                                   RMA_READ, RMA_WRITE, line, filename, win);
+  DebugInfo Dbg((uint64_t)line, filename);
+
+  rma_analyzer_update_on_comm_send(
+      Access(MemoryAccess{(uint64_t)origin_addr, local_size},
+             AccessType::RMA_READ, Dbg),
+      Access(MemoryAccess{(uint64_t)target_disp, target_size},
+             AccessType::RMA_WRITE, Dbg),
+      target_rank, win);
 
   return PMPI_Put(origin_addr, origin_count, origin_datatype, target_rank,
                   target_disp, target_count, target_datatype, win);
@@ -133,7 +141,6 @@ int new_Get(void *origin_addr, int origin_count, MPI_Datatype origin_datatype,
             int target_rank, MPI_Aint target_disp, int target_count,
             MPI_Datatype target_datatype, MPI_Win win, char *filename,
             int line) {
-  LOG(stderr, "A process is accessing a get function !\n\n");
   uint64_t local_address = (uint64_t)origin_addr;
   uint64_t local_size = 0;
   uint64_t target_size = 0;
@@ -149,10 +156,14 @@ int new_Get(void *origin_addr, int origin_count, MPI_Datatype origin_datatype,
   local_size *= origin_count;
   MPI_Type_size(target_datatype, (int *)&target_size);
   target_size *= target_count;
+  DebugInfo Dbg((uint64_t)line, filename);
 
-  rma_analyzer_update_on_comm_send(local_address, local_size, target_disp,
-                                   target_size, target_rank, RMA_WRITE,
-                                   RMA_READ, line, filename, win);
+  rma_analyzer_update_on_comm_send(
+      Access(MemoryAccess{local_address, local_size}, AccessType::RMA_WRITE,
+             Dbg),
+      Access(MemoryAccess{(uint64_t)target_disp, target_size},
+             AccessType::RMA_READ, Dbg),
+      target_rank, win);
 
   return PMPI_Get(origin_addr, origin_count, origin_datatype, target_rank,
                   target_disp, target_count, target_datatype, win);
@@ -163,7 +174,6 @@ int new_Accumulate(void const *origin_addr, int origin_count,
                    MPI_Datatype origin_datatype, int target_rank,
                    MPI_Aint target_disp, int target_count,
                    MPI_Datatype target_datatype, MPI_Op op, MPI_Win win) {
-  LOG(stderr, "A process is accessing an accumulate function !\n\n");
   uint64_t local_address = (uint64_t)origin_addr;
   uint64_t local_size = 0;
   uint64_t target_size = 0;
@@ -173,9 +183,12 @@ int new_Accumulate(void const *origin_addr, int origin_count,
   MPI_Type_size(target_datatype, (int *)&target_size);
   target_size *= target_count;
 
-  rma_analyzer_update_on_comm_send(local_address, local_size, target_disp,
-                                   target_size, target_rank, RMA_READ,
-                                   RMA_WRITE, 0, NULL, win);
+  rma_analyzer_update_on_comm_send(
+      Access(MemoryAccess{local_address, local_size}, AccessType::RMA_READ,
+             DebugInfo{}),
+      Access(MemoryAccess{(uint64_t)target_disp, target_size},
+             AccessType::RMA_WRITE, DebugInfo{}),
+      target_rank, win);
 
   return PMPI_Accumulate(origin_addr, origin_count, origin_datatype,
                          target_rank, target_disp, target_count,
@@ -226,9 +239,11 @@ int new_Win_free(MPI_Win *win) {
 
   t2 = clock();
   temps = (float)(t2 - t1) / CLOCKS_PER_SEC;
-  LOG(stderr, "time = %f\n", temps);
-  LOG(stderr, "I passed the win_free\n");
-  LOG(stderr, "time = %f\n", temps);
+  RMA_DEBUG({
+    Err << "time = " << temps << "\n";
+    Err << "I passed the win_free\n";
+    cerr << Err.str();
+  });
 
   rma_analyzer_stop(*win);
   return PMPI_Win_free(win);
@@ -241,6 +256,7 @@ int new_Win_free(MPI_Win *win) {
 int new_Barrier(MPI_Comm comm) {
   /* For Barrier call, we need to reset and restart the state of all active
    * windows */
+  RMA_DEBUG(cerr << "BARRIER\n");
   rma_analyzer_clear_comm_check_thread_all_wins(DO_REDUCE);
   rma_analyzer_init_comm_check_thread_all_wins();
 

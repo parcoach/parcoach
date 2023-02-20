@@ -5,8 +5,7 @@ endif()
 find_package(Threads REQUIRED)
 
 set(RMA_DYNAMIC_SOURCES
-  interval.cpp
-  interval_tree.cpp
+  Interval.cpp
   rma_analyzer.cpp
   rma_analyzer_mpi_c_overload.cpp
   rma_analyzer_load_store_overload.cpp
@@ -26,8 +25,7 @@ if(PARCOACH_ENABLE_FORTRAN)
 endif()
 
 set(RMA_DYNAMIC_HEADERS
-  interval.h
-  interval_tree.h
+  Interval.h
   rma_analyzer.h
   util.h
   )

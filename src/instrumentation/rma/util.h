@@ -1,17 +1,10 @@
 #pragma once
 
 #ifndef NDEBUG
-#define LOG fprintf
-#else
-#define LOG(...)                                                               \
-  do {                                                                         \
-  } while (0)
-#endif // __DEBUG
-
-#ifndef NDEBUG
+#include <sstream>
 #define RMA_DEBUG(X)                                                           \
   {                                                                            \
-    ostringstream Err;                                                         \
+    std::ostringstream Err;                                                    \
     X;                                                                         \
   }
 #else

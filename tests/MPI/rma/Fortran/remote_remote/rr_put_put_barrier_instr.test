@@ -5,4 +5,5 @@
 // RUN: %parcoach -check=rma -o %t_instr.ll %t.ll
 // RUN: %mpifort %t_instr.ll %instr_flags -o %t.bin
 // RUN: %ld_lib_path %mpiexec -np 3 %t.bin 2>&1 | %filecheck %s
+// CHECK-NOT: Error
 // CHECK: PARCOACH: {{.*}}no issues found

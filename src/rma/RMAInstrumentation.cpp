@@ -6,6 +6,7 @@
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/WithColor.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 
@@ -13,76 +14,97 @@ namespace parcoach::rma {
 
 namespace {
 
-FunctionType *getHandlerType(LLVMContext &C) {
-  static FunctionType *HandlerType_ = nullptr;
-  if (!HandlerType_) {
-    HandlerType_ = FunctionType::get(Type::getVoidTy(C),
-                                     {Type::getInt8Ty(C)->getPointerTo(),
-                                      Type::getInt64Ty(C), Type::getInt64Ty(C),
-                                      Type::getInt8Ty(C)->getPointerTo()},
-                                     false);
+constexpr StringRef PARCOACH_PREFIX = "parcoach_rma_";
+
+std::pair<bool, bool> getInstrumentationInfo(CallBase const &CB) {
+  if (!CB.getCalledFunction()) {
+    return {};
   }
-  return HandlerType_;
+  return StringSwitch<std::pair<bool, bool>>(CB.getCalledFunction()->getName())
+#define RMA_INSTRUMENTED(Name, FName, ChangesEpoch)                            \
+  .Case(#Name, {true, ChangesEpoch}).Case(#FName, {true, ChangesEpoch})
+#include "InstrumentedFunctions.def"
+      .Default({});
 }
 
-FunctionCallee getHandlerLoad(Module *M) {
-  return M->getOrInsertFunction("LOAD", getHandlerType(M->getContext()));
+Twine getInstrumentedName(Function const &F) {
+  return PARCOACH_PREFIX + F.getName();
 }
 
-FunctionCallee getHandlerStore(Module *M) {
-  return M->getOrInsertFunction("STORE", getHandlerType(M->getContext()));
+FunctionType *getInstrumentedFunctionType(Function const &F) {
+  FunctionType *Original = F.getFunctionType();
+  LLVMContext &Ctx = F.getContext();
+  // FIXME: in LLVM 16 we can construct a SmallVector from an ArrayRef.
+  SmallVector<Type *> InstrumentedParamsTypes(Original->params().begin(),
+                                              Original->params().end());
+  InstrumentedParamsTypes.emplace_back(Type::getInt32Ty(Ctx));
+  InstrumentedParamsTypes.emplace_back(Type::getInt8PtrTy(Ctx));
+  return FunctionType::get(F.getReturnType(), InstrumentedParamsTypes, false);
 }
 
-// To instrument LOAD/STORE
-void CreateAndInsertFunction(Instruction &I, Value *Addr,
-                             FunctionCallee handler, size_t size, int line,
-                             StringRef file) {
-
-  IRBuilder<> builder(&I);
-  builder.SetInsertPoint(I.getParent(), builder.GetInsertPoint());
-  Value *filename = builder.CreateGlobalStringPtr(file.str());
-
-  CastInst *CI = CastInst::CreatePointerCast(
-      Addr, builder.getInt8Ty()->getPointerTo(), "", &I);
-  CastInst *CIf = CastInst::CreatePointerCast(
-      filename, builder.getInt8Ty()->getPointerTo(), "", &I);
-  builder.CreateCall(handler,
-                     {CI, ConstantInt::get(builder.getInt64Ty(), size),
-                      ConstantInt::get(builder.getInt64Ty(), line), CIf});
-  // DEBUG INFO: print function prototype//
-  // handler.getFunctionType()->print(errs());
+FunctionCallee getInstrumentedFunction(Function &F) {
+  return F.getParent()->getOrInsertFunction(getInstrumentedName(F).str(),
+                                            getInstrumentedFunctionType(F));
 }
 
-// To modify MPI-RMA functions - For C codes
-void ReplaceCallInst(Instruction &I, CallInst &ci, int line, StringRef file,
-                     StringRef newFuncName) {
-  IRBuilder<> builder(&ci);
-  Value *filename = builder.CreateGlobalStringPtr(file.str());
+CallInst *createInstrumentedCall(CallBase &CB) {
+  IRBuilder<> B(&CB);
+  SmallVector<Value *> Args(CB.args());
 
-  Function *callee = ci.getCalledFunction();
-  auto newArgsType = callee->getFunctionType()->params().vec();
-  newArgsType.push_back(builder.getInt8PtrTy());
-  newArgsType.push_back(builder.getInt64Ty());
-  FunctionType *handlerType =
-      FunctionType::get(callee->getReturnType(), newArgsType, false);
-  // handlerType->print(errs());
+  DebugLoc Dbg = CB.getDebugLoc();
 
-  Module *M = ci.getFunction()->getParent();
-  FunctionCallee newFunc = M->getOrInsertFunction(newFuncName, handlerType);
+  Args.push_back(B.getInt32(Dbg ? Dbg.getLine() : 0));
+  Constant *Zero = ConstantInt::get(B.getInt8PtrTy(), 0);
+  // FIXME: this creates one constant per call, even if the filename is the
+  // same.
+  // We should do a getOrInsertGlobal (where the name is the filename) to
+  // reuse existing constant.
+  Args.push_back(Dbg ? B.CreateGlobalStringPtr(Dbg->getFilename()) : Zero);
 
-  SmallVector<Value *, 8> Args(ci.args());
-  CastInst *CIf =
-      CastInst::CreatePointerCast(filename, builder.getInt8PtrTy(), "", &I);
-  Args.push_back(CIf);
-  Args.push_back(ConstantInt::get(builder.getInt64Ty(), line));
-
-  Value *newci = builder.CreateCall(newFunc, Args);
-  ci.replaceAllUsesWith(newci);
+  // We assume shouldInstrumentFunction is true and that getCalledFunction is
+  // not null.
+  FunctionCallee InstrumentedF =
+      getInstrumentedFunction(*CB.getCalledFunction());
+  return B.CreateCall(InstrumentedF, Args);
 }
 
-std::vector<Instruction *> toInstrument;
-std::vector<Instruction *>
-    toDelete; // CallInst to delete (all MPI-RMA are replaced by new functions)
+FunctionCallee getInstrumentationMemAccessFunction(Module &M,
+                                                   StringRef InstName) {
+  LLVMContext &Ctx = M.getContext();
+  std::array<Type *, 4> Args = {
+      Type::getInt8PtrTy(Ctx),
+      Type::getInt64Ty(Ctx),
+      Type::getInt32Ty(Ctx),
+      Type::getInt8PtrTy(Ctx),
+  };
+  auto *CalledFTy = FunctionType::get(Type::getVoidTy(Ctx), Args, false);
+  return M.getOrInsertFunction((PARCOACH_PREFIX + InstName).str(), CalledFTy);
+}
+
+void insertInstrumentationCall(Instruction &I, Value *Addr, Type *Ty,
+                               StringRef InstName) {
+  FunctionCallee CalledF =
+      getInstrumentationMemAccessFunction(*I.getModule(), InstName);
+  IRBuilder<> B(&I);
+
+  Constant *Size =
+      B.getInt64(I.getModule()->getDataLayout().getTypeSizeInBits(Ty));
+  DebugLoc Dbg = I.getDebugLoc();
+  Constant *Line = B.getInt32(Dbg ? Dbg.getLine() : 0);
+  Constant *Zero = ConstantInt::get(B.getInt8PtrTy(), 0);
+  Constant *Filename = Dbg ? B.CreateGlobalStringPtr(Dbg->getFilename()) : Zero;
+
+  B.CreateCall(CalledF, {Addr, Size, Line, Filename});
+}
+
+void insertInstrumentationCall(StoreInst &SI) {
+  insertInstrumentationCall(SI, SI.getPointerOperand(),
+                            SI.getValueOperand()->getType(), "store");
+}
+
+void insertInstrumentationCall(LoadInst &LI) {
+  insertInstrumentationCall(LI, LI.getPointerOperand(), LI.getType(), "load");
+}
 
 auto MagentaErr = []() {
   return WithColor(errs(), raw_ostream::Colors::MAGENTA);
@@ -104,9 +126,6 @@ private:
   void InstrumentMemAccessesIt(Function &F);
   void DFS_BB(BasicBlock *bb, bool inEpoch);
   bool InstrumentBB(BasicBlock &BB, bool inEpoch);
-  bool changeFuncNamesFORTRAN(CallBase &CB);
-  bool changeFuncNamesC(Instruction &I, CallInst *ci, Function *calledFunction,
-                        int line, StringRef file);
   // Debug
 #ifndef NDEBUG
   void printBB(BasicBlock *BB);
@@ -119,121 +138,30 @@ private:
   BBColorMap ColorMap;
 };
 
-// Instrument MPI FORTRAN operations
-bool LocalConcurrencyDetection::changeFuncNamesFORTRAN(CallBase &CB) {
-  StringRef Name = CB.getCalledFunction()->getName();
-  using PairTy = std::pair<StringRef, bool>;
-  PairTy NewVals =
-      StringSwitch<PairTy>(Name)
-          .Case("mpi_put_", {"new_put_", false})
-          .Case("mpi_get_", {"new_get_", false})
-          .Case("mpi_accumulate_", {"new_accumulate_", false})
-          .Case("mpi_win_create_", {"new_win_create_", false})
-          .Case("mpi_win_free_", {"new_win_free_", false})
-          .Case("mpi_win_fence_", {"new_fence_", true})
-          .Case("mpi_win_unlock_all_", {"new_win_unlock_all_", true})
-          .Case("mpi_win_unlock_", {"new_win_unlock_", true})
-          .Case("mpi_win_lock_", {"new_win_lock_", true})
-          .Case("mpi_win_lock_all_", {"new_win_lock_all_", true})
-          .Case("mpi_win_flush_", {"new_win_flush_", false})
-          .Case("mpi_barrier_", {"new_barrier_", false})
-          .Default({"", false});
-  auto [NewName, NewEpoch] = NewVals;
-  if (!NewName.empty()) {
-    FunctionCallee NewF = CB.getModule()->getOrInsertFunction(
-        NewVals.first, CB.getCalledFunction()->getFunctionType());
-    CB.setCalledFunction(cast<Function>(NewF.getCallee()));
-  }
-  return NewVals.second;
-}
-
-// Instrument MPI C functions and update toDelete
-// return true if the function is an epoch creation/destruction
-// for now, just instrument CallInst, TODO: do the same thing for invoke
-bool LocalConcurrencyDetection::changeFuncNamesC(Instruction &I, CallInst *ci,
-                                                 Function *calledFunction,
-                                                 int line, StringRef file) {
-
-  if (calledFunction->getName() == "MPI_Get") {
-    ReplaceCallInst(I, *ci, line, file, "new_Get");
-    toDelete.push_back(ci);
-  } else if (calledFunction->getName() == "MPI_Put") {
-    ReplaceCallInst(I, *ci, line, file, "new_Put");
-    toDelete.push_back(ci);
-  } else if (calledFunction->getName() == "MPI_Win_create") {
-    calledFunction->setName("new_Win_create");
-  } else if (calledFunction->getName() == "MPI_Accumulate") {
-    calledFunction->setName("new_Accumulate");
-  } else if (calledFunction->getName() == "MPI_Win_fence") {
-    return true;
-  } else if (calledFunction->getName() == "MPI_Win_flush") {
-  } else if (calledFunction->getName() == "MPI_Win_lock") {
-    calledFunction->setName("new_Win_lock");
-    return true;
-  } else if (calledFunction->getName() == "MPI_Win_unlock") {
-    calledFunction->setName("new_Win_unlock");
-    return true;
-  } else if (calledFunction->getName() == "MPI_Win_unlock_all") {
-    calledFunction->setName("new_Win_unlock_all");
-    return true;
-  } else if (calledFunction->getName() == "MPI_Win_lock_all") {
-    calledFunction->setName("new_Win_lock_all");
-    return true;
-  } else if (calledFunction->getName() == "MPI_Win_free") {
-    calledFunction->setName("new_Win_free");
-  } else if (calledFunction->getName() == "MPI_Barrier") {
-    calledFunction->setName("new_Barrier");
-  }
-  return false;
-}
-
 bool LocalConcurrencyDetection::InstrumentBB(BasicBlock &bb, bool inEpoch) {
-
-  Module *M = bb.getModule();
-  DataLayout const &DL = M->getDataLayout();
-
   bool newEpoch = false;
 
-  for (Instruction &I : bb) {
-
-    DebugLoc dbg = I.getDebugLoc(); // get debug infos
-    int line = 0;
-    StringRef file = "";
-    if (dbg) {
-      line = dbg.getLine();
-      file = dbg->getFilename();
-    }
-
-    if (CallInst *ci = dyn_cast<CallInst>(&I)) {
-      if (Function *calledFunction = ci->getCalledFunction()) {
-        if (calledFunction->getName().startswith("MPI_")) {
-          newEpoch = changeFuncNamesC(I, ci, calledFunction, line, file);
-        } else if (calledFunction->getName().startswith("mpi_")) {
-          newEpoch = changeFuncNamesFORTRAN(*ci);
-        }
+  // We use make_early_inc_range here because we may have to erase the
+  // current instruction.
+  for (Instruction &I : make_early_inc_range(bb)) {
+    if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+      auto [shouldInstrument, changesEpoch] = getInstrumentationInfo(*CI);
+      if (shouldInstrument) {
+        CI->replaceAllUsesWith(createInstrumentedCall(*CI));
+        CI->eraseFromParent();
+        newEpoch = changesEpoch;
       }
-      // If the instruction is a LOAD or a STORE
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(&I)) {
-      Value *Addr = SI->getPointerOperand();
-      auto elTy = SI->getValueOperand()->getType();
-      size_t size = DL.getTypeSizeInBits(elTy);
-      // DEBUG INFO: //errs() << "PARCOACH DEBUG: Found a store of " << size <<
-      // " bits of type "; SI->getPointerOperandType()->print(errs()); errs() <<
-      // " (TypeID = " << elTy->getTypeID() <<")\n";
+    }
+    if (StoreInst *SI = dyn_cast<StoreInst>(&I)) {
       if (inEpoch || newEpoch) {
-        CreateAndInsertFunction(I, Addr, getHandlerStore(M), size, line, file);
+        insertInstrumentationCall(*SI);
         count_inst_STORE++;
       }
       count_STORE++;
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(&I)) {
-      Value *Addr = LI->getPointerOperand();
-      auto elTy = LI->getType();
-      size_t size = DL.getTypeSizeInBits(elTy);
-      // DEBUG INFO: // errs() << "PARCOACH DEBUG: Found a load of " << size <<
-      // " bits of type "; LI->getPointerOperandType()->print(errs()); errs() <<
-      // " (TypeID = " << elTy->getTypeID() <<")\n";
+    }
+    if (LoadInst *LI = dyn_cast<LoadInst>(&I)) {
       if (inEpoch || newEpoch) {
-        CreateAndInsertFunction(I, Addr, getHandlerLoad(M), size, line, file);
+        insertInstrumentationCall(*LI);
         count_inst_LOAD++;
       }
       count_LOAD++;
@@ -263,7 +191,6 @@ void LocalConcurrencyDetection::InstrumentMemAccessesIt(Function &F) {
   for (BasicBlock &BB : F) {
     ColorMap[&BB] = WHITE;
   }
-  toDelete.clear();
   // start with entry BB
   BasicBlock &entry = F.getEntryBlock();
   bool inEpoch = false;
@@ -290,10 +217,6 @@ void LocalConcurrencyDetection::InstrumentMemAccessesIt(Function &F) {
       Unvisited.pop_front();
       ColorMap[header] = BLACK;
     }
-  }
-  // delete instructions in toDelete per function (because we change the IR)
-  for (Instruction *i : toDelete) {
-    i->eraseFromParent();
   }
 }
 

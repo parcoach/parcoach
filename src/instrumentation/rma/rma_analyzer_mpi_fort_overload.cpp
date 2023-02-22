@@ -46,8 +46,9 @@ int mpi_barrier_(int *comm, int *res);
 /* This function is used to spawn the thread that would excute the
  * communication checking thread function at the win_create stage */
 // TODO: make this MPI_Fint
-int new_win_create_(int *base, int *size, int *disp_unit, int *info, int *comm,
-                    int *win, int *_) {
+int parcoach_rma_mpi_win_create_(int *base, int *size, int *disp_unit,
+                                 int *info, int *comm, int *win, int *orig_ret,
+                                 int line, char *filename) {
   int ret;
   MPI_Win c_win;
   t1 = clock();
@@ -63,8 +64,9 @@ int new_win_create_(int *base, int *size, int *disp_unit, int *info, int *comm,
 
 /* This function is used to spawn the thread that would excute the
  * communication checking thread function at the win_allocate stage */
-int new_win_allocate_(int *size, int *disp_unit, int *info, int *comm,
-                      int *baseptr, int *win, int *_) {
+int parcoach_rma_mpi_win_allocate_(int *size, int *disp_unit, int *info,
+                                   int *comm, int *baseptr, int *win,
+                                   int *orig_ret, int line, char *filename) {
   int ret;
   MPI_Win c_win;
   t1 = clock();
@@ -78,7 +80,8 @@ int new_win_allocate_(int *size, int *disp_unit, int *info, int *comm,
 }
 
 /* Global passive Target synchronization "Lock_all" */
-int new_win_lock_all_(int *assert, int *win, int *_) {
+int parcoach_rma_mpi_win_lock_all_(int *assert, int *win, int *_, int line,
+                                   char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -90,7 +93,8 @@ int new_win_lock_all_(int *assert, int *win, int *_) {
 }
 
 /* Passive target synchronization "Lock" */
-int new_win_lock_(int *lock_type, int *rank, int *assert, int *win, int *_) {
+int parcoach_rma_mpi_win_lock_(int *lock_type, int *rank, int *assert, int *win,
+                               int *_, int line, char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -103,7 +107,8 @@ int new_win_lock_(int *lock_type, int *rank, int *assert, int *win, int *_) {
 }
 
 /* Active target synchronization "Fence" */
-int new_win_fence_(int *assert, int *win, int *_) {
+int parcoach_rma_mpi_win_fence_(int *assert, int *win, int *_, int line,
+                                char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -129,7 +134,8 @@ int new_win_fence_(int *assert, int *win, int *_) {
 }
 
 /* PSCW active target synchronisation "Win_start" called by the origin */
-int new_win_start_(int *group, int *assert, int *win, int *_) {
+int parcoach_rma_mpi_win_start_(int *group, int *assert, int *win, int *_,
+                                int line, char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -141,7 +147,8 @@ int new_win_start_(int *group, int *assert, int *win, int *_) {
 }
 
 /* PSCW active target synchronisation "Win_post" called by the target */
-int new_win_post_(int *group, int *assert, int *win, int *_) {
+int parcoach_rma_mpi_win_post_(int *group, int *assert, int *win, int *_,
+                               int line, char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -159,9 +166,11 @@ int new_win_post_(int *group, int *assert, int *win, int *_) {
 /* MPI_Put is used to one-sidedly send data to the window of another
  * process it's used here to retrieve the interval
  * [offset, offset+size[ and send it to the target with MPI_Send */
-int new_put_(int *origin_addr, int *origin_count, int *origin_datatype,
-             int *target_rank, int *target_disp, int *target_count,
-             int *target_datatype, int *win, int *_) {
+int parcoach_rma_mpi_put_(int *origin_addr, int *origin_count,
+                          int *origin_datatype, int *target_rank,
+                          int *target_disp, int *target_count,
+                          int *target_datatype, int *win, int *_, int line,
+                          char *filename) {
   int local_size = 0;
   int target_size = 0;
 
@@ -174,11 +183,12 @@ int new_put_(int *origin_addr, int *origin_count, int *origin_datatype,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
+  DebugInfo Dbg((uint64_t)line, filename);
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
-             AccessType::RMA_READ, DebugInfo()),
+             AccessType::RMA_READ, Dbg),
       Access(MemoryAccess{(uint64_t)*target_disp, (uint64_t)target_size},
-             AccessType::RMA_WRITE, DebugInfo()),
+             AccessType::RMA_WRITE, Dbg),
       *target_rank, c_win);
 
   mpi_put_(origin_addr, origin_count, origin_datatype, target_rank, target_disp,
@@ -189,9 +199,11 @@ int new_put_(int *origin_addr, int *origin_count, int *origin_datatype,
 /* This function is the same as MPI_Put the only difference is that
  * the get permits to one-sidedly fetch data from the window of
  * another MPI process */
-int new_get_(int *origin_addr, int *origin_count, int *origin_datatype,
-             int *target_rank, int *target_disp, int *target_count,
-             int *target_datatype, int *win, int *_) {
+int parcoach_rma_mpi_get_(int *origin_addr, int *origin_count,
+                          int *origin_datatype, int *target_rank,
+                          int *target_disp, int *target_count,
+                          int *target_datatype, int *win, int *_, int line,
+                          char *filename) {
   int local_size = 0;
   int target_size = 0;
 
@@ -204,11 +216,12 @@ int new_get_(int *origin_addr, int *origin_count, int *origin_datatype,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
+  DebugInfo Dbg((uint64_t)line, filename);
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
-             AccessType::RMA_WRITE, DebugInfo()),
+             AccessType::RMA_WRITE, Dbg),
       Access(MemoryAccess{(uint64_t)*target_disp, (uint64_t)target_size},
-             AccessType::RMA_READ, DebugInfo()),
+             AccessType::RMA_READ, Dbg),
       *target_rank, c_win);
 
   mpi_get_(origin_addr, origin_count, origin_datatype, target_rank, target_disp,
@@ -217,9 +230,11 @@ int new_get_(int *origin_addr, int *origin_count, int *origin_datatype,
 }
 
 /* An atomic put that does the same as MPI_Put here ! */
-int new_accumulate_(int *origin_addr, int *origin_count, int *origin_datatype,
-                    int *target_rank, int *target_disp, int *target_count,
-                    int *target_datatype, int *op, int *win, int *_) {
+int parcoach_rma_mpi_accumulate_(int *origin_addr, int *origin_count,
+                                 int *origin_datatype, int *target_rank,
+                                 int *target_disp, int *target_count,
+                                 int *target_datatype, int *op, int *win,
+                                 int *_, int line, char *filename) {
   int local_size = 0;
   int target_size = 0;
 
@@ -232,11 +247,12 @@ int new_accumulate_(int *origin_addr, int *origin_count, int *origin_datatype,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
+  DebugInfo Dbg((uint64_t)line, filename);
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
-             AccessType::RMA_READ, DebugInfo()),
+             AccessType::RMA_READ, Dbg),
       Access(MemoryAccess{(uint64_t)*target_disp, (uint64_t)target_size},
-             AccessType::RMA_WRITE, DebugInfo()),
+             AccessType::RMA_WRITE, Dbg),
       *target_rank, c_win);
 
   mpi_accumulate_(origin_addr, origin_count, origin_datatype, target_rank,
@@ -250,7 +266,8 @@ int new_accumulate_(int *origin_addr, int *origin_count, int *origin_datatype,
 
 /* Global Passive target synchronisation "Unlock_all" called by all
  * the processus */
-int new_win_unlock_all_(int *win, int *_) {
+int parcoach_rma_mpi_win_unlock_all_(int *win, int *_, int line,
+                                     char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -262,7 +279,8 @@ int new_win_unlock_all_(int *win, int *_) {
 }
 
 /* Passive target Synchronization "Unlock" */
-int new_win_unlock_(int *rank, int *win, int *_) {
+int parcoach_rma_mpi_win_unlock_(int *rank, int *win, int *_, int line,
+                                 char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -274,7 +292,7 @@ int new_win_unlock_(int *rank, int *win, int *_) {
 }
 
 /* PSCW active synchronisation "Win_complete" called by the origin */
-int new_win_complete_(int *win, int *_) {
+int parcoach_rma_mpi_win_complete_(int *win, int *_, int line, char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -286,7 +304,7 @@ int new_win_complete_(int *win, int *_) {
 }
 
 /* PSCW active synchronisation "Win_wait" called by the target */
-int new_win_wait_(int *win, int *_) {
+int parcoach_rma_mpi_win_wait_(int *win, int *_, int line, char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -298,7 +316,7 @@ int new_win_wait_(int *win, int *_) {
 }
 
 /* Free memory */
-int new_win_free_(int *win, int *_) {
+int parcoach_rma_mpi_win_free_(int *win, int *_, int line, char *filename) {
   int ret;
   MPI_Win c_win;
 
@@ -327,7 +345,7 @@ int new_win_free_(int *win, int *_) {
   return ret;
 }
 
-int new_win_flush_(int *rank, int *win, int *_) {
+int parcoach_rma_mpi_win_flush_(int *rank, int *win, int *_) {
   int ret;
   mpi_win_flush_(rank, win, &ret);
   return ret;
@@ -337,7 +355,7 @@ int new_win_flush_(int *rank, int *win, int *_) {
  *        Synchronization handling          *
  ********************************************/
 
-int new_barrier_(int *comm, int *_) {
+int parcoach_rma_mpi_barrier_(int *comm, int *_, int line, char *filename) {
   int ret;
 
   /* For Barrier call, we need to reset and restart the state of all active

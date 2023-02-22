@@ -3,7 +3,7 @@
 
 using namespace parcoach::rma;
 extern "C" {
-void STORE(void *addr, uint64_t size, uint64_t line, char *filename) {
+void parcoach_rma_store(void *addr, uint64_t size, int line, char *filename) {
   uint64_t address = (uint64_t)addr;
   RMA_DEBUG(std::cerr << "Store address " << address << "\n");
   RMA_DEBUG(std::cerr << "size " << size / 8 << "\n");
@@ -15,7 +15,7 @@ void STORE(void *addr, uint64_t size, uint64_t line, char *filename) {
                                              DebugInfo(line, filename)));
 }
 
-void LOAD(void *addr, uint64_t size, uint64_t line, char *filename) {
+void parcoach_rma_load(void *addr, uint64_t size, int line, char *filename) {
   uint64_t address = (uint64_t)addr;
   RMA_DEBUG(std::cerr << "Load address " << address << "\n");
   RMA_DEBUG(std::cerr << "size " << size / 8 << "\n");

@@ -55,13 +55,16 @@ struct DebugInfo {
   // NOTE: we can't use a std::string here because this gets MPI sent.
   char Filename[FILENAME_MAX_LENGTH];
   DebugInfo() = default;
-  inline DebugInfo(uint64_t Line_, char const *Filename_)
-      : Line(Line_), Filename{} {
+  DebugInfo(uint64_t Line_, char const *Filename_) : Line(Line_), Filename{} {
     if (Filename_) {
       strncpy(Filename, Filename_, FILENAME_MAX_LENGTH - 1);
       Filename[FILENAME_MAX_LENGTH - 1] = '\0';
     }
   }
+
+  // We explicitly implement this copy constructor because we want to copy
+  // the Filename on copy, and not just the pointer.
+  DebugInfo(DebugInfo const &Other) : DebugInfo(Other.Line, Other.Filename) {}
 };
 
 struct Access {

@@ -1,0 +1,21 @@
+// NOTE: This intentionally does not have a headguard.
+#ifndef RMA_INSTRUMENTED
+// Instead of FName we could construct the name by doing something like
+// Name.lower() + "_";
+// But it looks better to include the string literal.
+#define RMA_INSTRUMENTED(Name, FName, ChangesEpoch)
+#endif
+RMA_INSTRUMENTED(MPI_Accumulate, mpi_accumulate_, false)
+RMA_INSTRUMENTED(MPI_Barrier, mpi_barrier_, false)
+RMA_INSTRUMENTED(MPI_Get, mpi_get_, false)
+RMA_INSTRUMENTED(MPI_Put, mpi_put_, false)
+RMA_INSTRUMENTED(MPI_Win_create, mpi_win_create_, false)
+RMA_INSTRUMENTED(MPI_Win_fence, mpi_win_fence_, true)
+// TODO: check this
+RMA_INSTRUMENTED(MPI_Win_flush, mpi_win_flush_, false)
+RMA_INSTRUMENTED(MPI_Win_free, mpi_win_free_, false)
+RMA_INSTRUMENTED(MPI_Win_lock, mpi_win_lock_, true)
+RMA_INSTRUMENTED(MPI_Win_lock_all, mpi_win_lock_all_, true)
+RMA_INSTRUMENTED(MPI_Win_unlock, mpi_win_unlock_, true)
+RMA_INSTRUMENTED(MPI_Win_unlock_all, mpi_win_unlock_all_, true)
+#undef RMA_INSTRUMENTED

@@ -5,4 +5,4 @@
 // RUN: %parcoach -check=rma -o %t_instr.ll %t.ll
 // RUN: %mpifort %t_instr.ll %instr_flags -o %t.bin
 // RUN: %ld_lib_path %not %mpiexec -np 2 %t.bin 2>&1 | %filecheck %s
-// CHECK: Error when inserting memory{{.*}}RMA_WRITE{{.*}}RMA_WRITE
+// CHECK: Error when inserting memory access {{.*}}put.f90:57 with {{.*}}put.f90:51.

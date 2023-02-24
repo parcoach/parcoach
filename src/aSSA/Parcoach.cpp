@@ -7,12 +7,13 @@ The project is licensed under the LGPL 2.1 license
 #include "Instrumentation.h"
 #include "OpenMPInstr.h"
 #include "PTACallGraph.h"
-#include "ParcoachAnalysisInter.h"
 #include "ShowPAInterResults.h"
 #include "Utils.h"
+#include "parcoach/CollListFunctionAnalysis.h"
 #include "parcoach/Collectives.h"
 #include "parcoach/DepGraphDCF.h"
 #include "parcoach/ExtInfo.h"
+#include "parcoach/MPICommAnalysis.h"
 #include "parcoach/MemoryRegion.h"
 #include "parcoach/MemorySSA.h"
 #include "parcoach/ModRefAnalysis.h"
@@ -115,7 +116,6 @@ void RegisterPasses(ModulePassManager &MPM) {
     return;
   }
 #endif
-
   MPM.addPass(ShowPAInterResult());
   if (optInstrumInter) {
     MPM.addPass(ParcoachInstrumentationPass());
@@ -134,13 +134,15 @@ void RegisterFunctionAnalyses(FunctionAnalysisManager &FAM) {
 
 void RegisterModuleAnalyses(ModuleAnalysisManager &MAM) {
   MAM.registerPass([&]() { return AndersenAA(); });
+  MAM.registerPass([&]() { return CollectiveAnalysis(optDotTaintPaths); });
+  MAM.registerPass([&]() { return CollListFunctionAnalysis(); });
   MAM.registerPass(
       [&]() { return DepGraphDCFAnalysis(optContextInsensitive); });
   MAM.registerPass([&]() { return ExtInfoAnalysis(); });
-  MAM.registerPass([&]() { return InterproceduralAnalysis(optDotTaintPaths); });
   MAM.registerPass([&]() { return MemorySSAAnalysis(); });
   MAM.registerPass([&]() { return MemRegAnalysis(); });
   MAM.registerPass([&]() { return ModRefAnalysis(); });
+  MAM.registerPass([&]() { return MPICommAnalysis(); });
   MAM.registerPass([&]() { return PTACallGraphAnalysis(); });
   MAM.registerPass([&]() { return StatisticsAnalysis(); });
 }

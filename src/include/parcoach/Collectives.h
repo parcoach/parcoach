@@ -8,6 +8,8 @@
 
 namespace llvm {
 class Function;
+class Value;
+class CallInst;
 } // namespace llvm
 
 namespace parcoach {
@@ -56,6 +58,7 @@ struct MPICollective : Collective {
   static bool classof(Collective const *C) {
     return C->getParadigm() == Paradigm::MPI;
   }
+  llvm::Value *getCommunicator(llvm::CallInst const &CI) const;
 };
 
 #ifdef PARCOACH_ENABLE_OPENMP

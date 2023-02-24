@@ -20,17 +20,22 @@ set(SHARED_HEADERS
   include/parcoach/andersen/NodeFactory.h
   include/parcoach/andersen/PtsSet.h
   include/parcoach/andersen/SparseBitVectorGraph.h
-  include/parcoach/Analysis.h
   include/parcoach/Collectives.h
+  include/parcoach/CollectiveList.h
+  include/parcoach/CollListFunctionAnalysis.h
+  include/parcoach/CollListLoopAnalysis.h
+  include/parcoach/CFGVisitors.h
   include/parcoach/DepGraphDCF.h
   include/parcoach/ExtInfo.h
   include/parcoach/MemoryRegion.h
   include/parcoach/MemorySSA.h
   include/parcoach/ModRefAnalysis.h
+  include/parcoach/MPICommAnalysis.h
   include/parcoach/Options.h
   include/parcoach/Passes.h
   include/parcoach/RMAPasses.h
   include/parcoach/StatisticsAnalysis.h
+  include/parcoach/Warning.h
   )
 add_sources_to_format(SOURCES ${SHARED_HEADERS})
 

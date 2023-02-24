@@ -1,6 +1,9 @@
 set(ASSA_SOURCES
   Collectives.cpp
-  CollList.cpp
+  CollectiveList.cpp
+  CollListFunctionAnalysis.cpp
+  CollListLoopAnalysis.cpp
+  CFGVisitors.cpp
   DepGraphDCF.cpp
   Debug.cpp
   ExtInfo.cpp
@@ -8,14 +11,15 @@ set(ASSA_SOURCES
   MemoryRegion.cpp
   MemorySSA.cpp
   ModRefAnalysis.cpp
+  MPICommAnalysis.cpp
   OpenMPInstr.cpp
   Options.cpp
-  PTACallGraph.cpp
   Parcoach.cpp
-  ParcoachAnalysisInter.cpp
+  PTACallGraph.cpp
   StatisticsAnalysis.cpp
   ShowPAInterResults.cpp
   Utils.cpp
+  Warning.cpp
   andersen/Andersen.cpp
   andersen/ConstraintCollect.cpp
   andersen/ConstraintOptimize.cpp
@@ -24,12 +28,10 @@ set(ASSA_SOURCES
   andersen/NodeFactory.cpp
   )
 set(ASSA_HEADERS
-  CollList.h
   Instrumentation.h
   MSSAMuChi.h
   OpenMPInstr.h
   ParcoachAnalysis.h
-  ParcoachAnalysisInter.h
   PTACallGraph.h
   ShowPAInterResults.h
   Utils.h

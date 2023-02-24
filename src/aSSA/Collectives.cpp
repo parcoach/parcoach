@@ -3,6 +3,7 @@
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 
 namespace parcoach {
 using namespace llvm;
@@ -64,5 +65,19 @@ Collective const *Collective::find(Function const &F) {
 
 bool Collective::isCollective(Function const &F) {
   return Collective::find(F) != nullptr;
+}
+
+Value *MPICollective::getCommunicator(CallInst const &CI) const {
+  // NOTE: we expect CI to actually call "this" collective, but we don't assert
+  // for it since it may be an indirect call.
+  if (CommArgId < 0) {
+    return nullptr;
+  }
+  Value *Comm = CI.getArgOperand(CommArgId);
+  // This is flaky, we should do a better job at tracking communicator aliases.
+  while (auto *PtrToComm = dyn_cast<LoadInst>(Comm)) {
+    Comm = PtrToComm->getPointerOperand();
+  }
+  return Comm;
 }
 } // namespace parcoach

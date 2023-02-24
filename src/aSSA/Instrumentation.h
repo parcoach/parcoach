@@ -1,6 +1,8 @@
 #pragma once
 
-#include "ParcoachAnalysisInter.h"
+#include "parcoach/CollListFunctionAnalysis.h"
+
+#include "llvm/Passes/PassBuilder.h"
 
 namespace llvm {
 class Function;
@@ -16,10 +18,10 @@ struct ParcoachInstrumentationPass
 };
 
 struct CollectiveInstrumentation {
-  CollectiveInstrumentation(CallToWarningMapTy const &);
+  CollectiveInstrumentation(CallToWarningMap const &);
   bool run(llvm::Function &F);
 
 private:
-  CallToWarningMapTy const &Warnings;
+  CallToWarningMap const &Warnings;
 };
 } // namespace parcoach

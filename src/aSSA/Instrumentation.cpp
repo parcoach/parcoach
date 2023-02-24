@@ -1,6 +1,6 @@
 #include "Instrumentation.h"
 
-#include "parcoach/Analysis.h"
+#include "parcoach/CollListFunctionAnalysis.h"
 #include "parcoach/Collectives.h"
 #include "parcoach/Passes.h"
 
@@ -78,7 +78,7 @@ void insertCC(Instruction *I, Collective const *C, Function const &F,
 } // namespace
 
 CollectiveInstrumentation::CollectiveInstrumentation(
-    CallToWarningMapTy const &Warnings)
+    CallToWarningMap const &Warnings)
     : Warnings(Warnings) {}
 
 bool CollectiveInstrumentation::run(Function &F) {
@@ -138,12 +138,12 @@ PreservedAnalyses
 ParcoachInstrumentationPass::run(llvm::Module &M,
                                  llvm::ModuleAnalysisManager &AM) {
   TimeTraceScope TTS("CollectiveInstrumentation");
-  auto const &PAInter = AM.getResult<InterproceduralAnalysis>(M);
-  if (PAInter->getWarnings().empty()) {
+  auto const &Warnings = AM.getResult<CollectiveAnalysis>(M);
+  if (Warnings->empty()) {
     LLVM_DEBUG(dbgs() << "Skipping instrumentation: no warnings detected.");
     return PreservedAnalyses::all();
   }
-  parcoach::CollectiveInstrumentation Instrum(PAInter->getWarnings());
+  parcoach::CollectiveInstrumentation Instrum(*Warnings);
   LLVM_DEBUG(
       dbgs()
       << "\033[0;35m=> Static instrumentation of the code ...\033[0;0m\n");

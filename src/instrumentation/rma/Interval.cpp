@@ -16,7 +16,7 @@ std::ostream &operator<<(std::ostream &Os, Interval const &I) {
 }
 
 std::ostream &operator<<(std::ostream &Os, Access const &A) {
-  Os << "{" << A.Itv << "," << A.Type << "]";
+  Os << "[" << A.Itv << "," << A.Type << "]";
   return Os;
 }
 

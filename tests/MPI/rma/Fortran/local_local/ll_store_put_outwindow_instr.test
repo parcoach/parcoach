@@ -4,6 +4,5 @@
 // RUN: %mpifort -g -S -emit-llvm "$c_file" -o %t.ll
 // RUN: %parcoach -check=rma -o %t_instr.ll %t.ll
 // RUN: %mpifort %t_instr.ll %instr_flags -o %t.bin
-// RUN: %ld_lib_path %mpiexec -np 3 %t.bin 2>&1 | %filecheck %s
-// CHECK-NOT: Error
-// CHECK: PARCOACH: {{.*}}no issues found
+// RUN: %ld_lib_path %not %mpiexec -np 3 %t.bin 2>&1 | %filecheck %s
+// CHECK: Error when inserting memory access {{.*}}.f90:60 with {{.*}}.f90:55.

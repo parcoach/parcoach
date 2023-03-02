@@ -171,6 +171,13 @@ int parcoach_rma_mpi_put_(int *origin_addr, int *origin_count,
                           int *target_disp, int *target_count,
                           int *target_datatype, int *win, int *_, int line,
                           char *filename) {
+  RMA_DEBUG({
+    Err << "DEBUG INFO: mpi_put at line " << line << "in file " << filename
+        << "\n"
+        << "oaddr:" << origin_addr << ", ocount: " << *origin_count
+        << ", tdisp: " << *target_disp << ", tcount: " << *target_count << "\n";
+    std::cerr << Err.str();
+  });
   int local_size = 0;
   int target_size = 0;
 

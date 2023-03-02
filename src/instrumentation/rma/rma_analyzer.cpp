@@ -43,16 +43,10 @@ int rma_analyzer_is_active_epoch(MPI_Win win) {
 int rma_analyzer_save_interval(parcoach::rma::Access &&Acc, MPI_Win win) {
   RMA_DEBUG(cerr << "Getting state in " << __func__ << "\n");
   rma_analyzer_state *state = rma_analyzer_get_state(win);
-  parcoach::rma::Interval Window{state->win_base,
-                                 state->win_base + state->win_size};
-  if (!Window.intersects(Acc.Itv)) {
-    RMA_DEBUG({
-      Err << "Access " << Acc << " not in window " << Window << "\n";
-      cerr << Err.str();
-    });
-    return 0;
-  }
-  RMA_DEBUG(cerr << "Window: " << Window << "\n");
+  RMA_DEBUG({
+    Err << "Access " << Acc << " for window: " << win << "\n";
+    cerr << Err.str();
+  });
   scoped_lock Lock(state->ListMutex);
   auto Found = find_if(state->Intervals.begin(), state->Intervals.end(),
                        [&](auto const &I) { return Acc.conflictsWith(I); });
@@ -365,15 +359,15 @@ extern "C" void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
   new_state->from_sync = 0;
 
   RMA_DEBUG(cerr << "New state window added for window "
-                 << (void *)new_state->state_win << ".\n");
+                 << (void *)new_state->state_win
+                 << ". Win addr: " << new_state->win_base << " ("
+                 << (void *)new_state->win_base << ").\n");
   States.emplace(*win, std::move(new_state));
 
   RMA_DEBUG({
     int r;
     MPI_Comm_rank(comm, &r);
     cerr << "[" << r << "] States address: " << &States << "\n";
-    cerr << "Sizeof AccessType " << sizeof(parcoach::rma::AccessType) << "\n";
-    cerr << "Sizeof interval " << sizeof(parcoach::rma::Access) << "\n";
   });
 }
 

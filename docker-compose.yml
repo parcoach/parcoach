@@ -57,3 +57,7 @@ services:
     image: "registry.gitlab.inria.fr/parcoach/parcoach:ubi-8.6-build-20230213-ninja-1.11.1-mpi-4.1.4-llvm-15.0.7-tests-20221130"
     volumes:
       - .:/home/parcoach/sources
+  shell-spack:
+    image: "spack/ubuntu-focal"
+    volumes:
+      - .:/root/parcoach/sources

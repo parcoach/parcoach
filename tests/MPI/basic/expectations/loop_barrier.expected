@@ -1,2 +1,2 @@
-PARCOACH: tests/MPI/basic/src/loop_barrier.c: warning: MPI_Barrier line 20 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/loop_barrier.c) 19 (tests/MPI/basic/src/loop_barrier.c) (full-inter)
-PARCOACH: tests/MPI/basic/src/loop_barrier.c: warning: MPI_Barrier line 25 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/loop_barrier.c) 24 (tests/MPI/basic/src/loop_barrier.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/loop_barrier.c: warning: MPI_Barrier line 20 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/loop_barrier.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/loop_barrier.c: warning: MPI_Barrier line 25 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/loop_barrier.c) (full-inter)

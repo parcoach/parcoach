@@ -1,6 +1,6 @@
 // RUN: %clang %openmp -g -S -emit-llvm %s -o %t.ll
 // RUN: %parcoach --disable-output %t.ll -check-omp 2>&1 | %filecheck %s
-// CHECK: 0 warning(s) issued
+// CHECK: No issues found
 #include "omp.h"
 #include <stdio.h>
 #include <stdlib.h>

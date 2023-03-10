@@ -39,6 +39,10 @@ struct rma_analyzer_state {
   int volatile count;
   int volatile active_epoch;
   int volatile from_sync;
+  std::multiset<std::reference_wrapper<parcoach::rma::Access const>>
+  getIntersectingIntervals(parcoach::rma::Access const &I) const;
+  std::multiset<std::reference_wrapper<parcoach::rma::Access const>>
+  getConflictingIntervals(parcoach::rma::Access const &I) const;
 };
 
 extern "C" {

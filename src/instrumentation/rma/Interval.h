@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <tuple>
 
@@ -95,6 +96,10 @@ struct Access {
     return ((int)Type | (int)Other.Type) == (int)AccessType::RMA_WRITE;
   }
 
+  friend inline bool operator<(std::reference_wrapper<Access const> A,
+                               std::reference_wrapper<Access const> B) {
+    return A.get() < B.get();
+  }
   inline bool operator<(Access const &Other) const { return Itv < Other.Itv; }
 };
 

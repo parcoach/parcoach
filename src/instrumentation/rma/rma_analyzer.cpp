@@ -48,21 +48,22 @@ int rma_analyzer_save_interval(parcoach::rma::Access &&Acc, MPI_Win win) {
     cerr << Err.str();
   });
   scoped_lock Lock(state->ListMutex);
-  auto Found = find_if(state->Intervals.begin(), state->Intervals.end(),
-                       [&](auto const &I) { return Acc.conflictsWith(I); });
-  if (Found != state->Intervals.end()) {
+  auto Conflicting = state->getConflictingIntervals(Acc);
+  for (Access const &Found : Conflicting) {
     RMA_DEBUG({
-      Err << "Interval " << Acc << " conflicts with " << *Found << "\n";
+      Err << "Interval " << Acc << " conflicts with " << Found << "\n";
       cerr << Err.str();
     });
     ostringstream Err;
     Err << "Error when inserting memory access of type " << Acc.Type
         << " from file " << Acc.Dbg
-        << " with already inserted interval of type " << Found->Type
-        << " from file " << Found->Dbg << ".\n"
+        << " with already inserted interval of type " << Found.Type
+        << " from file " << Found.Dbg << ".\n"
         << "The program will be exiting now with MPI_Abort.\n";
     // Emit the error all at once.
     cerr << Err.str();
+  }
+  if (!Conflicting.empty()) {
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
   RMA_DEBUG({
@@ -155,6 +156,39 @@ void rma_analyzer_free_tag_range(int tag_id) {
 }
 
 } // namespace
+
+multiset<reference_wrapper<Access const>>
+rma_analyzer_state::getIntersectingIntervals(Access const &A) const {
+  multiset<reference_wrapper<Access const>> Ret;
+  // Find the first neighbor > A
+  auto ItNeighbor = Intervals.upper_bound(A);
+  // Add neighbors from It to End, exit early when finding a non-intersecting.
+  auto AddNeighbors = [&](auto It, auto End) {
+    while (It != End) {
+      if (It->Itv.intersects(A.Itv)) {
+        Ret.insert(std::ref(*It));
+      } else {
+        // We found the first neighbors non-intersecting, we can exit the loop.
+        break;
+      }
+      ++It;
+    }
+  };
+  AddNeighbors(ItNeighbor, Intervals.end());
+  AddNeighbors(make_reverse_iterator(ItNeighbor), Intervals.rend());
+  return Ret;
+}
+
+multiset<reference_wrapper<Access const>>
+rma_analyzer_state::getConflictingIntervals(Access const &A) const {
+  multiset<reference_wrapper<Access const>> Ret;
+  for (Access const &Current : getIntersectingIntervals(A)) {
+    if (Current.conflictsWith(A)) {
+      Ret.insert(std::ref(Current));
+    }
+  }
+  return Ret;
+}
 
 /******************************************************
  *    RMA Analyzer MPI Fortran/C wrapper routines     *

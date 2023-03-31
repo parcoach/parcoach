@@ -34,6 +34,8 @@ set(SHARED_HEADERS
   include/parcoach/Options.h
   include/parcoach/Passes.h
   include/parcoach/RMAPasses.h
+  include/parcoach/SerializableWarning.h
+  include/parcoach/SonarSerializationPass.h
   include/parcoach/StatisticsAnalysis.h
   include/parcoach/Warning.h
   )

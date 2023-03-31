@@ -1,6 +1,6 @@
 // RUN: %clang %openmp -S -emit-llvm %s -o %t.ll
 // RUN: %parcoach --disable-output %t.ll -check-omp 2>&1 | %filecheck %s
-// CHECK: warning: __kmpc_barrier line 0 possibly not called by all processes because of conditional(s) line(s) ? (?)
+// CHECK: warning: __kmpc_barrier line 0 possibly not called by all processes because of conditional(s) line(s) 0 (?)
 #include "omp.h"
 #include <stdio.h>
 #include <stdlib.h>

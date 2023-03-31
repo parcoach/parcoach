@@ -114,7 +114,7 @@ struct CollListCFGVisitor : CFGVisitor<CollListCFGVisitor> {
 
 void checkWarnings(
     Function &F, CollectiveList::CommToBBToCollListMap const &CollListsPerComm,
-    DepGraphDCF const &DG, CallToWarningMap &Warnings,
+    DepGraphDCF const &DG, WarningCollection &Warnings,
     FunctionAnalysisManager &FAM, bool EmitDotDG) {
   llvm::LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
   auto IsaDirectCallToCollective = [](Instruction const &I) {
@@ -144,7 +144,7 @@ void checkWarnings(
       CommForCollective = MPIColl->getCommunicator(CI);
     }
 
-    SmallVector<DebugLoc, 2> Conditionals;
+    Warning::ConditionalsContainerTy Conditionals;
     for (BasicBlock const *BB : CallIpdf) {
       LLVM_DEBUG({
         BB->printAsOperand(dbgs());
@@ -201,7 +201,7 @@ void checkWarnings(
       continue;
     }
     Warnings.insert(
-        {&CI, Warning(&F, CI.getDebugLoc(), std::move(Conditionals))});
+        {&CI, Warning(F, CI.getDebugLoc(), std::move(Conditionals))});
   }
 }
 } // namespace
@@ -217,7 +217,7 @@ CollectiveAnalysis::run(llvm::Module &M,
   auto &DG = AM.getResult<DepGraphDCFAnalysis>(M);
   auto &BBToCollList = AM.getResult<CollListFunctionAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  CallToWarningMap Result;
+  WarningCollection Result;
   scc_iterator<PTACallGraph const *> CgSccIter = scc_begin(&PTACG);
   while (!CgSccIter.isAtEnd()) {
     auto const &NodeVec = *CgSccIter;
@@ -230,7 +230,7 @@ CollectiveAnalysis::run(llvm::Module &M,
     }
     ++CgSccIter;
   }
-  return std::make_unique<CallToWarningMap>(std::move(Result));
+  return std::make_unique<WarningCollection>(std::move(Result));
 }
 
 CollListFunctionAnalysis::Result

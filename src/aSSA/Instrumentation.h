@@ -18,10 +18,10 @@ struct ParcoachInstrumentationPass
 };
 
 struct CollectiveInstrumentation {
-  CollectiveInstrumentation(CallToWarningMap const &);
+  CollectiveInstrumentation(WarningCollection const &);
   bool run(llvm::Function &F);
 
 private:
-  CallToWarningMap const &Warnings;
+  WarningCollection const &Warnings;
 };
 } // namespace parcoach

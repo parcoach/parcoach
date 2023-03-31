@@ -1,3 +1,4 @@
+#pragma once
 #cmakedefine PARCOACH_VERSION "@PARCOACH_VERSION@"
 #cmakedefine PARCOACH_ENABLE_INSTRUMENTATION
 #cmakedefine PARCOACH_ENABLE_MPI
@@ -5,3 +6,6 @@
 #cmakedefine PARCOACH_ENABLE_CUDA
 #cmakedefine PARCOACH_ENABLE_RMA
 #cmakedefine ANDERSEN_ENABLE_OPTIMIZATIONS
+namespace parcoach {
+constexpr char ProgName[] = "PARCOACH";
+}

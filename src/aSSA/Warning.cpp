@@ -8,27 +8,26 @@ using namespace llvm;
 
 namespace parcoach {
 
-Warning::Warning(Function const *F, DebugLoc DL, ConditionalsContainerTy &&C)
-    : Missed(F), Where(std::move(DL)), Conditionals(C) {
+Location::Location(DebugLoc DL)
+    : Filename(DL ? DL->getFilename() : "?"), Line(DL ? DL->getLine() : 0) {}
+
+Warning::Warning(Function const &F, DebugLoc DL, ConditionalsContainerTy &&C)
+    : MissedFunction(F), Where(DL), Conditionals(C) {
   // Make sure lines are displayed in order.
-  llvm::sort(Conditionals, [](DebugLoc const &A, DebugLoc const &B) {
-    return (A ? A.getLine() : 0) < (B ? B.getLine() : 0);
-  });
+  llvm::sort(Conditionals);
 }
 
 std::string Warning::toString() const {
-  assert(Missed != nullptr && "toString called on an invalid Warning");
 
   std::string Res;
   raw_string_ostream OS(Res);
-  auto Line = Where ? Where.getLine() : 0;
-  OS << Missed->getName() << " line " << Line;
+  OS << MissedFunction.getName() << " line " << Where.Line;
   OS << " possibly not called by all processes because of conditional(s) "
         "line(s) ";
 
   for (auto const &Loc : Conditionals) {
-    OS << " " << (Loc ? std::to_string(Loc.getLine()) : "?");
-    OS << " (" << (Loc ? Loc->getFilename() : "?") << ")";
+    OS << " " << Loc.Line;
+    OS << " (" << Loc.Filename << ")";
   }
   OS << " (full-inter)";
   return Res;

@@ -14,9 +14,6 @@ class Function;
 
 namespace parcoach {
 
-constexpr char ProgName[] = "PARCOACH";
-using CallToWarningMap = llvm::DenseMap<llvm::CallBase *, Warning>;
-
 class CollListFunctionAnalysis
     : public llvm::AnalysisInfoMixin<CollListFunctionAnalysis> {
   friend llvm::AnalysisInfoMixin<CollListFunctionAnalysis>;
@@ -36,7 +33,7 @@ class CollectiveAnalysis : public llvm::AnalysisInfoMixin<CollectiveAnalysis> {
 public:
   CollectiveAnalysis(bool EmitDotDG) : EmitDotDG_(EmitDotDG) {}
   // We return a unique_ptr to ensure stability of the analysis' internal state.
-  using Result = std::unique_ptr<CallToWarningMap>;
+  using Result = std::unique_ptr<WarningCollection>;
   Result run(llvm::Module &M, llvm::ModuleAnalysisManager &) const;
 };
 

@@ -20,6 +20,7 @@ The project is licensed under the LGPL 2.1 license
 #include "parcoach/Options.h"
 #include "parcoach/Passes.h"
 #include "parcoach/RMAPasses.h"
+#include "parcoach/SonarSerializationPass.h"
 #include "parcoach/StatisticsAnalysis.h"
 #include "parcoach/andersen/Andersen.h"
 
@@ -117,6 +118,7 @@ void RegisterPasses(ModulePassManager &MPM) {
   }
 #endif
   MPM.addPass(ShowPAInterResult());
+  MPM.addPass(SonarSerializationPass());
   if (OptInstrumInter) {
     MPM.addPass(ParcoachInstrumentationPass());
   }

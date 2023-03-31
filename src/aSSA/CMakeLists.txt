@@ -16,8 +16,10 @@ set(ASSA_SOURCES
   Options.cpp
   Parcoach.cpp
   PTACallGraph.cpp
-  StatisticsAnalysis.cpp
+  SerializableWarning.cpp
   ShowPAInterResults.cpp
+  SonarSerializationPass.cpp
+  StatisticsAnalysis.cpp
   Utils.cpp
   Warning.cpp
   andersen/Andersen.cpp

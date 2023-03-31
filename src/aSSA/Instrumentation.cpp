@@ -78,7 +78,7 @@ void insertCC(Instruction *I, Collective const *C, Function const &F,
 } // namespace
 
 CollectiveInstrumentation::CollectiveInstrumentation(
-    CallToWarningMap const &Warnings)
+    WarningCollection const &Warnings)
     : Warnings(Warnings) {}
 
 bool CollectiveInstrumentation::run(Function &F) {

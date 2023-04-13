@@ -1,0 +1,52 @@
+@Library('sf-pipeline-shared-lib@master') _
+
+sfParameters.initParams('cip/job.params', [
+    disableConcurrentBuilds(),
+    buildDiscarder(logRotator(numToKeepStr: '5'))
+])
+
+def sfEnvironment = [
+  "SF_BUILDER_SRCDIR=/src",
+  "SF_BUILDER_EXPORTDIR=/src/sf-builder-export",
+  "SF_BUILDER_RHEL=${env.DISTRIB}",
+  "SF_BUILDER_ARTIFACTORY_HOST=${env.ARTIFACTORY_HOST}",
+  "SF_BUILDER_BBO_VERSION=4.0.1"
+]
+
+sfPipeline('gce-pool', sfEnvironment) {
+  ansiColor('xterm') {
+
+    stage("Clean previous build") {
+      deleteDir()
+        dir("${SF_BUILDER_EXPORTDIR}") {
+          deleteDir()
+        }
+    }
+
+    stage("Get sources") {
+      checkout(scm)
+    }
+
+    stage ("create RPM") {
+      sfBuilder.build(buildDistrib: env.DISTRIB, buildArch: env.ARCH, workflowFile: 'cip/workflow_parcoach_rpm.yml')
+      // Add the artifacts in Jenkins view
+      archiveArtifacts artifacts: 'sf-builder-export/**/*', fingerprint: true
+    }
+
+    // Do not publish RPMs when building a PR (jenkins job is started automatically)
+    if (env.STAGE_PUBLISH_RPMS == "true" && !(env.BRANCH_NAME ==~ /^PR-\d+$/)) {
+      stage("Publish RPMS") {
+        Map uploadFiles = [
+          'rpm': [
+            "sf-builder-export/RPMS/*/*"
+          ]
+        ]
+        withCredentials( [usernamePassword(credentialsId: "artifactory-${env.TEAM}-user", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')] ) {
+          sfPublisher.publish([distrib: env.DISTRIB, arch: env.ARCH, flat: true, username: env.USERNAME, password: env.PASSWORD], uploadFiles)
+        }
+      }
+    }
+
+  }
+
+}

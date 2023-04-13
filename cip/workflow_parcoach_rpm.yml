@@ -1,0 +1,50 @@
+workflow:
+  headers :
+    name: "parcoach"
+    version : "2.2.0"
+    arch : "X86_64"
+
+  activities:
+    yum_dependency:
+      info : "Resolve dependencies"
+      context :
+        errata : True
+        yum :
+          - name: "rpm-build"
+          - name: "llvm-15-devel"
+            repo: "@_brrp4u-rpm-snapshot"
+            component: "llvm-rpms/15.0.7"
+          - name: "pmix"
+            repo: "@_brrt2g-rpm-release"
+            component: "pmix/421.0.0"
+          - name: "openmpi-bull"
+            repo: "@_brrp4u-rpm-release"
+            component: "openmpi4/414.86.4"
+          - name: "clang-15-devel"
+            repo: "@_brrp4u-rpm-snapshot"
+            component: "llvm-rpms/15.0.7"
+          - name: "libomp-15-devel"
+            repo: "@_brrp4u-rpm-snapshot"
+            component: "llvm-rpms/15.0.7"
+      stop_if_error : True
+      disabled : False
+
+    shell:
+      info : "Simple shell launcher"
+      environment:
+      context :
+        cmdline:
+            - label: "pwd"
+              cmd: "pwd && ls -l"
+              user: root
+            - label: "install parcoach builddep"
+              cmd: "dnf builddep /src/cip/parcoach.spec -y"
+              user: root
+            - label: "build parcoach rpm"
+              cmd: "rpmbuild -bb /src/cip/parcoach.spec"
+              user: sf-user
+            - label: "Move rpms into export directory"
+              cmd: "mkdir -p /src/sf-builder-export/RPMS && cp -r /home/sf-user/rpmbuild/RPMS/* /src/sf-builder-export/RPMS && find /src/sf-builder-export -name *.rpm"
+              user: sf-user
+      stop_if_error : True
+      disabled : False

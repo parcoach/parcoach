@@ -1,0 +1,55 @@
+jobParams = [
+    TEAM: [
+        type: 'string',
+        descr: 'Team name',
+        val: 'brrp4u'
+    ],
+    COMPNAME: [
+        type: 'string',
+        descr: 'Component name',
+        val: 'parcoach'
+    ],
+    COMPVERS: [
+        type: 'string',
+        descr: 'Component version',
+        val: '2.2.0'
+    ],
+    BUILDTYPE: [
+        type: 'choice',
+        descr: "Build type (snapshot / release)",
+        val: ['snapshot', 'release']
+    ],
+    DEBUG: [
+        type: 'booleanParam',
+        descr: 'Display debug information',
+        val: false
+    ],
+    DISTRIB: [
+        type: 'string',
+        descr: 'Distribution',
+        val: 'RHEL86'
+    ],
+    ARCH: [
+        type: 'choice',
+        descr: 'Target architecture',
+        val: ['X86_64']
+    ],
+    STAGE_PUBLISH_RPMS: [
+        type: 'booleanParam',
+        descr: 'Publish the RPMs into artifactory',
+        val: true
+    ],
+    STAGE_PUPPET: [
+        type: 'booleanParam',
+        descr: 'Generate and publish srpm & rpm containing Puppet classes',
+        val: false
+    ],
+    STAGE_ANSIBLE: [
+        type: 'booleanParam',
+        descr: 'Generate and publish srpm & rpm containing Ansible roles',
+        val: false
+    ],
+
+]
+
+return this

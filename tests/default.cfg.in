@@ -15,5 +15,5 @@ if @PARCOACH_ENABLE_COVERAGE@:
 if @PARCOACH_ENABLE_FORTRAN@:
   config.available_features.add('fortran')
 
-if @PARCOACH_ENABLE_INSTRUMENTATION@:
+if @PARCOACH_ENABLE_INSTRUMENTATION@ and not @PARCOACH_DISABLE_INSTRUMENTATION_TESTS@:
   config.available_features.add('instrumentation')

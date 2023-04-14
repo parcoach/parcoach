@@ -56,6 +56,7 @@ set(LIT_ARGS_DEFAULT "-v")
 set(PARCOACH_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for lit")
 
 parcoach_canonicalize_cmake_booleans(
+  PARCOACH_DISABLE_INSTRUMENTATION_TESTS
   PARCOACH_ENABLE_COVERAGE
   PARCOACH_ENABLE_INSTRUMENTATION
   PARCOACH_ENABLE_FORTRAN
@@ -84,8 +85,13 @@ add_custom_target(tests-dependencies ALL)
 add_custom_target(tests-ready
   DEPENDS tests-dependencies ${PARCOACH_BIN} ${PARCOACHCC_BIN})
 
+set(EXTRA_ARGS_CTEST "")
+if(PARCOACH_DISABLE_INSTRUMENTATION_TESTS)
+  set(EXTRA_ARGS_CTEST -E instr)
+endif()
+
 add_custom_target(run-ctest
-  ${CTEST_COMMAND} --output-on-failure --timeout 30
+  ${CTEST_COMMAND} --output-on-failure --timeout 30 ${EXTRA_ARGS_CTEST}
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   USES_TERMINAL
   DEPENDS tests-ready

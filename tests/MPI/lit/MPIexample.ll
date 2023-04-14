@@ -1,4 +1,6 @@
 ; RUN: %parcoach -check-mpi -disable-output %s 2>&1 | %filecheck %s
+; Instrument the code but don't run it.
+; RUN: %parcoach -check-mpi -disable-output -instrum-inter %s
 ; CHECK: warning: MPI_Reduce line {{[0-9]+}} possibly not called by all processes because of conditional(s) line(s)  {{[0-9]+}}
 %struct.ompi_predefined_datatype_t = type opaque
 %struct.ompi_predefined_op_t = type opaque

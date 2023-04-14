@@ -27,6 +27,18 @@ sfPipeline('gce-pool', sfEnvironment) {
       checkout(scm)
     }
 
+    stage ("Test and coverage") {
+      containerID = sfBuilder.build(buildDistrib: env.DISTRIB, buildArch: env.ARCH, workflowFile: 'cip/workflow_parcoach_coverage.yml')
+      sh "cat cip/sonar-project.properties"
+      withCredentials( [usernamePassword(credentialsId: "sonarqube-${env.TEAM}-user", usernameVariable: 'SONARUSER', passwordVariable: 'SONARPWD')] ) {
+        def customSonarProperties = [ projectKey: "${env.TEAM}:${env.COMPNAME}", projectName: "${env.TEAM}:${env.COMPNAME}", login: env.SONARUSER, password: env.SONARPWD, projectVersion: env.COMPVERS ]
+        sfScanner.scanWithContainer('cip/sonar-project.properties', containerID, customSonarProperties)
+      }
+      timeout(time: 15, unit: 'MINUTES') {
+        waitForQualityGate(abortPipeline: false)
+      }
+    }
+
     stage ("create RPM") {
       sfBuilder.build(buildDistrib: env.DISTRIB, buildArch: env.ARCH, workflowFile: 'cip/workflow_parcoach_rpm.yml')
       // Add the artifacts in Jenkins view

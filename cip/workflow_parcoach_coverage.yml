@@ -1,0 +1,61 @@
+workflow:
+  headers :
+    name: "parcoach"
+    version : "2.2.0"
+    arch : "X86_64"
+
+  activities:
+    yum_dependency:
+      info : "Resolve dependencies"
+      context :
+        errata : True
+        yum :
+          - name: "cmake"
+          - name: "python38"
+          - name: "git"
+          - name: "libzstd"
+          - name: "zlib"
+          - name: "gcc-c++"
+          - name: "llvm-15-devel"
+            repo: "@_brrp4u-rpm-snapshot"
+            component: "llvm-rpms/15.0.7"
+          - name: "pmix"
+            repo: "@_brrt2g-rpm-release"
+            component: "pmix/421.0.0"
+          - name: "openmpi-bull"
+            repo: "@_brrp4u-rpm-release"
+            component: "openmpi4/414.86.4"
+          - name: "clang-15-devel"
+            repo: "@_brrp4u-rpm-snapshot"
+            component: "llvm-rpms/15.0.7"
+          - name: "libomp-15-devel"
+            repo: "@_brrp4u-rpm-snapshot"
+            component: "llvm-rpms/15.0.7"
+          - name: "compiler-rt-15"
+            repo: "@_brrp4u-rpm-snapshot"
+            component: "llvm-rpms/15.0.7"
+      stop_if_error : True
+      disabled : False
+
+    shell:
+      info : "Simple shell launcher"
+      environment:
+      context :
+        cmdline:
+            - label: "pwd"
+              cmd: "pwd && ls -l"
+              user: root
+            - label: "install pipenv"
+              cmd: "pip3 install pipenv"
+              user: root
+            - label: "build parcoach with wrapper"
+              cmd: "mkdir -p /tmp/sonar-bw && cd /src && build-wrapper-linux-x86-64 --out-dir /tmp/sonar-bw ./cip/build_parcoach.sh /src"
+              user: sf-user
+            - label: "run coverage"
+              cmd: "cd /src && ./cip/run_coverage.sh /src"
+              user: sf-user
+            - label: "cp coverage files"
+              cmd: "cp /src/coverage.xml /src/cip/sonar-project.properties ~/"
+              user: sf-user
+      stop_if_error : True
+      disabled : False

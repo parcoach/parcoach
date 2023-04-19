@@ -2,7 +2,7 @@ test-coverage:
   cache: !reference [.pipenv-template, cache]
   before_script: !reference [.pipenv-template, before_script]
   stage: tests
-  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG_OMPI"
+  image: "$CI_REGISTRY_IMAGE:$LINUX_IMAGE_TAG_ANALYSIS"
   needs:
     - build-linux-images
   tags:
@@ -15,7 +15,14 @@ test-coverage:
     - cmake --build build --target coverage
     # NOTE: this is a tiny bit tricky: we need to run lcov_cobertura from the
     # project's source folder so that the paths are correct in the XML.
-    - lcov_cobertura build/parcoach.lcov -o cobertura-coverage.xml
+    - lcov_cobertura build/parcoach.lcov -o coverage.xml
+    # Make it available for sonarqube.
+    - ln -s build/compile_commands.json compile_commands.json
+    # Run clang-tidy for inclusion in sonarqube analysis.
+    - run-clang-tidy-15 -p build -j $CTEST_PARALLEL_LEVEL src > clang-tidy.txt
+    # Run sonarqube scanner and upload the result. The token is in the CI
+    # settings, and it's a project-only token.
+    - /opt/sonar/bin/sonar-scanner -Dsonar.login=$SONARQUBE_TOKEN -Dproject.settings=build/sonar-project.properties
   coverage: '/Coverage: \d+\.\d+/'
   artifacts:
     paths:
@@ -23,7 +30,7 @@ test-coverage:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: cobertura-coverage.xml
+        path: coverage.xml
 
 pages:
   image: alpine:latest

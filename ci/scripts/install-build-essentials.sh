@@ -16,13 +16,15 @@ apt_install sudo \
   ninja-build \
   openssh-client \
   patch \
-  pipenv \
   python-is-python3 \
   python3 \
   python3-pip \
   python3-venv \
+  unzip \
   valgrind \
   vim \
   wget \
 
 cleanup
+
+pip3 install pipenv

@@ -15,10 +15,10 @@ services:
         - LLVM_VERSION=15
         - OPENMPI_VERSION=deb
       tags:
-        - "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230209-llvm-15-openmpi-deb"
+        - "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230419-llvm-15-openmpi-deb"
     # NOTE: I don't think this is possible, but ideally we would share this
     # variable with the .gitlab-ci.yml
-    image: "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230209-llvm-15-openmpi-deb"
+    image: "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230419-llvm-15-openmpi-deb"
     volumes:
       - .:/home/parcoach/sources
   shell-mpich:

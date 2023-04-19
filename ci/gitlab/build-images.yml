@@ -18,5 +18,6 @@ build-linux-images:
     matrix:
       - IMAGE_TAG:
         - $LINUX_IMAGE_TAG_OMPI
+        - $LINUX_IMAGE_TAG_ANALYSIS
         - $LINUX_IMAGE_TAG_MPICH
         - $RHEL_IMAGE_TAG

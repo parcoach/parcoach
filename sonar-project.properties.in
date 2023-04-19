@@ -1,0 +1,17 @@
+sonar.host.url=https://sonarqube.inria.fr/sonarqube
+sonar.projectKey=storm:parcoach:git
+sonar.links.homepage=https://parcoach.github.io/
+sonar.links.scm=https://gitlab.inria.fr/parcoach/parcoach
+sonar.projectDescription=@CPACK_PACKAGE_DESCRIPTION_SUMMARY@
+sonar.projectVersion=@PARCOACH_VERSION@
+sonar.exclusions=tests/MPI/MBI/ref/*
+sonar.scm.disabled=false
+sonar.scm.provider=git
+sonar.sourceEncoding=UTF-8
+sonar.sources=src
+sonar.tests=tests
+sonar.cfamily.compile-commands=compile_commands.json
+sonar.cxx.file.suffixes=.h,.cpp
+sonar.cxx.errorRecoveryEnabled=true
+sonar.cxx.cobertura.reportPaths=coverage.xml
+sonar.cxx.clangtidy.reportPaths=clang-tidy.txt

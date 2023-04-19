@@ -5,29 +5,41 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 SHELL ["/bin/bash", "-c"]
 
-COPY scripts/ /scripts/
+COPY scripts/install-build-essentials.sh /scripts/
+COPY scripts/apt_utils.sh /scripts/
+COPY scripts/welcome.sh /scripts/
 
 RUN /scripts/install-build-essentials.sh
 
 # Install cmake if needed
+COPY scripts/install-cmake.sh /scripts/
 ARG CMAKE_VERSION
 ARG CMAKE_SHA256
 RUN if [ -n "$CMAKE_VERSION" ]; then /scripts/install-cmake.sh ${CMAKE_VERSION} ${CMAKE_SHA256} && cmake --version; fi
 
 # Install llvm if needed
 # This ARG is needed because ARG-s defined before FROM are outside of build stage.
+COPY scripts/install-llvm.sh /scripts/
 ARG UBUNTU_VERSION
 ARG LLVM_VERSION
 RUN if [ -n "$LLVM_VERSION" ]; then /scripts/install-llvm.sh ${UBUNTU_VERSION} ${LLVM_VERSION}; fi
 
 # Install OpenMPI
+COPY scripts/install-openmpi.sh /scripts/
 ARG OPENMPI_VERSION
 RUN if [ -n "$OPENMPI_VERSION" ]; then /scripts/install-openmpi.sh ${OPENMPI_VERSION}; fi
 # This fixes running RMA codes within docker.
 ENV OMPI_MCA_btl_vader_single_copy_mechanism=${OPENMPI_VERSION:+none}
 
 ARG MPICH_VERSION
+COPY scripts/install-mpich.sh /scripts/
 RUN if [ -n "$MPICH_VERSION" ]; then /scripts/install-mpich.sh ${MPICH_VERSION}; fi
+
+# Install SonarQube scanner
+COPY scripts/install-sonar.sh /scripts/
+ARG SONARSCANNER_VERSION
+ARG SONARSCANNER_SHA256
+RUN if [ -n "$SONARSCANNER_VERSION" ]; then /scripts/install-sonar.sh ${SONARSCANNER_VERSION} ${SONARSCANNER_SHA256}; fi
 
 # Create the parcoach user
 RUN useradd -m parcoach

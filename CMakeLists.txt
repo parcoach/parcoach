@@ -75,3 +75,5 @@ set(CPACK_BINARY_TZ OFF)
 # they do want to generate the package.
 include(RPM)
 include(CPack)
+
+configure_file(sonar-project.properties.in ${CMAKE_CURRENT_BINARY_DIR}/sonar-project.properties @ONLY)

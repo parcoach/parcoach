@@ -33,11 +33,23 @@ print_build_versions() {
   case "$version" in
     20230213)
       ;&
-    20230209)
+    20230419)
       # NOTE: other build tools for which we want to control the version
       # would go there.
       print_build_arg "CMAKE_VERSION" "3.25.2"
       print_build_arg "CMAKE_SHA256" "783da74f132fd1fea91b8236d267efa4df5b91c5eec1dea0a87f0cf233748d99"
+      ;;
+    *) echo "[${FUNCNAME[0]}] Unknown version $version"; exit 1;
+  esac
+}
+
+print_analysis_versions() {
+  version=$1
+
+  case "$version" in
+    20230419)
+      print_build_arg "SONARSCANNER_VERSION" "4.8.0.2856"
+      print_build_arg "SONARSCANNER_SHA256" "45a9a54dfe5f58b554e9b40ad3becbf9871a4eddb1c2892b67cf191cdd891754"
       ;;
     *) echo "[${FUNCNAME[0]}] Unknown version $version"; exit 1;
   esac
@@ -51,6 +63,7 @@ parse_arguments() {
       build) print_build_versions "$tool_version" ;;
       mpi) print_mpi_versions "$tool_version" ;;
       ninja) print_ninja_versions "$tool_version" ;;
+      analysis) print_analysis_versions "$tool_version" ;;
       *) print_build_arg "${tool^^}_VERSION" "${tool_version}" ;;
     esac
   done

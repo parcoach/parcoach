@@ -58,8 +58,8 @@ struct DebugInfo {
   DebugInfo() = default;
   DebugInfo(uint64_t Line_, char const *Filename_) : Line(Line_), Filename{} {
     if (Filename_) {
-      strncpy(Filename, Filename_, FILENAME_MAX_LENGTH - 1);
-      Filename[FILENAME_MAX_LENGTH - 1] = '\0';
+      strncpy(Filename, Filename_, sizeof(Filename));
+      Filename[sizeof(Filename) - 1] = '\0';
     }
   }
 

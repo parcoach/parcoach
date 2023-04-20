@@ -32,10 +32,10 @@ services:
         - LLVM_VERSION=15
         - MPICH_VERSION=deb
       tags:
-        - "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230209-llvm-15-mpich-deb"
+        - "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230419-llvm-15-mpich-deb"
     # NOTE: I don't think this is possible, but ideally we would share this
     # variable with the .gitlab-ci.yml
-    image: "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230209-llvm-15-mpich-deb"
+    image: "registry.gitlab.inria.fr/parcoach/parcoach:ubuntu-focal-build-20230419-llvm-15-mpich-deb"
     volumes:
       - .:/home/parcoach/sources
   ubi:

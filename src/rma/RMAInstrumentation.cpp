@@ -91,10 +91,10 @@ void insertInstrumentationCall(Instruction &I, Value *Addr, Type *Ty,
       B.getInt64(I.getModule()->getDataLayout().getTypeSizeInBits(Ty));
   DebugLoc Dbg = I.getDebugLoc();
   Constant *Line = B.getInt32(Dbg ? Dbg.getLine() : 0);
-  Constant *Zero = ConstantInt::get(B.getInt8PtrTy(), 0);
-  Constant *Filename = Dbg ? B.CreateGlobalStringPtr(Dbg->getFilename()) : Zero;
+  StringRef Filename = Dbg ? Dbg->getFilename() : "?";
+  Constant *ConstantFilename = B.CreateGlobalStringPtr(Filename);
 
-  B.CreateCall(CalledF, {Addr, Size, Line, Filename});
+  B.CreateCall(CalledF, {Addr, Size, Line, ConstantFilename});
 }
 
 void insertInstrumentationCall(StoreInst &SI) {

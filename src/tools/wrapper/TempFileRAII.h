@@ -3,6 +3,8 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 
+#include <optional>
+
 namespace parcoach {
 struct TempFileRAII {
   llvm::StringRef getName() const { return FileName_; }

@@ -11,7 +11,6 @@ RMA_INSTRUMENTED(MPI_Get, mpi_get_, false)
 RMA_INSTRUMENTED(MPI_Put, mpi_put_, false)
 RMA_INSTRUMENTED(MPI_Win_create, mpi_win_create_, false)
 RMA_INSTRUMENTED(MPI_Win_fence, mpi_win_fence_, true)
-// TODO: check this
 RMA_INSTRUMENTED(MPI_Win_flush, mpi_win_flush_, false)
 RMA_INSTRUMENTED(MPI_Win_free, mpi_win_free_, false)
 RMA_INSTRUMENTED(MPI_Win_lock, mpi_win_lock_, true)

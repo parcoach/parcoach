@@ -260,6 +260,10 @@ int parcoach_rma_MPI_Win_free(MPI_Win *win, int line, char *filename) {
   return PMPI_Win_free(win);
 }
 
+int parcoach_rma_MPI_Win_flush(int rank, MPI_Win win, int line,
+                               char *filename) {
+  return PMPI_Win_flush(rank, win);
+}
 /********************************************
  *        Synchronization handling          *
  ********************************************/

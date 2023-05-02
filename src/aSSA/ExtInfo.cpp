@@ -405,6 +405,7 @@ static const FuncModPair FuncModPairs[] = {
     {"MPI_Wtick", {0, false, {}}},
     {"MPI_Wtime", {0, false, {}}},
     {"MPI_Win_create", {6, false, {false, false, false, false, false, true}}},
+    {"MPI_Win_allocate", {6, false, {false, false, false, false, false, true}}},
     {"MPI_Win_start", {3, false, {false, false, false}}},
 
     /* OpenMP */

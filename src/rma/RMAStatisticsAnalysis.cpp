@@ -14,6 +14,8 @@ void CountMPIfuncs(RMAStatisticsAnalysis::Result &Res, Instruction &I,
     Res.Put++;
   } else if (Name == "MPI_Win_create" || Name == "mpi_win_create_") {
     Res.Win++;
+  } else if (Name == "MPI_Win_allocate" || Name == "mpi_win_allocate_") {
+    Res.Win++;
   } else if (Name == "MPI_Accumulate" || Name == "mpi_accumulate_") {
     Res.Acc++;
   } else if (Name == "MPI_Win_fence" || Name == "mpi_win_fence_") {

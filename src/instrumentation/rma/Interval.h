@@ -52,27 +52,26 @@ struct MemoryAccess {
 };
 
 struct DebugInfo {
-  static constexpr size_t FILENAME_MAX_LENGTH = 128;
-  uint64_t Line;
-  // NOTE: we can't use a std::string here because this gets MPI sent.
-  char Filename[FILENAME_MAX_LENGTH];
+  uint64_t Line{};
+  // It's absolutely essential that this field is the *last* member of that
+  // struct. It gets sent separately through MPI, and we don't include it
+  // in the MPI committed type.
+  std::string Filename{"unknown_file"};
   DebugInfo() = default;
-  DebugInfo(uint64_t Line_, char const *Filename_) : Line(Line_), Filename{} {
+  DebugInfo(int Line_, char const *Filename_)
+      : Line(static_cast<uint64_t>(Line_)) {
+    // Only construct the filename if it's actually containing something.
     if (Filename_) {
-      strncpy(Filename, Filename_, sizeof(Filename));
-      Filename[sizeof(Filename) - 1] = '\0';
+      Filename = Filename_;
     }
   }
-
-  // We explicitly implement this copy constructor because we want to copy
-  // the Filename on copy, and not just the pointer.
-  DebugInfo(DebugInfo const &Other) : DebugInfo(Other.Line, Other.Filename) {}
 };
 
 struct Access {
-  static constexpr size_t FILENAME_MAX_LENGTH = 128;
   Interval Itv;
   AccessType Type;
+  // It's absolutely essential that this field is the *last* member of that
+  // struct.
   DebugInfo Dbg;
 
   Access() = default;

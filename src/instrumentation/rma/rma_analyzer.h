@@ -13,6 +13,10 @@
 #define RMA_ANALYZER_MAX_EPOCH_NUMBER 1024
 /* Maximum number of windows supported simultaneously */
 #define RMA_ANALYZER_MAX_WIN 32
+// FIXME: check this work on relatively big example; otherwise we might need
+// to create two unique tags per window/epoch.
+#define RMA_ANALYZER_STRING_MPI_TAG                                            \
+  std::numeric_limits<unsigned short>::max() - 1
 
 #define DO_REDUCE 1
 

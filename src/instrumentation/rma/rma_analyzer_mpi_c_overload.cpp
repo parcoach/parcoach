@@ -129,7 +129,7 @@ int parcoach_rma_MPI_Put(void const *origin_addr, int origin_count,
   MPI_Type_size(target_datatype, (int *)&target_size);
   target_size *= target_count;
 
-  DebugInfo Dbg((uint64_t)line, filename);
+  DebugInfo Dbg(line, filename);
 
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{(uint64_t)origin_addr, local_size},
@@ -165,7 +165,7 @@ int parcoach_rma_MPI_Get(void *origin_addr, int origin_count,
   local_size *= origin_count;
   MPI_Type_size(target_datatype, (int *)&target_size);
   target_size *= target_count;
-  DebugInfo Dbg((uint64_t)line, filename);
+  DebugInfo Dbg(line, filename);
 
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{local_address, local_size}, AccessType::RMA_WRITE,
@@ -195,9 +195,9 @@ int parcoach_rma_MPI_Accumulate(void const *origin_addr, int origin_count,
 
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{local_address, local_size}, AccessType::RMA_READ,
-             DebugInfo{}),
+             DebugInfo()),
       Access(MemoryAccess{(uint64_t)target_disp, target_size},
-             AccessType::RMA_WRITE, DebugInfo{}),
+             AccessType::RMA_WRITE, DebugInfo()),
       target_rank, win);
 
   return PMPI_Accumulate(origin_addr, origin_count, origin_datatype,

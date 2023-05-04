@@ -190,7 +190,7 @@ int parcoach_rma_mpi_put_(int *origin_addr, int *origin_count,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  DebugInfo Dbg((uint64_t)line, filename);
+  DebugInfo Dbg(line, filename);
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
              AccessType::RMA_READ, Dbg),
@@ -223,7 +223,7 @@ int parcoach_rma_mpi_get_(int *origin_addr, int *origin_count,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  DebugInfo Dbg((uint64_t)line, filename);
+  DebugInfo Dbg(line, filename);
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
              AccessType::RMA_WRITE, Dbg),
@@ -254,7 +254,7 @@ int parcoach_rma_mpi_accumulate_(int *origin_addr, int *origin_count,
   target_size *= *target_count;
 
   c_win = MPI_Win_f2c(*win);
-  DebugInfo Dbg((uint64_t)line, filename);
+  DebugInfo Dbg(line, filename);
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{(uint64_t)origin_addr, (uint64_t)local_size},
              AccessType::RMA_READ, Dbg),

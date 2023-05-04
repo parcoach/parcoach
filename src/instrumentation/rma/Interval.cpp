@@ -21,12 +21,7 @@ std::ostream &operator<<(std::ostream &Os, Access const &A) {
 }
 
 std::ostream &operator<<(std::ostream &Os, DebugInfo const &Dbg) {
-  if (Dbg.Filename[0]) {
-    Os << Dbg.Filename;
-  } else {
-    Os << "unknown_file";
-  }
-  Os << ":" << Dbg.Line;
+  Os << Dbg.Filename << ":" << Dbg.Line;
   return Os;
 }
 

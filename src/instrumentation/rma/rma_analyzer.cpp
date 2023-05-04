@@ -91,8 +91,10 @@ optional<Access> rma_analyzer_check_communication(MPI_Win win) {
   int nb_loops = 0;
   int mpi_flag = 0;
   MPI_Request mpi_request;
-  Access ReceivedInterval;
+  Access ReceivedInterval{};
 
+  RMA_DEBUG(cerr << "Irecv on tag: " << state->mpi_tag + state->count_epoch
+                 << "\n";);
   MPI_Irecv(&ReceivedInterval, 1, state->interval_datatype, MPI_ANY_SOURCE,
             state->mpi_tag + state->count_epoch, state->win_comm, &mpi_request);
 
@@ -115,10 +117,32 @@ optional<Access> rma_analyzer_check_communication(MPI_Win win) {
   }
   state->count++;
   mpi_flag = 0;
+
+  // Now that we have a basic Access let's receive the one thing that has
+  // to be sent separately: the filename. We first get the raw string length,
+  // then allocate a local buffer of the appropriate size, then turn it into
+  // a proper string in the ReceivedInterval's debug info.
+  MPI_Status status;
+  MPI_Probe(MPI_ANY_SOURCE, RMA_ANALYZER_STRING_MPI_TAG, state->win_comm,
+            &status);
+  int length = 0;
+  MPI_Get_count(&status, MPI_CHAR, &length);
+  unique_ptr<char[]> Buffer = make_unique<char[]>(length);
+
+  RMA_DEBUG(cerr << "Receiving string length: " << length << "\n");
+
+  MPI_Recv(Buffer.get(), length, MPI_CHAR, MPI_ANY_SOURCE,
+           RMA_ANALYZER_STRING_MPI_TAG, state->win_comm, &status);
+
+  ReceivedInterval.Dbg.Filename = string(Buffer.get(), length);
+
   // Fix the interval by adding the base address.
   RMA_DEBUG(cerr << "Received(beforefix): " << ReceivedInterval << "\n");
   ReceivedInterval.Itv.fixForWindow(state->win_base);
-  RMA_DEBUG(cerr << "Received(afterfix): " << ReceivedInterval << "\n");
+  RMA_DEBUG({
+    cerr << "Received(afterfix): " << ReceivedInterval << "\n";
+    cerr << "Filename: '" << ReceivedInterval.Dbg.Filename << "'\n";
+  });
   return ReceivedInterval;
 }
 
@@ -339,6 +363,10 @@ extern "C" void rma_analyzer_update_on_comm_send(Access LocalAccess,
   MPI_Send(&TargetAccess, 1, state->interval_datatype, target_rank,
            state->mpi_tag + state->count_epoch, state->win_comm);
 
+  string const &Filename = TargetAccess.Dbg.Filename;
+  MPI_Send(Filename.c_str(), Filename.size(), MPI_CHAR, target_rank,
+           RMA_ANALYZER_STRING_MPI_TAG, state->win_comm);
+
   /* Increment number of communications sent to the target */
   state->array[target_rank]++;
 }
@@ -364,7 +392,9 @@ extern "C" void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
   new_state->array = new int[new_state->size_comm];
 
   /* Create the MPI Datatype needed to exchange intervals */
-  int struct_size = sizeof(Access);
+  // Send everything but the last element of the struct which is a string:
+  // it has to be sent separately.
+  int struct_size = sizeof(Access) - sizeof(string);
   RMA_DEBUG(cerr << "Creating type: " << struct_size << ", " << (void *)MPI_BYTE
                  << ", " << &(new_state->interval_datatype) << "\n");
   MPI_Type_contiguous(struct_size, MPI_BYTE, &(new_state->interval_datatype));

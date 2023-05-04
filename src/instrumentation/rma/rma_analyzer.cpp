@@ -157,9 +157,9 @@ void rma_analyzer_free_tag_range(int tag_id) {
 
 } // namespace
 
-multiset<reference_wrapper<Access const>>
+IntervalViewContainer
 rma_analyzer_state::getIntersectingIntervals(Access const &A) const {
-  multiset<reference_wrapper<Access const>> Ret;
+  IntervalViewContainer Ret;
   // Find the first neighbor > A
   auto ItNeighbor = Intervals.upper_bound(A);
   // Add neighbors from It to End, exit early when finding a non-intersecting.
@@ -179,9 +179,9 @@ rma_analyzer_state::getIntersectingIntervals(Access const &A) const {
   return Ret;
 }
 
-multiset<reference_wrapper<Access const>>
+IntervalViewContainer
 rma_analyzer_state::getConflictingIntervals(Access const &A) const {
-  multiset<reference_wrapper<Access const>> Ret;
+  IntervalViewContainer Ret;
   for (Access const &Current : getIntersectingIntervals(A)) {
     if (Current.conflictsWith(A)) {
       Ret.insert(std::ref(Current));

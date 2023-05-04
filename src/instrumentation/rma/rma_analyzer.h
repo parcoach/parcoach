@@ -6,7 +6,6 @@
 
 #include <limits>
 #include <mutex>
-#include <set>
 #include <thread>
 
 #define RMA_ANALYZER_BASE_MPI_TAG std::numeric_limits<unsigned short>::max()
@@ -24,7 +23,7 @@ struct rma_analyzer_state {
   MPI_Win state_win;
   std::thread Thread;
   std::mutex ListMutex;
-  std::multiset<parcoach::rma::Access> Intervals;
+  parcoach::rma::IntervalContainer Intervals;
   uint64_t win_base;
   size_t win_size;
   MPI_Comm win_comm;
@@ -39,9 +38,9 @@ struct rma_analyzer_state {
   int volatile count;
   int volatile active_epoch;
   int volatile from_sync;
-  std::multiset<std::reference_wrapper<parcoach::rma::Access const>>
+  parcoach::rma::IntervalViewContainer
   getIntersectingIntervals(parcoach::rma::Access const &I) const;
-  std::multiset<std::reference_wrapper<parcoach::rma::Access const>>
+  parcoach::rma::IntervalViewContainer
   getConflictingIntervals(parcoach::rma::Access const &I) const;
 };
 

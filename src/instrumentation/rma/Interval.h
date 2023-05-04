@@ -4,6 +4,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <set>
 #include <tuple>
 
 namespace parcoach::rma {
@@ -95,13 +96,19 @@ struct Access {
      * remote WRITE access). */
     return ((int)Type | (int)Other.Type) == (int)AccessType::RMA_WRITE;
   }
-
-  friend inline bool operator<(std::reference_wrapper<Access const> A,
-                               std::reference_wrapper<Access const> B) {
-    return A.get() < B.get();
-  }
-  inline bool operator<(Access const &Other) const { return Itv < Other.Itv; }
 };
+
+// This is a comparator specifically designed for our multiset: we just
+// want to compare the Intervals' ranges.
+struct AccessComp {
+  inline bool operator()(Access const &lhs, Access const &rhs) const {
+    return lhs.Itv < rhs.Itv;
+  }
+};
+
+using IntervalContainer = std::multiset<Access, AccessComp>;
+using IntervalViewContainer =
+    std::multiset<std::reference_wrapper<Access const>, AccessComp>;
 
 std::ostream &operator<<(std::ostream &Os, AccessType const &T);
 std::ostream &operator<<(std::ostream &Os, Interval const &I);

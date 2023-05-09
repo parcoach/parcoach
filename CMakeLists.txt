@@ -52,6 +52,7 @@ add_subdirectory(src)
 if(PARCOACH_ENABLE_TESTS)
   enable_testing()
   add_subdirectory(tests)
+  add_subdirectory(unittests)
 endif()
 
 add_subdirectory(code-quality)

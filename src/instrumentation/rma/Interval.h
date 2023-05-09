@@ -41,6 +41,9 @@ struct Interval {
   inline bool operator<(Interval const &Other) const {
     return std::tie(Low, Up) < std::tie(Other.Low, Other.Up);
   }
+  inline bool operator==(Interval const &Other) const {
+    return std::tie(Low, Up) == std::tie(Other.Low, Other.Up);
+  }
   inline bool intersects(Interval const &Other) const {
     return !(Low > Other.Up || Up < Other.Low);
   }
@@ -64,6 +67,10 @@ struct DebugInfo {
     if (Filename_) {
       Filename = Filename_;
     }
+  }
+
+  inline bool operator==(DebugInfo const &Other) const {
+    return std::tie(Line, Filename) == std::tie(Other.Line, Other.Filename);
   }
 };
 
@@ -94,6 +101,16 @@ struct Access {
      * least a local WRITE access combined with a remote access, or a
      * remote WRITE access). */
     return ((int)Type | (int)Other.Type) == (int)AccessType::RMA_WRITE;
+  }
+
+  friend inline bool operator==(std::reference_wrapper<Access const> A,
+                                std::reference_wrapper<Access const> B) {
+    return A.get() == B.get();
+  }
+
+  inline bool operator==(Access const &Other) const {
+    return std::tie(Itv, Type, Dbg) ==
+           std::tie(Other.Itv, Other.Type, Other.Dbg);
   }
 };
 

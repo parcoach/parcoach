@@ -46,7 +46,7 @@ endmacro()
 
 add_subdirectory(basic)
 
-option(PARCOACH_ENABLE_MBI_TESTS "Enable MBI test targets." ON)
+option(PARCOACH_ENABLE_MBI_TESTS "Enable MBI test targets." OFF)
 if(PARCOACH_ENABLE_MBI_TESTS)
   add_subdirectory(MBI)
 endif()

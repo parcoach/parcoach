@@ -19,9 +19,9 @@ struct CollListLoopVisitor : LoopVisitor<CollListLoopVisitor> {
   PTACallGraph const &PTACG;
   SmallPtrSetImpl<Value *> const &Communicators;
   CollectiveList::CommToBBToCollListMap CollListsPerComm;
-  void VisitBB(Loop &L, BasicBlock *BB) {
+  void visitBB(Loop &L, BasicBlock *BB) {
     LLVM_DEBUG({
-      dbgs() << "VisitBB in loop:";
+      dbgs() << "visitBB in loop:";
       BB->printAsOperand(dbgs());
       dbgs() << "\n";
     });
@@ -44,7 +44,7 @@ struct CollListLoopVisitor : LoopVisitor<CollListLoopVisitor> {
         return;
       }
       CollectiveList const &PredSet = Lists.lookup(*pred_begin(BB));
-      bool IsNAVS = !LAI_.LoopHeaderToIncomingBlock.count(BB) &&
+      bool IsNAVS = (LAI_.LoopHeaderToIncomingBlock.count(BB) == 0) &&
                     CollectiveList::NeighborsAreNAVS(Lists, BB, pred_begin(BB),
                                                      pred_end(BB));
       CollectiveList Current =
@@ -63,8 +63,9 @@ struct CollListLoopVisitor : LoopVisitor<CollListLoopVisitor> {
     }
   }
 
-  void EndOfLoop(Loop &L) {
-    BasicBlock *Incoming, *BackEdge;
+  void endOfLoop(Loop &L) {
+    BasicBlock *Incoming{};
+    BasicBlock *BackEdge{};
     L.getIncomingAndBackEdge(Incoming, BackEdge);
     for (Value *Comm : Communicators) {
       auto &Lists = CollListsPerComm[Comm];

@@ -28,7 +28,7 @@ struct CollListCFGVisitor : CFGVisitor<CollListCFGVisitor> {
   CollectiveList::CommToBBToCollListMap CollListsPerComm;
 
   template <typename SuccessorsRange>
-  CollectiveList Compute(CollectiveList::BBToCollListMap &Lists,
+  CollectiveList compute(CollectiveList::BBToCollListMap &Lists,
                          SuccessorsRange Successors, BasicBlock *BB,
                          bool IsLoopHeader, Value *Comm) {
     bool IsNAVS = CollectiveList::NeighborsAreNAVS(
@@ -62,10 +62,10 @@ struct CollListCFGVisitor : CFGVisitor<CollListCFGVisitor> {
     return Current;
   }
 
-  void VisitBB(BasicBlock *BB,
+  void visitBB(BasicBlock *BB,
                LoopAggretationInfo const *LoopAnalysisResult = nullptr) {
     LLVM_DEBUG({
-      dbgs() << "CFGVisitor::VisitBB::";
+      dbgs() << "CFGVisitor::visitBB::";
       if (LoopAnalysisResult) {
         dbgs() << "header::";
       }
@@ -81,10 +81,10 @@ struct CollListCFGVisitor : CFGVisitor<CollListCFGVisitor> {
         auto const &Successors =
             LoopAnalysisResult->LoopHeaderToSuccessors.find(BB)->second;
         Lists[BB] =
-            Compute(Lists, make_range(Successors.begin(), Successors.end()), BB,
+            compute(Lists, make_range(Successors.begin(), Successors.end()), BB,
                     true, Comm);
       } else {
-        Lists[BB] = Compute(Lists, successors(BB), BB, false, Comm);
+        Lists[BB] = compute(Lists, successors(BB), BB, false, Comm);
       }
     }
   }
@@ -112,7 +112,7 @@ struct CollListCFGVisitor : CFGVisitor<CollListCFGVisitor> {
   }
 };
 
-void CheckWarnings(
+void checkWarnings(
     Function &F, CollectiveList::CommToBBToCollListMap const &CollListsPerComm,
     DepGraphDCF const &DG, CallToWarningMap &Warnings,
     FunctionAnalysisManager &FAM, bool EmitDotDG) {
@@ -120,7 +120,9 @@ void CheckWarnings(
   auto IsaDirectCallToCollective = [](Instruction const &I) {
     if (CallInst const *CI = dyn_cast<CallInst>(&I)) {
       Function const *F = CI->getCalledFunction();
-      return F && Collective::isCollective(*F);
+      if (F) {
+        return Collective::isCollective(*F);
+      }
     }
     return false;
   };
@@ -132,18 +134,18 @@ void CheckWarnings(
     Collective const *Coll = Collective::find(F);
     assert(Coll && "Coll expected to be not null because of filter");
     // Get conditionals from the callsite
-    std::set<BasicBlock const *> callIPDF;
-    DG.getCallInterIPDF(&CI, callIPDF);
+    std::set<BasicBlock const *> CallIpdf;
+    DG.getCallInterIPDF(&CI, CallIpdf);
     LLVM_DEBUG(dbgs() << "Call to " << Coll->Name << "\n");
-    LLVM_DEBUG(dbgs() << "callIPDF size: " << callIPDF.size() << "\n");
+    LLVM_DEBUG(dbgs() << "callIPDF size: " << CallIpdf.size() << "\n");
     Value *CommForCollective{};
 
-    if (auto *MPIColl = dyn_cast<MPICollective>(Coll)) {
+    if (auto const *MPIColl = dyn_cast<MPICollective>(Coll)) {
       CommForCollective = MPIColl->getCommunicator(CI);
     }
 
     SmallVector<DebugLoc, 2> Conditionals;
-    for (BasicBlock const *BB : callIPDF) {
+    for (BasicBlock const *BB : CallIpdf) {
       LLVM_DEBUG({
         BB->printAsOperand(dbgs());
         dbgs() << " is on path\n";
@@ -170,27 +172,28 @@ void CheckWarnings(
       }
 
       // Is this condition tainted?
-      Value const *cond = getBasicBlockCond(BB);
+      Value const *Cond = getBasicBlockCond(BB);
 
-      if (!cond || !DG.isTaintedValue(cond)) {
+      if (!Cond || !DG.isTaintedValue(Cond)) {
         LLVM_DEBUG(dbgs() << "Not tainted\n");
         continue;
       }
 
       DebugLoc BDLoc = (BB->getTerminator())->getDebugLoc();
-      Instruction const *inst = BB->getTerminator();
-      DebugLoc loc = inst->getDebugLoc();
-      Conditionals.push_back(loc);
+      Instruction const *Inst = BB->getTerminator();
+      DebugLoc Loc = Inst->getDebugLoc();
+      Conditionals.push_back(Loc);
 
       if (EmitDotDG) {
-        std::string dotfilename("taintedpath-");
-        std::string cfilename = loc->getFilename().str();
-        size_t lastpos_slash = cfilename.find_last_of('/');
-        if (lastpos_slash != cfilename.npos)
-          cfilename = cfilename.substr(lastpos_slash + 1, cfilename.size());
-        dotfilename.append(cfilename).append("-");
-        dotfilename.append(std::to_string(loc.getLine())).append(".dot");
-        DG.dotTaintPath(cond, dotfilename, &CI);
+        std::string Dotfilename("taintedpath-");
+        std::string Filename = Loc->getFilename().str();
+        size_t LastposSlash = Filename.find_last_of('/');
+        if (LastposSlash != std::string::npos) {
+          Filename = Filename.substr(LastposSlash + 1, Filename.size());
+        }
+        Dotfilename.append(Filename).append("-");
+        Dotfilename.append(std::to_string(Loc.getLine())).append(".dot");
+        DG.dotTaintPath(Cond, Dotfilename, &CI);
       }
     } // END FOR
 
@@ -207,23 +210,25 @@ llvm::AnalysisKey CollListFunctionAnalysis::Key;
 llvm::AnalysisKey CollectiveAnalysis::Key;
 
 CollectiveAnalysis::Result
-CollectiveAnalysis::run(llvm::Module &M, llvm::ModuleAnalysisManager &AM) {
+CollectiveAnalysis::run(llvm::Module &M,
+                        llvm::ModuleAnalysisManager &AM) const {
   TimeTraceScope TTS("ParcoachCollectiveAnalysis");
   PTACallGraph const &PTACG = *AM.getResult<PTACallGraphAnalysis>(M);
   auto &DG = AM.getResult<DepGraphDCFAnalysis>(M);
   auto &BBToCollList = AM.getResult<CollListFunctionAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   CallToWarningMap Result;
-  scc_iterator<PTACallGraph const *> cgSccIter = scc_begin(&PTACG);
-  while (!cgSccIter.isAtEnd()) {
-    auto const &nodeVec = *cgSccIter;
-    for (PTACallGraphNode const *node : nodeVec) {
-      Function *F = node->getFunction();
-      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(*F))
+  scc_iterator<PTACallGraph const *> CgSccIter = scc_begin(&PTACG);
+  while (!CgSccIter.isAtEnd()) {
+    auto const &NodeVec = *CgSccIter;
+    for (PTACallGraphNode const *Node : NodeVec) {
+      Function *F = Node->getFunction();
+      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(*F)) {
         continue;
-      CheckWarnings(*F, *BBToCollList, *DG, Result, FAM, EmitDotDG_);
+      }
+      checkWarnings(*F, *BBToCollList, *DG, Result, FAM, EmitDotDG_);
     }
-    ++cgSccIter;
+    ++CgSccIter;
   }
   return std::make_unique<CallToWarningMap>(std::move(Result));
 }
@@ -235,7 +240,7 @@ CollListFunctionAnalysis::run(llvm::Module &M,
   auto const &Res = AM.getResult<PTACallGraphAnalysis>(M);
   PTACallGraph const &PTACG = *Res;
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  scc_iterator<PTACallGraph const *> cgSccIter = scc_begin(&PTACG);
+  scc_iterator<PTACallGraph const *> CgSccIter = scc_begin(&PTACG);
   auto Comms = AM.getResult<MPICommAnalysis>(M);
   if (Comms.empty()) {
     // We're likely checking collectives other than MPI, insert a null comm.
@@ -245,12 +250,13 @@ CollListFunctionAnalysis::run(llvm::Module &M,
   // This loop "analysis" actually uses the PTACG to build collective list
   // for indirect calls!
   CollListLoopAnalysis LoopAnalysis(PTACG, Comms);
-  while (!cgSccIter.isAtEnd()) {
-    auto const &nodeVec = *cgSccIter;
-    for (PTACallGraphNode const *node : nodeVec) {
-      Function *F = node->getFunction();
-      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(*F))
+  while (!CgSccIter.isAtEnd()) {
+    auto const &NodeVec = *CgSccIter;
+    for (PTACallGraphNode const *Node : NodeVec) {
+      Function *F = Node->getFunction();
+      if (!F || F->isDeclaration() || !PTACG.isReachableFromEntry(*F)) {
         continue;
+      }
       // FIXME: we should definitely share the visitor's BBToCollList with the
       // loop analysis!
       LoopCFGInfo Info = LoopAnalysis.run(*F, FAM);
@@ -260,7 +266,7 @@ CollListFunctionAnalysis::run(llvm::Module &M,
       });
       Visitor.Visit(*F, Info);
     }
-    ++cgSccIter;
+    ++CgSccIter;
   }
   return std::make_unique<CollectiveList::CommToBBToCollListMap>(
       std::move(Visitor.CollListsPerComm));

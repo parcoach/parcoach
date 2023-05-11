@@ -5,45 +5,21 @@
 
 #include "mpi.h"
 
-int nbCC = 0;
-int nbCollI = 0;
-int nbColl = 0;
+int NbCc = 0;
+int NbCollI = 0;
+int NbColl = 0;
 
 /* the user-defined function for the new operator */
-void areequals(int *in, int *inout, int *len, MPI_Datatype *type) {
-  int i;
-  for (i = 0; i < *len; i++) {
-    if (*inout != *in) {
+void areequals(int *In, int *Inout, int const *Len, MPI_Datatype *Type) {
+  int I;
+  for (I = 0; I < *Len; I++) {
+    if (*Inout != *In) {
       // FIXME: restore with NDEBUG
       /*printf("%d called with %d\n", *inout, *in);*/
-      *inout = ~0;
+      *Inout = ~0;
     }
-    in++;
-    inout++;
-  }
-}
-
-// Count collectives at execution time
-void count_collectives(char const *OP_name, int OP_line, char *FILE_name,
-                       int inst) {
-  int rank;
-
-  int flag;
-  MPI_Initialized(&flag);
-
-  if (flag) {
-    MPI_Comm ini_comm = MPI_COMM_WORLD;
-    MPI_Comm_rank(ini_comm, &rank);
-
-    if (inst == 1) {
-      nbCollI++;
-      printf("P%d: collinst=%d (%s - %s - %d)\n", rank, nbCollI, FILE_name,
-             OP_name, OP_line);
-    }
-    nbColl++;
-    if (rank == 0)
-      printf("P%d: coll=%d; collinst=%d (%s - %s - %d)\n", rank, nbColl,
-             nbCollI, FILE_name, OP_name, OP_line);
+    In++;
+    Inout++;
   }
 }
 
@@ -56,42 +32,44 @@ void count_collectives(char const *OP_name, int OP_line, char *FILE_name,
  *  warnings = warnings emitted at compile-time
  *  FILE_name = name of the file
  */
+// NOLINTNEXTLINE
 void check_collective_MPI(int OP_color, char const *OP_name, int OP_line,
-                          char *warnings, char *FILE_name) {
-  int rank;
-  int sizeComm;
+                          char *Warnings, char *FileName) {
+  int Rank;
+  int SizeComm;
 
   // make sure MPI_Init has been called
-  int flag;
-  MPI_Initialized(&flag);
+  int Flag;
+  MPI_Initialized(&Flag);
 
-  if (flag) {
-    nbCC++;
+  if (Flag) {
+    NbCc++;
     // Fortran programs are not handled
-    MPI_Comm ini_comm = MPI_COMM_WORLD;
+    MPI_Comm IniComm = MPI_COMM_WORLD;
 
-    MPI_Comm_rank(ini_comm, &rank);
-    MPI_Comm_size(ini_comm, &sizeComm);
+    MPI_Comm_rank(IniComm, &Rank);
+    MPI_Comm_size(IniComm, &SizeComm);
 
-    if (rank == 0)
-      printf("nbCC=%d\n", nbCC);
+    if (Rank == 0) {
+      printf("nbCC=%d\n", NbCc);
+    }
 
-    int res = 0;
-    MPI_Op equalsop;
-    int commutatif = 1;
-    MPI_Op_create((void *)areequals, commutatif, &equalsop);
+    int Res = 0;
+    MPI_Op Equalsop;
+    int Commutatif = 1;
+    MPI_Op_create((void *)areequals, Commutatif, &Equalsop);
 
-    MPI_Reduce(&OP_color, &res, 1, MPI_INT, equalsop, 0, ini_comm);
-    MPI_Op_free(&equalsop);
+    MPI_Reduce(&OP_color, &Res, 1, MPI_INT, Equalsop, 0, IniComm);
+    MPI_Op_free(&Equalsop);
 
 #ifndef NDEBUG
-    printf("Proc %d has color %d\n", rank, OP_color);
+    printf("Proc %d has color %d\n", Rank, OP_color);
 #endif
-    if (rank == 0) {
+    if (Rank == 0) {
 #ifndef NDEBUG
       printf("CHECK CC OK\n");
 #endif
-      if (res == ~0) {
+      if (Res == ~0) {
 #ifndef NDEBUG
         printf("CHECK CC NOK\n");
 #endif
@@ -100,7 +78,7 @@ void check_collective_MPI(int OP_color, char const *OP_name, int OP_line,
                "calling %s in %s\n"
                "PARCOACH DYNAMIC-CHECK : see warnings about conditionals line "
                "%s\n",
-               rank, OP_line, OP_name, FILE_name, warnings);
+               Rank, OP_line, OP_name, FileName, Warnings);
         MPI_Abort(MPI_COMM_WORLD, 0);
       }
     }
@@ -110,39 +88,41 @@ void check_collective_MPI(int OP_color, char const *OP_name, int OP_line,
   }
 }
 
+// NOLINTNEXTLINE
 void check_collective_return(int OP_color, char const *OP_name, int OP_line,
-                             char *warnings, char *FILE_name) {
-  int rank;
-  int sizeComm;
+                             char *Warnings, char *FileName) {
+  int Rank;
+  int SizeComm;
 
   // make sure MPI_Init has been called
-  int flagend, flagstart;
+  int flagend;
+  int flagstart;
   MPI_Initialized(&flagstart);
   MPI_Finalized(&flagend);
 
   if (!flagend && flagstart) {
     // Fortran programs are not handled
-    MPI_Comm ini_comm = MPI_COMM_WORLD;
+    MPI_Comm IniComm = MPI_COMM_WORLD;
 
-    MPI_Comm_rank(ini_comm, &rank);
-    MPI_Comm_size(ini_comm, &sizeComm);
+    MPI_Comm_rank(IniComm, &Rank);
+    MPI_Comm_size(IniComm, &SizeComm);
 
-    int res = 0;
-    MPI_Op equalsop;
-    int commutatif = 1;
-    MPI_Op_create((void *)areequals, commutatif, &equalsop);
+    int Res = 0;
+    MPI_Op Equalsop;
+    int Commutatif = 1;
+    MPI_Op_create((void *)areequals, Commutatif, &Equalsop);
 
-    MPI_Reduce(&OP_color, &res, 1, MPI_INT, equalsop, 0, ini_comm);
-    MPI_Op_free(&equalsop);
+    MPI_Reduce(&OP_color, &Res, 1, MPI_INT, Equalsop, 0, IniComm);
+    MPI_Op_free(&Equalsop);
 
 #ifndef NDEBUG
-    printf(" Proc %d has color %d\n", rank, OP_color);
+    printf(" Proc %d has color %d\n", Rank, OP_color);
 #endif
-    if (rank == 0) {
+    if (Rank == 0) {
 #ifndef NDEBUG
       printf(" CHECK CC OK\n");
 #endif
-      if (res == ~0) {
+      if (Res == ~0) {
 #ifndef NDEBUG
         printf(" CHECK CC NOK\n");
 #endif
@@ -150,7 +130,7 @@ void check_collective_return(int OP_color, char const *OP_name, int OP_line,
                "PARCOACH DYNAMIC-CHECK : Abort is invoking line %d before "
                "calling %s in %s\n"
                "PARCOACH DYNAMIC-CHECK : see warnings %s\n",
-               rank, OP_line, OP_name, FILE_name, warnings);
+               Rank, OP_line, OP_name, FileName, Warnings);
         MPI_Abort(MPI_COMM_WORLD, 0);
       }
     }

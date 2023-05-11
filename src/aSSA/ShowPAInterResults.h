@@ -4,6 +4,7 @@
 
 namespace parcoach {
 struct ShowPAInterResult : public llvm::PassInfoMixin<ShowPAInterResult> {
-  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+  static llvm::PreservedAnalyses run(llvm::Module &M,
+                                     llvm::ModuleAnalysisManager &AM);
 };
 } // namespace parcoach

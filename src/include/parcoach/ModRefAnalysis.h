@@ -52,7 +52,7 @@ class ModRefAnalysis : public llvm::AnalysisInfoMixin<ModRefAnalysis> {
 
 public:
   using Result = std::unique_ptr<ModRefAnalysisResult>;
-  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  static Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 
 } // namespace parcoach

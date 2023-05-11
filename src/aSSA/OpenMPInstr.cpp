@@ -35,31 +35,31 @@ PreservedAnalyses PrepareOpenMPInstr::run(Module &M,
     for (auto &I : make_early_inc_range(Instructions)) {
       CallInst &CI = cast<CallInst>(I);
       // Operand 2 contains the outlined function
-      Value *op2 = CI.getOperand(2);
-      Function *outlinedFunc = dyn_cast<Function>(op2);
-      assert(outlinedFunc && "can't cast kmp_fork_call arg");
+      Value *Op2 = CI.getOperand(2);
+      Function *OutlinedFunc = dyn_cast<Function>(Op2);
+      assert(OutlinedFunc && "can't cast kmp_fork_call arg");
 
-      LLVM_DEBUG(dbgs() << outlinedFunc->getName() << "\n");
+      LLVM_DEBUG(dbgs() << OutlinedFunc->getName() << "\n");
 
-      unsigned callNbOps = CI.getNumOperands();
+      unsigned CallNbOps = CI.getNumOperands();
 
       SmallVector<Value *, 8> NewArgs;
 
       // map 2 firsts operands of CI to null
-      for (unsigned i = 0; i < 2; i++) {
-        Type *ArgTy = outlinedFunc->getArg(i)->getType();
-        Value *val = Constant::getNullValue(ArgTy);
-        NewArgs.push_back(val);
+      for (unsigned I = 0; I < 2; I++) {
+        Type *ArgTy = OutlinedFunc->getArg(I)->getType();
+        Value *Val = Constant::getNullValue(ArgTy);
+        NewArgs.push_back(Val);
       }
 
       //  op 3 to nbops-1 are shared variables
-      for (unsigned i = 3; i < callNbOps - 1; i++) {
-        MemReg::func2SharedOmpVar[outlinedFunc].insert(CI.getOperand(i));
-        NewArgs.push_back(CI.getOperand(i));
+      for (unsigned I = 3; I < CallNbOps - 1; I++) {
+        MemReg::func2SharedOmpVar[OutlinedFunc].insert(CI.getOperand(I));
+        NewArgs.push_back(CI.getOperand(I));
       }
 
-      CallInst *NewCI = CallInst::Create(outlinedFunc, NewArgs);
-      NewCI->setCallingConv(outlinedFunc->getCallingConv());
+      CallInst *NewCI = CallInst::Create(OutlinedFunc, NewArgs);
+      NewCI->setCallingConv(OutlinedFunc->getCallingConv());
       ReplaceInstWithInst(&CI, NewCI);
     }
   }

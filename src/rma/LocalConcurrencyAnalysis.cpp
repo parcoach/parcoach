@@ -13,7 +13,7 @@ namespace {
 class LCDAnalysis {
   enum Color { WHITE, GREY, BLACK };
   enum ACCESS { READ, WRITE };
-  enum ACCESS getInstructionType(Instruction *I);
+  static enum ACCESS getInstructionType(Instruction *I);
   using BBColorMap = DenseMap<BasicBlock const *, Color>;
   using BBMap = DenseMap<BasicBlock const *, bool>;
   using BBMemMap = std::map<BasicBlock *, ValueMap<Value *, Instruction *>>;
@@ -21,11 +21,11 @@ class LCDAnalysis {
   BBMap LheaderMap;
   BBMap LlatchMap;
   BBMemMap BBToMemAccess;
-  FunctionAnalysisManager &FAM_;
+  FunctionAnalysisManager &FAM;
   LocalConcurrencyVector Results;
 
 public:
-  LCDAnalysis(FunctionAnalysisManager &FAM) : FAM_(FAM){};
+  LCDAnalysis(FunctionAnalysisManager &FAM) : FAM(FAM){};
   LocalConcurrencyVector takeResults() {
     LocalConcurrencyVector Ret;
     std::swap(Results, Ret);
@@ -33,7 +33,7 @@ public:
   }
   void analyze(Function *F);
   void analyzeBB(BasicBlock *B);
-  void BFS_Loop(Loop *L);
+  void bfsLoop(Loop *L);
   bool mustWait(BasicBlock *BB);
   bool mustWaitLoop(llvm::BasicBlock *BB, Loop *L);
 };
@@ -41,12 +41,13 @@ public:
 // Get the memory access from the instruction
 // We consider only local accesses here
 enum LCDAnalysis::ACCESS LCDAnalysis::getInstructionType(Instruction *I) {
-  if (CallBase *ci = dyn_cast<CallBase>(I)) {
-    if (Function *calledFunction = ci->getCalledFunction()) {
-      StringRef CalledName = calledFunction->getName();
+  if (CallBase *CI = dyn_cast<CallBase>(I)) {
+    if (Function *CalledFunction = CI->getCalledFunction()) {
+      StringRef CalledName = CalledFunction->getName();
       if (CalledName == "MPI_Get" || CalledName == "mpi_get_") {
         return WRITE;
-      } else if (CalledName == "MPI_Put" || CalledName == "mpi_put_") {
+      }
+      if (CalledName == "MPI_Put" || CalledName == "mpi_put_") {
         return READ;
       }
     }
@@ -61,28 +62,27 @@ enum LCDAnalysis::ACCESS LCDAnalysis::getInstructionType(Instruction *I) {
 
 // Store the memory accesses - we keep the memory which is a value and the last
 // instruction accessing this memory address
-// TODO: Check interprocedural information
-// TODO: keep the accesses per window
-void LCDAnalysis::analyzeBB(BasicBlock *bb) {
-  Function *F = bb->getParent();
-  AAResults &AA = FAM_.getResult<AAManager>(*F);
+// Later: Check interprocedural information
+// Later: keep the accesses per window
+void LCDAnalysis::analyzeBB(BasicBlock *BB) {
+  Function *F = BB->getParent();
+  AAResults &AA = FAM.getResult<AAManager>(*F);
 
-  for (auto i = bb->begin(), e = bb->end(); i != e; ++i) {
-    Instruction *inst = &*i;
-    DebugLoc dbg = inst->getDebugLoc(); // get debug infos
-    Value *mem = NULL;
-    bool isLoadOrStore = false;
+  for (Instruction &Inst : *BB) {
+    DebugLoc Dbg = Inst.getDebugLoc(); // get debug infos
+    Value *Mem = NULL;
+    bool IsLoadOrStore = false;
 
     // (1) Get memory access
-    if (CallBase *ci = dyn_cast<CallBase>(inst)) {
+    if (CallBase *CI = dyn_cast<CallBase>(&Inst)) {
       // ci->print(errs());
       // errs() << "\n";
-      if (Function *calledFunction = ci->getCalledFunction()) {
-        StringRef CalledName = calledFunction->getName();
+      if (Function *CalledFunction = CI->getCalledFunction()) {
+        StringRef CalledName = CalledFunction->getName();
         // errs() << "Calledfunction = " << calledFunction->getName() << "\n";
         if ((CalledName == "MPI_Get") || (CalledName == "MPI_Put") ||
             (CalledName == "mpi_put_") || (CalledName == "mpi_get_")) {
-          mem = ci->getArgOperand(0);
+          Mem = CI->getArgOperand(0);
           // errs() << "!!!!!!!! Found a put / get -> store mem \n";
         } else if ((CalledName == "MPI_Win_flush") ||
                    (CalledName == "MPI_Win_flush_all") ||
@@ -94,34 +94,35 @@ void LCDAnalysis::analyzeBB(BasicBlock *bb) {
                    (CalledName == "mpi_win_flush_all_") ||
                    (CalledName == "mpi_win_fence_")) {
           // GreenErr() << "---> Found a synchro\n";
-          BBToMemAccess[bb].clear();
+          BBToMemAccess[BB].clear();
         }
       }
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(inst)) {
-      mem = SI->getPointerOperand();
-      isLoadOrStore = true;
-    } else if (LoadInst *LI = dyn_cast<LoadInst>(inst)) {
-      mem = LI->getPointerOperand();
-      isLoadOrStore = true;
+    } else if (StoreInst *SI = dyn_cast<StoreInst>(&Inst)) {
+      Mem = SI->getPointerOperand();
+      IsLoadOrStore = true;
+    } else if (LoadInst *LI = dyn_cast<LoadInst>(&Inst)) {
+      Mem = LI->getPointerOperand();
+      IsLoadOrStore = true;
     }
 
-    if (mem) {
-      auto PrevAccess = BBToMemAccess[bb].find(mem);
+    if (Mem) {
+      auto PrevAccess = BBToMemAccess[BB].find(Mem);
 
       // (2) mem is stored in ValueMap
-      if (BBToMemAccess[bb].count(mem) != 0) {
+      if (BBToMemAccess[BB].count(Mem) != 0) {
         if (getInstructionType(PrevAccess->second) == WRITE ||
-            getInstructionType(inst) == WRITE) {
+            getInstructionType(&Inst) == WRITE) {
           // Check if we already report this error
           // if(ConcurrentAccesses[F].count(inst) == 0 &&
           // ConcurrentAccesses[F].count(PrevAccess->second) == 0){
-          Results.insert({inst, PrevAccess->second});
+          Results.insert({&Inst, PrevAccess->second});
         } else {
           /*MagentaErr() << "INFO: Memory address already in map - last access
             from instruction: "; PrevAccess->second->print(errs()); errs() <<
             "\n";*/
-          if (!isLoadOrStore)
-            PrevAccess->second = inst;
+          if (!IsLoadOrStore) {
+            PrevAccess->second = &Inst;
+          }
         }
         // (2) mem is not stored in ValueMap - check if a memory stored in
         // ValueMap alias with mem
@@ -131,25 +132,25 @@ void LCDAnalysis::analyzeBB(BasicBlock *bb) {
         /*GreenErr() << "DEBUG INFO: no PrevAccess found for instruction: ";
           inst->print(errs());
           errs()  << "\n";*/
-        ValueMap<Value *, Instruction *>::iterator it;
+        ValueMap<Value *, Instruction *>::iterator It;
         // iterate over the ValueMap to get the first write that alias with mem
-        for (it = BBToMemAccess[bb].begin(); it != BBToMemAccess[bb].end();
-             it++) {
-          if (AA.alias(it->first, mem) != AliasResult::NoAlias) {
+        for (It = BBToMemAccess[BB].begin(); It != BBToMemAccess[BB].end();
+             It++) {
+          if (AA.alias(It->first, Mem) != AliasResult::NoAlias) {
             // if(AA.alias(it->first,mem) == AliasResult::MayAlias)
             // errs() << "(2) No memory access found in ValueMap: " << it->first
             //<< " but found a may alias!\n";
             // errs() << "(2) No memory access found in ValueMap: " << it->first
             //<< " but found an alias!\n";
-            if (getInstructionType(it->second) == WRITE ||
-                getInstructionType(inst) == WRITE) {
-              Results.insert({inst, it->second});
+            if (getInstructionType(It->second) == WRITE ||
+                getInstructionType(&Inst) == WRITE) {
+              Results.insert({&Inst, It->second});
             }
           }
         }
         // store mem if the instruction is a MPI-RMA
-        if (!isLoadOrStore) {
-          BBToMemAccess[bb].insert({mem, inst});
+        if (!IsLoadOrStore) {
+          BBToMemAccess[BB].insert({Mem, &Inst});
           /*MagentaErr() << "DEBUG INFO: Add new memory access from instruction:
             "; inst->print(errs()); errs() << "\n";*/
         }
@@ -165,24 +166,26 @@ bool LCDAnalysis::mustWait(BasicBlock *BB) {
     // errs() << "is lopp header\n";
     return false; // ignore loop headers
   }
-  pred_iterator PI = pred_begin(BB), E = pred_end(BB);
+  pred_iterator PI = pred_begin(BB);
+  pred_iterator E = pred_end(BB);
   for (; PI != E; ++PI) {
     BasicBlock *Pred = *PI;
-    if (ColorMap[Pred] != BLACK)
+    if (ColorMap[Pred] != BLACK) {
       return true;
+    }
   }
   return false;
 }
 
 bool LCDAnalysis::mustWaitLoop(llvm::BasicBlock *BB, Loop *L) {
-  pred_iterator PI = pred_begin(BB), E = pred_end(BB);
+  pred_iterator PI = pred_begin(BB);
+  pred_iterator E = pred_end(BB);
   for (; PI != E; ++PI) {
     BasicBlock *Pred = *PI;
     // BB is in the only bb in loop
     if ((Pred == BB) || (LlatchMap[Pred])) {
       continue;
     }
-    // TODO: plus complique que ca
     if (ColorMap[Pred] != BLACK && L->contains(Pred)) {
       // printBB(Pred);
       // errs() << " is white \n";
@@ -192,13 +195,13 @@ bool LCDAnalysis::mustWaitLoop(llvm::BasicBlock *BB, Loop *L) {
   return false;
 }
 
-void LCDAnalysis::BFS_Loop(Loop *L) {
+void LCDAnalysis::bfsLoop(Loop *L) {
   std::deque<BasicBlock *> Unvisited;
   BasicBlock *Lheader = L->getHeader();
   BasicBlock *Llatch = L->getLoopLatch();
 
   for (Loop *ChildLoop : *L) {
-    BFS_Loop(ChildLoop);
+    bfsLoop(ChildLoop);
   }
   /*errs() << ".. BFS on loop containing ..\n";
 
@@ -210,50 +213,53 @@ void LCDAnalysis::BFS_Loop(Loop *L) {
   Unvisited.push_back(Lheader);
   LheaderMap[L->getHeader()] = true;
 
-  while (Unvisited.size() > 0) {
-    BasicBlock *header = *Unvisited.begin();
+  while (!Unvisited.empty()) {
+    BasicBlock *Header = *Unvisited.begin();
     // printBB(header);
     Unvisited.pop_front();
 
-    if (ColorMap[header] == BLACK)
+    if (ColorMap[Header] == BLACK) {
       continue;
-    if (mustWaitLoop(header, L) &&
-        header != L->getHeader()) { // all predecessors have not been seen
+    }
+    if (mustWaitLoop(Header, L) &&
+        Header != L->getHeader()) { // all predecessors have not been seen
       // errs() << "must wait..\n";
-      Unvisited.push_back(header);
+      Unvisited.push_back(Header);
       continue;
     }
 
-    analyzeBB(header);
-    ColorMap[header] = GREY;
+    analyzeBB(Header);
+    ColorMap[Header] = GREY;
 
-    succ_iterator SI = succ_begin(header), E = succ_end(header);
+    succ_iterator SI = succ_begin(Header);
+    succ_iterator E = succ_end(Header);
     for (; SI != E; ++SI) {
       BasicBlock *Succ = *SI;
       // Ignore successor not in loop
-      if (!(L->contains(Succ)))
+      if (!(L->contains(Succ))) {
         continue;
+      }
       // ignore back edge when the loop has already been checked
-      if (LlatchMap[header] && LheaderMap[Succ]) {
+      if (LlatchMap[Header] && LheaderMap[Succ]) {
         continue;
       }
 
       // Succ not seen before
       if (ColorMap[Succ] == WHITE) {
-        BBToMemAccess[Succ].insert(BBToMemAccess[header].begin(),
-                                   BBToMemAccess[header].end());
+        BBToMemAccess[Succ].insert(BBToMemAccess[Header].begin(),
+                                   BBToMemAccess[Header].end());
         ColorMap[Succ] = GREY;
         Unvisited.push_back(Succ);
         // Succ already seen
       } else {
         // merge the memory accesses from the previous paths - only local errors
         // detection
-        // TODO: For latter: report concurrent one-sided
-        BBToMemAccess[Succ].insert(BBToMemAccess[header].begin(),
-                                   BBToMemAccess[header].end());
+        // For latter: report concurrent one-sided
+        BBToMemAccess[Succ].insert(BBToMemAccess[Header].begin(),
+                                   BBToMemAccess[Header].end());
       }
     }
-    ColorMap[header] = BLACK;
+    ColorMap[Header] = BLACK;
   }
   // reset BB colors in loop and ignore backedge for the rest of the BFS
   for (BasicBlock *BB : L->blocks()) {
@@ -271,45 +277,48 @@ void LCDAnalysis::analyze(Function *F) {
   }
 
   std::deque<BasicBlock *> Unvisited;
-  BasicBlock &entry = F->getEntryBlock();
-  Unvisited.push_back(&entry);
+  BasicBlock &Entry = F->getEntryBlock();
+  Unvisited.push_back(&Entry);
 
   // errs() << ".. BFS on loops ..\n";
-  auto &LI = FAM_.getResult<LoopAnalysis>(*F);
+  auto &LI = FAM.getResult<LoopAnalysis>(*F);
   for (Loop *L : LI) {
-    BFS_Loop(L);
+    bfsLoop(L);
   }
 
   // errs() << ".. BFS ..\n";
   //  BFS
-  while (Unvisited.size() > 0) {
-    BasicBlock *header = *Unvisited.begin();
+  while (!Unvisited.empty()) {
+    BasicBlock *Header = *Unvisited.begin();
     // printBB(header);
     // errs() << "has color = " << ColorMap[header] << "\n";
     Unvisited.pop_front();
 
-    if (ColorMap[header] == BLACK)
-      continue;
-
-    if (mustWait(header)) { // all predecessors have not been seen
-      // errs() << " must wait \n";
-      Unvisited.push_back(header);
+    if (ColorMap[Header] == BLACK) {
       continue;
     }
 
-    analyzeBB(header);
-    ColorMap[header] = GREY;
+    if (mustWait(Header)) { // all predecessors have not been seen
+      // errs() << " must wait \n";
+      Unvisited.push_back(Header);
+      continue;
+    }
 
-    succ_iterator SI = succ_begin(header), E = succ_end(header);
+    analyzeBB(Header);
+    ColorMap[Header] = GREY;
+
+    succ_iterator SI = succ_begin(Header);
+    succ_iterator E = succ_end(Header);
     for (; SI != E; ++SI) {
       BasicBlock *Succ = *SI;
       // ignore back edge
-      if (LlatchMap[header] && LheaderMap[Succ])
+      if (LlatchMap[Header] && LheaderMap[Succ]) {
         continue;
+      }
       // Succ not seen before
       if (ColorMap[Succ] == WHITE) {
-        BBToMemAccess[Succ].insert(BBToMemAccess[header].begin(),
-                                   BBToMemAccess[header].end());
+        BBToMemAccess[Succ].insert(BBToMemAccess[Header].begin(),
+                                   BBToMemAccess[Header].end());
         // analyzeBB(Succ, AA);
         ColorMap[Succ] = GREY;
         Unvisited.push_back(Succ);
@@ -317,12 +326,12 @@ void LCDAnalysis::analyze(Function *F) {
       } else {
         // merge the memory accesses from the previous paths - only local errors
         // detection
-        // TODO: For latter: report concurrent one-sided
-        BBToMemAccess[Succ].insert(BBToMemAccess[header].begin(),
-                                   BBToMemAccess[header].end());
+        // For latter: report concurrent one-sided
+        BBToMemAccess[Succ].insert(BBToMemAccess[Header].begin(),
+                                   BBToMemAccess[Header].end());
       }
     }
-    ColorMap[header] = BLACK;
+    ColorMap[Header] = BLACK;
   }
   // Lheaders.clear();
 }

@@ -14,7 +14,7 @@ namespace parcoach::rma {
 
 namespace {
 
-constexpr StringRef PARCOACH_PREFIX = "parcoach_rma_";
+constexpr StringRef ParcoachPrefix = "parcoach_rma_";
 
 std::pair<bool, bool> getInstrumentationInfo(CallBase const &CB) {
   if (!CB.getCalledFunction()) {
@@ -28,7 +28,7 @@ std::pair<bool, bool> getInstrumentationInfo(CallBase const &CB) {
 }
 
 Twine getInstrumentedName(Function const &F) {
-  return PARCOACH_PREFIX + F.getName();
+  return ParcoachPrefix + F.getName();
 }
 
 FunctionType *getInstrumentedFunctionType(Function const &F) {
@@ -78,7 +78,7 @@ FunctionCallee getInstrumentationMemAccessFunction(Module &M,
       Type::getInt8PtrTy(Ctx),
   };
   auto *CalledFTy = FunctionType::get(Type::getVoidTy(Ctx), Args, false);
-  return M.getOrInsertFunction((PARCOACH_PREFIX + InstName).str(), CalledFTy);
+  return M.getOrInsertFunction((ParcoachPrefix + InstName).str(), CalledFTy);
 }
 
 void insertInstrumentationCall(Instruction &I, Value *Addr, Type *Ty,
@@ -119,120 +119,121 @@ public:
   bool runOnModule(Module &M, ModuleAnalysisManager &AM);
 
 private:
-  static int count_LOAD, count_STORE, count_inst_STORE, count_inst_LOAD;
+  static int CountLoad, CountStore, CountInstStore, CountInstLoad;
 
   // Instrumentation for dynamic analysis
   bool hasWhiteSucc(BasicBlock *BB);
-  void InstrumentMemAccessesIt(Function &F);
-  void DFS_BB(BasicBlock *bb, bool inEpoch);
-  bool InstrumentBB(BasicBlock &BB, bool inEpoch);
+  void instrumentMemAccessesIt(Function &F);
+  void dfsBb(BasicBlock *Bb, bool InEpoch);
+  static bool instrumentBb(BasicBlock &BB, bool InEpoch);
   // Debug
 #ifndef NDEBUG
-  void printBB(BasicBlock *BB);
+  static void printBB(BasicBlock *BB);
 #endif
   // Utils
-  void resetCounters();
+  static void resetCounters();
   enum Color { WHITE, GREY, BLACK };
   using BBColorMap = DenseMap<BasicBlock const *, Color>;
   using MemMap = ValueMap<Value *, Instruction *>;
   BBColorMap ColorMap;
 };
 
-bool LocalConcurrencyDetection::InstrumentBB(BasicBlock &bb, bool inEpoch) {
-  bool newEpoch = false;
+bool LocalConcurrencyDetection::instrumentBb(BasicBlock &Bb, bool InEpoch) {
+  bool NewEpoch = false;
 
   // We use make_early_inc_range here because we may have to erase the
   // current instruction.
-  for (Instruction &I : make_early_inc_range(bb)) {
+  for (Instruction &I : make_early_inc_range(Bb)) {
     if (CallInst *CI = dyn_cast<CallInst>(&I)) {
       auto [shouldInstrument, changesEpoch] = getInstrumentationInfo(*CI);
       if (shouldInstrument) {
         CI->replaceAllUsesWith(createInstrumentedCall(*CI));
         CI->eraseFromParent();
-        newEpoch = changesEpoch;
+        NewEpoch = changesEpoch;
       }
     }
     if (StoreInst *SI = dyn_cast<StoreInst>(&I)) {
-      if (inEpoch || newEpoch) {
+      if (InEpoch || NewEpoch) {
         insertInstrumentationCall(*SI);
-        count_inst_STORE++;
+        CountInstStore++;
       }
-      count_STORE++;
+      CountStore++;
     }
     if (LoadInst *LI = dyn_cast<LoadInst>(&I)) {
-      if (inEpoch || newEpoch) {
+      if (InEpoch || NewEpoch) {
         insertInstrumentationCall(*LI);
-        count_inst_LOAD++;
+        CountInstLoad++;
       }
-      count_LOAD++;
+      CountLoad++;
     }
   }
-  if (newEpoch)
-    return (1 - inEpoch);
-  return inEpoch;
+  return NewEpoch ? !InEpoch : InEpoch;
 }
 
 // Instrument memory accesses (DFS is used to instrument only in epochs)
 // TODO: interprocedural info: start with the main function
 
 bool LocalConcurrencyDetection::hasWhiteSucc(BasicBlock *BB) {
-  succ_iterator SI = succ_begin(BB), E = succ_end(BB);
+  succ_iterator SI = succ_begin(BB);
+  succ_iterator E = succ_end(BB);
   for (; SI != E; ++SI) {
     BasicBlock *Succ = *SI;
-    if (ColorMap[Succ] == WHITE)
+    if (ColorMap[Succ] == WHITE) {
       return true;
+    }
   }
   return false;
 }
 
 // Iterative version
-void LocalConcurrencyDetection::InstrumentMemAccessesIt(Function &F) {
+void LocalConcurrencyDetection::instrumentMemAccessesIt(Function &F) {
   // All BB must be white at the beginning
   for (BasicBlock &BB : F) {
     ColorMap[&BB] = WHITE;
   }
   // start with entry BB
-  BasicBlock &entry = F.getEntryBlock();
-  bool inEpoch = false;
+  BasicBlock &Entry = F.getEntryBlock();
+  bool InEpoch = false;
   std::deque<BasicBlock *> Unvisited;
-  Unvisited.push_back(&entry);
-  inEpoch = InstrumentBB(entry, inEpoch);
-  ColorMap[&entry] = GREY;
+  Unvisited.push_back(&Entry);
+  InEpoch = instrumentBb(Entry, InEpoch);
+  ColorMap[&Entry] = GREY;
 
-  while (Unvisited.size() > 0) {
-    BasicBlock *header = *Unvisited.begin();
+  while (!Unvisited.empty()) {
+    BasicBlock *Header = *Unvisited.begin();
 
-    if (hasWhiteSucc(header)) {
+    if (hasWhiteSucc(Header)) {
       // inEpoch = InstrumentBB(*header, Ctx, datalayout, inEpoch);
-      succ_iterator SI = succ_begin(header), E = succ_end(header);
+      succ_iterator SI = succ_begin(Header);
+      succ_iterator E = succ_end(Header);
       for (; SI != E; ++SI) {
         BasicBlock *Succ = *SI;
         if (ColorMap[Succ] == WHITE) {
           Unvisited.push_front(Succ);
-          inEpoch = InstrumentBB(*Succ, inEpoch);
+          InEpoch = instrumentBb(*Succ, InEpoch);
           ColorMap[Succ] = GREY;
         }
       }
     } else {
       Unvisited.pop_front();
-      ColorMap[header] = BLACK;
+      ColorMap[Header] = BLACK;
     }
   }
 }
 
 #ifndef NDEBUG
-void LocalConcurrencyDetection::printBB(BasicBlock *bb) {
+void LocalConcurrencyDetection::printBB(BasicBlock *Bb) {
   errs() << "DEBUG: BB ";
-  bb->printAsOperand(errs(), false);
+  Bb->printAsOperand(errs(), false);
   errs() << "\n";
 }
 #endif
 
 void LocalConcurrencyDetection::resetCounters() {
-  count_LOAD = 0;
-  count_STORE = 0;
-  count_inst_LOAD = 0;
-  count_inst_STORE = 0;
+  CountLoad = 0;
+  CountStore = 0;
+  CountInstLoad = 0;
+  CountInstStore = 0;
 }
 
 // Main function of the pass
@@ -247,8 +248,9 @@ bool LocalConcurrencyDetection::runOnModule(Module &M,
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
   for (Function &F : M) {
-    if (F.isDeclaration())
+    if (F.isDeclaration()) {
       continue;
+    }
 
     resetCounters();
 
@@ -268,16 +270,18 @@ bool LocalConcurrencyDetection::runOnModule(Module &M,
         RedErr() << "LocalConcurrency detected: conflit with the "
                     "following instructions: \n";
         I1->print(errs());
-        DebugLoc dbg = I1->getDebugLoc();
-        if (dbg)
-          GreenErr() << " - LINE " << dbg.getLine() << " in "
-                     << dbg->getFilename();
+        DebugLoc Dbg = I1->getDebugLoc();
+        if (Dbg) {
+          GreenErr() << " - LINE " << Dbg.getLine() << " in "
+                     << Dbg->getFilename();
+        }
         RedErr() << "\nAND\n";
         I2->print(errs());
-        dbg = I2->getDebugLoc();
-        if (dbg)
-          GreenErr() << " - LINE " << dbg.getLine() << " in "
-                     << dbg->getFilename();
+        Dbg = I2->getDebugLoc();
+        if (Dbg) {
+          GreenErr() << " - LINE " << Dbg.getLine() << " in "
+                     << Dbg->getFilename();
+        }
         errs() << "\n";
       }
     }
@@ -285,7 +289,7 @@ bool LocalConcurrencyDetection::runOnModule(Module &M,
 
     // Instrumentation of memory accesses for dynamic analysis
     CyanErr() << "(3) Instrumentation for dynamic analysis ...";
-    InstrumentMemAccessesIt(F);
+    instrumentMemAccessesIt(F);
     CyanErr() << "done \n";
 
     // Print statistics per function
@@ -302,19 +306,19 @@ bool LocalConcurrencyDetection::runOnModule(Module &M,
               << Stats.Put << " MPI_Put, " << Stats.Acc << " MPI_Accumulate \n";
     CyanErr() << "= SYNCHRONIZATION: " << Stats.Flush << " MPI_Win_Flush \n";
 
-    CyanErr() << "LOAD/STORE STATISTICS: " << count_inst_LOAD << " (/"
-              << count_LOAD << ") LOAD and " << count_inst_STORE << " (/"
-              << count_STORE << ") STORE are instrumented\n";
+    CyanErr() << "LOAD/STORE STATISTICS: " << CountInstLoad << " (/"
+              << CountLoad << ") LOAD and " << CountInstStore << " (/"
+              << CountStore << ") STORE are instrumented\n";
     // DEBUG INFO: dump the module// F.getParent()->print(errs(),nullptr);
   }
   MagentaErr() << "===========================\n";
   return true;
 }
 
-int LocalConcurrencyDetection::count_LOAD = 0;
-int LocalConcurrencyDetection::count_STORE = 0;
-int LocalConcurrencyDetection::count_inst_LOAD = 0;
-int LocalConcurrencyDetection::count_inst_STORE = 0;
+int LocalConcurrencyDetection::CountLoad = 0;
+int LocalConcurrencyDetection::CountStore = 0;
+int LocalConcurrencyDetection::CountInstLoad = 0;
+int LocalConcurrencyDetection::CountInstStore = 0;
 
 } // namespace
 

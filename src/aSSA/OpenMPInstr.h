@@ -5,6 +5,7 @@
 namespace parcoach {
 
 struct PrepareOpenMPInstr : public llvm::PassInfoMixin<PrepareOpenMPInstr> {
-  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+  static llvm::PreservedAnalyses run(llvm::Module &M,
+                                     llvm::ModuleAnalysisManager &AM);
 };
 } // namespace parcoach

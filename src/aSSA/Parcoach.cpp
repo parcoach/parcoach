@@ -47,36 +47,36 @@ using namespace llvm;
 namespace parcoach {
 
 namespace {
-cl::opt<bool> optStats("statistics", cl::desc("print statistics"),
+cl::opt<bool> OptStats("statistics", cl::desc("print statistics"),
                        cl::cat(ParcoachCategory));
 cl::opt<bool>
-    optInstrumInter("instrum-inter",
+    OptInstrumInter("instrum-inter",
                     cl::desc("Instrument code with inter-procedural parcoach"),
                     cl::cat(ParcoachCategory));
 
-cl::opt<bool> optContextInsensitive("context-insensitive",
+cl::opt<bool> OptContextInsensitive("context-insensitive",
                                     cl::desc("Context insensitive version of "
                                              "flooding."),
                                     cl::cat(ParcoachCategory));
 
-cl::opt<bool> optDotGraph("dot-depgraph",
+cl::opt<bool> OptDotGraph("dot-depgraph",
                           cl::desc("Dot the dependency graph to dg.dot"),
                           cl::cat(ParcoachCategory));
 
-cl::opt<bool> optDotTaintPaths("dot-taint-paths",
+cl::opt<bool> OptDotTaintPaths("dot-taint-paths",
                                cl::desc("Dot taint path of each "
                                         "conditions of tainted "
                                         "collectives."),
                                cl::cat(ParcoachCategory));
 
 struct ShowStats : public PassInfoMixin<ShowStats> {
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+  static PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
     AM.getResult<StatisticsAnalysis>(M).print(outs());
     return PreservedAnalyses::all();
   }
 };
 struct EmitDG : public PassInfoMixin<EmitDG> {
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+  static PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
     AM.getResult<DepGraphDCFAnalysis>(M)->toDot("dg.dot");
     return PreservedAnalyses::all();
   }
@@ -84,7 +84,7 @@ struct EmitDG : public PassInfoMixin<EmitDG> {
 } // namespace
 
 void RegisterPasses(ModulePassManager &MPM) {
-  if (!optContextInsensitive && optDotTaintPaths) {
+  if (!OptContextInsensitive && OptDotTaintPaths) {
     errs() << "Error: you cannot use -dot-taint-paths option in context "
            << "sensitive mode.\n";
     exit(EXIT_FAILURE);
@@ -93,7 +93,7 @@ void RegisterPasses(ModulePassManager &MPM) {
   // Let's make sure we have a single exit node in all our functions.
   MPM.addPass(createModuleToFunctionPassAdaptor(UnifyFunctionExitNodesPass()));
 
-  if (optStats) {
+  if (OptStats) {
     MPM.addPass(ShowStats());
     return;
   }
@@ -104,7 +104,7 @@ void RegisterPasses(ModulePassManager &MPM) {
     MPM.addPass(PrepareOpenMPInstr());
   }
 #endif
-  if (optDotGraph) {
+  if (OptDotGraph) {
     // We want to print the dot *after* the preparation pass.
     MPM.addPass(EmitDG());
   }
@@ -117,7 +117,7 @@ void RegisterPasses(ModulePassManager &MPM) {
   }
 #endif
   MPM.addPass(ShowPAInterResult());
-  if (optInstrumInter) {
+  if (OptInstrumInter) {
     MPM.addPass(ParcoachInstrumentationPass());
   }
 }
@@ -134,10 +134,10 @@ void RegisterFunctionAnalyses(FunctionAnalysisManager &FAM) {
 
 void RegisterModuleAnalyses(ModuleAnalysisManager &MAM) {
   MAM.registerPass([&]() { return AndersenAA(); });
-  MAM.registerPass([&]() { return CollectiveAnalysis(optDotTaintPaths); });
+  MAM.registerPass([&]() { return CollectiveAnalysis(OptDotTaintPaths); });
   MAM.registerPass([&]() { return CollListFunctionAnalysis(); });
   MAM.registerPass(
-      [&]() { return DepGraphDCFAnalysis(optContextInsensitive); });
+      [&]() { return DepGraphDCFAnalysis(OptContextInsensitive); });
   MAM.registerPass([&]() { return ExtInfoAnalysis(); });
   MAM.registerPass([&]() { return MemorySSAAnalysis(); });
   MAM.registerPass([&]() { return MemRegAnalysis(); });

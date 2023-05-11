@@ -6,7 +6,8 @@
 namespace parcoach::rma {
 struct RMAInstrumentationPass
     : public llvm::PassInfoMixin<RMAInstrumentationPass> {
-  llvm::PreservedAnalyses run(llvm::Module &M, llvm::ModuleAnalysisManager &AM);
+  static llvm::PreservedAnalyses run(llvm::Module &M,
+                                     llvm::ModuleAnalysisManager &AM);
 };
 
 using LocalConcurrencyVector =
@@ -21,7 +22,7 @@ class LocalConcurrencyAnalysis
 public:
   using Result = LocalConcurrencyVector;
 
-  Result run(llvm::Function &F, llvm::FunctionAnalysisManager &AM);
+  static Result run(llvm::Function &F, llvm::FunctionAnalysisManager &AM);
 };
 
 class RMAStatisticsAnalysis

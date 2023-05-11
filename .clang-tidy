@@ -1,19 +1,23 @@
 # These are LLVM checks:
 # Checks: '-*,clang-diagnostic-*,llvm-*,misc-*,-misc-const-correctness,-misc-unused-parameters,-misc-non-private-member-variables-in-classes,-misc-no-recursion,readability-identifier-naming'
 # For now let's restrict to a smaller set of checks:
-Checks: '-*,readability-*,-readability-identifier-length'
+# Cognitive complexity is disabled because our SonarQube has its own opinion
+# about that.
+Checks: '-*,readability-*,-readability-identifier-length,-readability-function-cognitive-complexity'
 CheckOptions:
-  - key:             readability-identifier-naming.ClassCase
-    value:           CamelCase
-  - key:             readability-identifier-naming.EnumCase
-    value:           CamelCase
-  - key:             readability-identifier-naming.FunctionCase
-    value:           camelBack
-  - key:             readability-identifier-naming.MemberCase
-    value:           CamelCase
-  - key:             readability-identifier-naming.ParameterCase
-    value:           CamelCase
-  - key:             readability-identifier-naming.UnionCase
-    value:           CamelCase
-  - key:             readability-identifier-naming.VariableCase
-    value:           CamelCase
+  - key:    readability-identifier-naming.ClassCase
+    value:  CamelCase
+  - key:    readability-identifier-naming.EnumCase
+    value:  CamelCase
+  - key:    readability-identifier-naming.FunctionCase
+    value:  camelBack
+  - key:    readability-identifier-naming.MemberCase
+    value:  CamelCase
+  - key:    readability-identifier-naming.ParameterCase
+    value:  CamelCase
+  - key:    readability-identifier-naming.UnionCase
+    value:  CamelCase
+  - key:    readability-identifier-naming.VariableCase
+    value:  CamelCase
+  - key:    readability-implicit-bool-conversion.AllowPointerConditions
+    value:  true

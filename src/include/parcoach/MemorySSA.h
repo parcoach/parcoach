@@ -106,8 +106,8 @@ private:
   void computeLLVMPhiPredicates(llvm::PHINode const *phi);
   void computeMSSAPhiPredicates(MSSAPhi *phi);
 
-  unsigned whichPred(llvm::BasicBlock const *pred,
-                     llvm::BasicBlock const *succ) const;
+  static unsigned whichPred(llvm::BasicBlock const *pred,
+                            llvm::BasicBlock const *succ);
 
 protected:
   Andersen const &PTA;
@@ -181,6 +181,6 @@ class MemorySSAAnalysis : public llvm::AnalysisInfoMixin<MemorySSAAnalysis> {
 public:
   // We return a unique_ptr to ensure stability of the analysis' internal state.
   using Result = std::unique_ptr<MemorySSA>;
-  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  static Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 } // namespace parcoach

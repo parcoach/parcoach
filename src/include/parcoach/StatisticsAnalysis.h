@@ -20,7 +20,7 @@ public:
     void print(llvm::raw_ostream &Out) const;
   };
   using Result = Statistics;
-  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  static Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 
 } // namespace parcoach

@@ -80,7 +80,7 @@ template <typename Derived> class LoopVisitor {
       }
 
       Visited[BB] = NodeState::VISITED;
-      getDerived().VisitBB(L, BB);
+      getDerived().visitBB(L, BB);
       auto EnqueueBB = [&](llvm::BasicBlock *BB) {
         if (Visited[BB] == NodeState::UNVISITED) {
           if (L.contains(BB)) {
@@ -103,7 +103,7 @@ template <typename Derived> class LoopVisitor {
         llvm::for_each(successors(BB), EnqueueBB);
       }
     }
-    getDerived().EndOfLoop(L);
+    getDerived().endOfLoop(L);
   }
 
 protected:
@@ -167,9 +167,9 @@ public:
 
       Visited[BB] = NodeState::VISITED;
       if (IsLoopHeader) {
-        getDerived().VisitBB(BB, &Res);
+        getDerived().visitBB(BB, &Res);
       } else {
-        getDerived().VisitBB(BB);
+        getDerived().visitBB(BB);
       }
       auto EnqueueBB = [&](llvm::BasicBlock *Current) {
         if (Visited[Current] == NodeState::UNVISITED) {

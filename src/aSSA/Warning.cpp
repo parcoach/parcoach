@@ -26,7 +26,7 @@ std::string Warning::toString() const {
   OS << " possibly not called by all processes because of conditional(s) "
         "line(s) ";
 
-  for (auto &Loc : Conditionals) {
+  for (auto const &Loc : Conditionals) {
     OS << " " << (Loc ? std::to_string(Loc.getLine()) : "?");
     OS << " (" << (Loc ? Loc->getFilename() : "?") << ")";
   }

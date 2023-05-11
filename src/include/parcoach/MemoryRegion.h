@@ -58,5 +58,5 @@ class MemRegAnalysis : public llvm::AnalysisInfoMixin<MemRegAnalysis> {
 public:
   using Result = std::unique_ptr<MemReg>;
 
-  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  static Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };

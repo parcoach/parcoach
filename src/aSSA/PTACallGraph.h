@@ -110,7 +110,7 @@ class PTACallGraphAnalysis
 public:
   // We return a unique_ptr to ensure stability of the analysis' internal state.
   using Result = std::unique_ptr<PTACallGraph>;
-  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  static Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 
 //===----------------------------------------------------------------------===//

@@ -14,7 +14,7 @@ namespace {
 // Little helper to tell us if we should ignore the collective.
 // We basically ignore the collective if the Communicator is not null and if
 // it matches the communicator in the call instruction.
-bool ShouldIgnore(CallInst const &CI, Collective const &Coll, Value *Comm) {
+bool shouldIgnore(CallInst const &CI, Collective const &Coll, Value *Comm) {
   if (!isa<MPICollective>(Coll) || !Comm) {
     // If it's not an mpi collective, or if we don't have a communicator,
     // we definitely shouldn't ignore it!
@@ -27,7 +27,7 @@ bool ShouldIgnore(CallInst const &CI, Collective const &Coll, Value *Comm) {
 } // namespace
 
 bool CollectiveList::navs() const {
-  if (List_.size() == 0) {
+  if (List_.empty()) {
     return false;
   }
   return List_.front()->navs();
@@ -40,8 +40,9 @@ CollectiveList::CollectiveList(CollectiveList const &From)
   }
 }
 
-CollectiveList::CollectiveList(BasicBlock *Header, CollectiveList const &From)
-    : CollectiveList(From) {
+CollectiveList::CollectiveList(BasicBlock *Header,
+                               CollectiveList const &LoopList)
+    : CollectiveList(LoopList) {
   // Override the loop header after copy construction.
   LoopHeader_ = Header;
 }
@@ -76,7 +77,7 @@ std::string CollectiveList::toString() const {
   }
   Err << "(";
   bool First = true;
-  for (auto &Elem : List_) {
+  for (auto const &Elem : List_) {
     if (!First) {
       Err << ", ";
     }
@@ -99,11 +100,11 @@ CollectiveList CollectiveList::CreateFromBB(BBToCollListMap const &CollLists,
   }
 
   auto ActOnFunction = [&](CallInst &CI, Function const &F) {
-    if (auto *Coll = Collective::find(F)) {
-      if (!ShouldIgnore(CI, *Coll, Comm)) {
+    if (auto const *Coll = Collective::find(F)) {
+      if (!shouldIgnore(CI, *Coll, Comm)) {
         Current.extendWith<CollElement>(*Coll);
       }
-    } else if (CollLists.count(&F.getEntryBlock())) {
+    } else if (CollLists.count(&F.getEntryBlock()) != 0) {
       auto const &ListForFunc = CollLists.find(&F.getEntryBlock())->second;
       Current.extendWith(ListForFunc);
     }
@@ -118,8 +119,9 @@ CollectiveList CollectiveList::CreateFromBB(BBToCollListMap const &CollLists,
         continue;
       }
       for (Function const *MayCall : Found->second) {
-        if (isIntrinsicDbgFunction(MayCall))
+        if (isIntrinsicDbgFunction(MayCall)) {
           continue;
+        }
         // FIXME: think about that: currently it pushes *all* the possible
         // collective called by *all* the may call functions.
         ActOnFunction(CI, *MayCall);

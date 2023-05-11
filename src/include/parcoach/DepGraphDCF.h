@@ -51,7 +51,7 @@ public:
   void visitInsertValueInst(llvm::InsertValueInst &I);
   void visitShuffleVectorInst(llvm::ShuffleVectorInst &I);
   void visitTerminator(llvm::Instruction &I);
-  void visitInstruction(llvm::Instruction &I);
+  static void visitInstruction(llvm::Instruction &I);
 
   bool isTaintedValue(llvm::Value const *v) const;
 
@@ -110,10 +110,10 @@ private:
   llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAChildren;
   llvm::DenseMap<MSSAVar *, VarSet> ssaToSSAParents;
 
-  void enableMPI();
-  void enableOMP();
-  void enableUPC();
-  void enableCUDA();
+  static void enableMPI();
+  static void enableOMP();
+  static void enableUPC();
+  static void enableCUDA();
 
   void addEdge(llvm::Value const *s, llvm::Value const *d);
   void addEdge(llvm::Value const *s, MSSAVar *d);
@@ -174,8 +174,8 @@ private:
                       llvm::Function const *F) const;
   std::string getNodeStyle(llvm::Value const *v) const;
   std::string getNodeStyle(MSSAVar const *v) const;
-  std::string getNodeStyle(llvm::Function const *f) const;
-  std::string getCallNodeStyle(llvm::Value const *v) const;
+  static std::string getNodeStyle(llvm::Function const *f);
+  static std::string getCallNodeStyle(llvm::Value const *v);
 
   struct DGDebugLoc {
     llvm::Function const *F;
@@ -185,13 +185,13 @@ private:
     bool operator<(DGDebugLoc const &o) const { return line < o.line; }
   };
 
-  bool getDGDebugLoc(llvm::Value const *v, DGDebugLoc &DL) const;
-  bool getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL) const;
-  std::string getStringMsg(llvm::Value const *v) const;
-  std::string getStringMsg(MSSAVar *v) const;
-  bool getDebugTrace(std::vector<DGDebugLoc> &DLs, std::string &trace,
-                     llvm::Instruction const *collective) const;
-  void reorderAndRemoveDup(std::vector<DGDebugLoc> &DLs) const;
+  static bool getDGDebugLoc(llvm::Value const *v, DGDebugLoc &DL);
+  static bool getDGDebugLoc(MSSAVar *v, DGDebugLoc &DL);
+  static std::string getStringMsg(llvm::Value const *v);
+  static std::string getStringMsg(MSSAVar *v);
+  static bool getDebugTrace(std::vector<DGDebugLoc> &DLs, std::string &trace,
+                            llvm::Instruction const *collective);
+  static void reorderAndRemoveDup(std::vector<DGDebugLoc> &DLs);
 
   /* options */
   bool noPtrDep;

@@ -14,12 +14,12 @@ using namespace llvm;
 using namespace parcoach;
 
 namespace {
-cl::opt<bool> optDumpRegions("dump-regions",
+cl::opt<bool> OptDumpRegions("dump-regions",
                              cl::desc("Dump the regions found by the "
                                       "Andersen PTA"),
                              cl::cat(ParcoachCategory));
 cl::opt<bool>
-    optWithRegName("with-reg-name",
+    OptWithRegName("with-reg-name",
                    cl::desc("Compute human readable names of regions"),
                    cl::cat(ParcoachCategory));
 
@@ -29,8 +29,8 @@ llvm::ValueMap<llvm::Function const *, std::set<llvm::Value const *>>
     MemReg::func2SharedOmpVar;
 
 unsigned MemRegEntry::generateId() {
-  static unsigned count{};
-  return count++;
+  static unsigned Count{};
+  return Count++;
 }
 
 MemRegEntry::MemRegEntry(Value const *V)
@@ -47,7 +47,7 @@ MemRegEntry::MemRegEntry(Value const *V)
   }
 #endif
 
-  if (!optWithRegName) {
+  if (!OptWithRegName) {
     name_ = std::to_string(id_);
     return;
   }
@@ -61,16 +61,16 @@ MemRegEntry::MemRegEntry(Value const *V)
 MemReg::MemReg(Module &M, Andersen const &AA) {
   TimeTraceScope TTS("MemRegAnalysis");
   // Create regions from allocation sites.
-  std::vector<Value const *> regions;
-  AA.getAllAllocationSites(regions);
+  std::vector<Value const *> Regions;
+  AA.getAllAllocationSites(Regions);
 
-  LLVM_DEBUG(dbgs() << regions.size() << " regions\n");
-  for (Value const *r : regions) {
-    createRegion(r);
+  LLVM_DEBUG(dbgs() << Regions.size() << " regions\n");
+  for (Value const *R : Regions) {
+    createRegion(R);
   }
 
   LLVM_DEBUG({
-    if (optDumpRegions)
+    if (OptDumpRegions)
       dumpRegions();
     dbgs() << "* Regions creation done\n";
   });
@@ -78,16 +78,16 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
 #ifdef PARCOACH_ENABLE_OPENMP
   // Compute shared regions for each OMP function.
   if (Options::get().isActivated(Paradigm::OMP)) {
-    FunctionToMemRegSetMap func2SharedOmpReg;
+    FunctionToMemRegSetMap Func2SharedOmpReg;
     for (auto I : func2SharedOmpVar) {
       Function const *F = I.first;
 
-      for (Value const *v : I.second) {
-        std::vector<Value const *> ptsSet;
-        if (AA.getPointsToSet(v, ptsSet)) {
-          MemRegVector regs;
-          getValuesRegion(ptsSet, regs);
-          setOmpSharedRegions(F, regs);
+      for (Value const *V : I.second) {
+        std::vector<Value const *> PtsSet;
+        if (AA.getPointsToSet(V, PtsSet)) {
+          MemRegVector Regs;
+          getValuesRegion(PtsSet, Regs);
+          setOmpSharedRegions(F, Regs);
         }
       }
     }
@@ -95,17 +95,17 @@ MemReg::MemReg(Module &M, Andersen const &AA) {
 #endif
 }
 
-void MemReg::createRegion(llvm::Value const *v) {
+void MemReg::createRegion(llvm::Value const *V) {
   auto [ItEntry, _] =
-      valueToRegMap.insert({v, std::make_unique<MemRegEntry>(v)});
+      valueToRegMap.insert({V, std::make_unique<MemRegEntry>(V)});
   auto &Entry = ItEntry->second;
   if (Entry->isCudaShared()) {
     sharedCudaRegions.insert(Entry.get());
   }
 }
 
-void MemReg::setOmpSharedRegions(Function const *F, MemRegVector &regs) {
-  func2SharedOmpRegs[F].insert(regs.begin(), regs.end());
+void MemReg::setOmpSharedRegions(Function const *F, MemRegVector &Regs) {
+  func2SharedOmpRegs[F].insert(Regs.begin(), Regs.end());
 }
 
 #ifndef NDEBUG
@@ -118,25 +118,27 @@ void MemReg::dumpRegions() const {
 }
 #endif
 
-MemRegEntry *MemReg::getValueRegion(llvm::Value const *v) const {
-  auto I = valueToRegMap.find(v);
-  if (I == valueToRegMap.end())
+MemRegEntry *MemReg::getValueRegion(llvm::Value const *V) const {
+  auto I = valueToRegMap.find(V);
+  if (I == valueToRegMap.end()) {
     return NULL;
+  }
 
   return I->second.get();
 }
 
-void MemReg::getValuesRegion(std::vector<Value const *> &ptsSet,
-                             MemRegVector &regs) const {
-  MemRegSet regions;
-  for (Value const *v : ptsSet) {
-    MemRegEntry *r = getValueRegion(v);
+void MemReg::getValuesRegion(std::vector<Value const *> &PtsSet,
+                             MemRegVector &Regs) const {
+  MemRegSet Regions;
+  for (Value const *V : PtsSet) {
+    MemRegEntry *R = getValueRegion(V);
 
-    if (r)
-      regions.insert(r);
+    if (R) {
+      Regions.insert(R);
+    }
   }
 
-  regs.insert(regs.begin(), regions.begin(), regions.end());
+  Regs.insert(Regs.begin(), Regions.begin(), Regions.end());
 }
 
 MemRegSet const &MemReg::getCudaSharedRegions() const {

@@ -25,7 +25,7 @@ class CollListFunctionAnalysis
 public:
   // We return a unique_ptr to ensure stability of the analysis' internal state.
   using Result = std::unique_ptr<CollectiveList::CommToBBToCollListMap>;
-  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  static Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
 };
 
 class CollectiveAnalysis : public llvm::AnalysisInfoMixin<CollectiveAnalysis> {
@@ -37,7 +37,7 @@ public:
   CollectiveAnalysis(bool EmitDotDG) : EmitDotDG_(EmitDotDG) {}
   // We return a unique_ptr to ensure stability of the analysis' internal state.
   using Result = std::unique_ptr<CallToWarningMap>;
-  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &);
+  Result run(llvm::Module &M, llvm::ModuleAnalysisManager &) const;
 };
 
 } // namespace parcoach

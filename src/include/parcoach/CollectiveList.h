@@ -55,7 +55,8 @@ class CollectiveList {
   std::optional<llvm::BasicBlock *> LoopHeader_;
   using ListTy = std::deque<std::unique_ptr<Element>>;
   ListTy List_;
-  void add(CollectiveList const &Other, std::insert_iterator<ListTy> Inserter);
+  static void add(CollectiveList const &Other,
+                  std::insert_iterator<ListTy> Inserter);
 
 public:
   using BBToCollListMap = llvm::DenseMap<llvm::BasicBlock *, CollectiveList>;

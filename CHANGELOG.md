@@ -1,5 +1,13 @@
 # PARCOACH changelog
 
+## 2.3.0
+
+### General
+
+  - analyses: introduced a JSON export compatible with SonarQube's external
+  analyses format. Warnings can be emitted to an analysis database by passing
+  the `-analysis-db=somefile.json` option.
+
 ## 2.2.0
 
 ### General

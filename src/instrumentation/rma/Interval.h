@@ -34,9 +34,19 @@ constexpr char const *to_string(AccessType T) {
 struct Interval {
   uint64_t Low;
   uint64_t Up;
-  inline void fixForWindow(uint64_t BaseAddr) {
+  // Fix the interval information for the target window, based on the actual
+  // target base address and the displacement unit.
+  // In such cases the Interval has bounds looking like [10, 18] for 2 ints
+  // starting from index 10 in the window.
+  // We start by shifting the base index according to the displacement unit,
+  // and then we add the base address from the window; then we recompute the
+  // upper bound based on the original interval size, which isn't affected
+  // by the window's properties.
+  inline void fixForWindow(uint64_t BaseAddr, uint64_t DispUnit) {
+    uint64_t Size = Up - Low;
+    Low *= DispUnit;
     Low += BaseAddr;
-    Up += BaseAddr;
+    Up = Low + Size;
   }
   inline bool operator<(Interval const &Other) const {
     return std::tie(Low, Up) < std::tie(Other.Low, Other.Up);

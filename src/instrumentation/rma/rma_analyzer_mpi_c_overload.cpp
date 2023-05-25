@@ -36,7 +36,7 @@ int parcoach_rma_MPI_Win_create(void *base, MPI_Aint size, int disp_unit,
 
   int ret = PMPI_Win_create(base, size, disp_unit, info, comm, win);
 
-  rma_analyzer_start(base, size, comm, win);
+  rma_analyzer_start(base, size, comm, win, disp_unit);
 
   return ret;
 }
@@ -50,7 +50,7 @@ int parcoach_rma_MPI_Win_allocate(MPI_Aint size, int disp_unit, MPI_Info info,
 
   int ret = PMPI_Win_allocate(size, disp_unit, info, comm, baseptr, win);
 
-  rma_analyzer_start(baseptr, size, comm, win);
+  rma_analyzer_start(baseptr, size, comm, win, disp_unit);
 
   return ret;
 }
@@ -193,11 +193,13 @@ int parcoach_rma_MPI_Accumulate(void const *origin_addr, int origin_count,
   MPI_Type_size(target_datatype, (int *)&target_size);
   target_size *= target_count;
 
+  DebugInfo Dbg(line, filename);
+
   rma_analyzer_update_on_comm_send(
       Access(MemoryAccess{local_address, local_size}, AccessType::RMA_READ,
-             DebugInfo()),
+             Dbg),
       Access(MemoryAccess{(uint64_t)target_disp, target_size},
-             AccessType::RMA_WRITE, DebugInfo()),
+             AccessType::RMA_WRITE, Dbg),
       target_rank, win);
 
   return PMPI_Accumulate(origin_addr, origin_count, origin_datatype,

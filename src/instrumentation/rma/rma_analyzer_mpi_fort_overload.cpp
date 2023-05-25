@@ -57,7 +57,7 @@ int parcoach_rma_mpi_win_create_(int *base, int *size, int *disp_unit,
   mpi_win_create_(base, size, disp_unit, info, comm, win, &ret);
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_start((void *)base, *size, c_comm, &c_win);
+  rma_analyzer_start((void *)base, *size, c_comm, &c_win, *disp_unit);
 
   return ret;
 }
@@ -74,7 +74,8 @@ int parcoach_rma_mpi_win_allocate_(int *size, int *disp_unit, int *info,
   mpi_win_allocate_(size, disp_unit, info, comm, baseptr, win, &ret);
 
   c_win = MPI_Win_f2c(*win);
-  rma_analyzer_start((void *)baseptr, *size, MPI_Comm_f2c(*comm), &c_win);
+  rma_analyzer_start((void *)baseptr, *size, MPI_Comm_f2c(*comm), &c_win,
+                     *disp_unit);
 
   return ret;
 }

@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
 
   if (my_rank == 0) {
     // Get from my_value to target 1
-    MPI_Get(&my_value, 1, MPI_INT, 1, 80, 1, MPI_INT, window);
+    MPI_Get(&my_value, 1, MPI_INT, 1, 20, 1, MPI_INT, window);
   }
 
   if (my_rank == 1) {

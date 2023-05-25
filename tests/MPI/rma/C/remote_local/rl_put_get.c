@@ -35,12 +35,12 @@ int main(int argc, char *argv[]) {
 
   if (my_rank == 0) {
     // Put from my_value to target 1
-    MPI_Put(&my_value, 1, MPI_INT, 1, 80, 1, MPI_INT, window);
+    MPI_Put(&my_value, 1, MPI_INT, 1, 20, 1, MPI_INT, window);
   }
 
   if (my_rank == 1) {
     // Get from window_buffer to target 0
-    MPI_Get(&window_buffer[20], 1, MPI_INT, 0, 80, 1, MPI_INT, window);
+    MPI_Get(&window_buffer[20], 1, MPI_INT, 0, 20, 1, MPI_INT, window);
   }
 
   MPI_Win_unlock_all(window);

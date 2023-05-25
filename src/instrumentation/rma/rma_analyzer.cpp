@@ -138,7 +138,7 @@ optional<Access> rma_analyzer_check_communication(MPI_Win win) {
 
   // Fix the interval by adding the base address.
   RMA_DEBUG(cerr << "Received(beforefix): " << ReceivedInterval << "\n");
-  ReceivedInterval.Itv.fixForWindow(state->win_base);
+  ReceivedInterval.Itv.fixForWindow(state->win_base, state->disp_unit);
   RMA_DEBUG({
     cerr << "Received(afterfix): " << ReceivedInterval << "\n";
     cerr << "Filename: '" << ReceivedInterval.Dbg.Filename << "'\n";
@@ -345,6 +345,11 @@ extern "C" void rma_analyzer_clear_comm_check_thread_all_wins(int do_reduce) {
 /* This routine takes care of the update of the local list with the
  * new interval and the sending of the detected interval to the remote
  * peer */
+// NOTE: The TargetAccess is intentionally "wrong": it doesn't take into
+// account the displacement unit, because we can only compute it when we
+// know the *target* window. Therefore we send the Acces "as-is" and we will
+// fix its interval when it reaches the target (see the fixForWindow call in
+// rma_analyzer_check_communication).
 extern "C" void rma_analyzer_update_on_comm_send(Access LocalAccess,
                                                  Access TargetAccess,
                                                  int target_rank, MPI_Win win) {
@@ -373,7 +378,7 @@ extern "C" void rma_analyzer_update_on_comm_send(Access LocalAccess,
 
 /* Initialize the RMA analyzer */
 extern "C" void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
-                                   MPI_Win *win) {
+                                   MPI_Win *win, int disp_unit) {
   RMA_DEBUG(cerr << "Starting RMA analyzer\n");
 
   /* Check if filtering of the window has been deactivated by env */
@@ -384,12 +389,13 @@ extern "C" void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
 
   unique_ptr<rma_analyzer_state> new_state = make_unique<rma_analyzer_state>();
 
+  new_state->disp_unit = disp_unit;
   new_state->state_win = *win;
   new_state->win_base = (uint64_t)base;
   new_state->win_size = (size_t)size;
   new_state->win_comm = comm;
   MPI_Comm_size(new_state->win_comm, &(new_state->size_comm));
-  new_state->array = new int[new_state->size_comm];
+  new_state->array = std::make_unique<int[]>(new_state->size_comm);
 
   /* Create the MPI Datatype needed to exchange intervals */
   // Send everything but the last element of the struct which is a string:
@@ -414,14 +420,6 @@ extern "C" void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm,
       RMA_ANALYZER_BASE_MPI_TAG + (RMA_ANALYZER_MAX_EPOCH_NUMBER * tag_id);
   RMA_DEBUG(cerr << "Got tag " << new_state->mpi_tag << "\n");
 
-  new_state->value = 0;
-  new_state->thread_end = 0;
-  new_state->count_epoch = 0;
-  new_state->count_fence = 0;
-  new_state->count = 0;
-  new_state->active_epoch = 0;
-  new_state->from_sync = 0;
-
   RMA_DEBUG(cerr << "New state window added for window "
                  << (void *)new_state->state_win
                  << ". Win addr: " << new_state->win_base << " ("
@@ -443,7 +441,6 @@ extern "C" void rma_analyzer_stop(MPI_Win win) {
   rma_analyzer_state *state = rma_analyzer_get_state(win);
 
   rma_analyzer_free_tag_range(state->mpi_tag);
-  delete[] state->array;
   MPI_Type_free(&state->interval_datatype);
   States.erase(win);
 }

@@ -38,10 +38,10 @@ int main(int argc, char *argv[]) {
 
   if (my_rank == 0) {
     // Get from window_buffer[0]
-    MPI_Get(&window_buffer[0], 1, MPI_INT, 1, 80, 1, MPI_INT, window);
+    MPI_Get(&window_buffer[0], 1, MPI_INT, 1, 20, 1, MPI_INT, window);
 
     // Get from window_buffer[0]
-    MPI_Get(&window_buffer[0], 1, MPI_INT, 1, 90, 1, MPI_INT, window);
+    MPI_Get(&window_buffer[0], 1, MPI_INT, 1, 25, 1, MPI_INT, window);
   }
 
   MPI_Win_unlock_all(window);

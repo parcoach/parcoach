@@ -5,6 +5,7 @@
 #include <mpi.h>
 
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -28,20 +29,21 @@ struct rma_analyzer_state {
   std::thread Thread;
   std::mutex ListMutex;
   parcoach::rma::IntervalContainer Intervals;
-  uint64_t win_base;
-  size_t win_size;
+  uint64_t win_base{};
+  int disp_unit{};
+  size_t win_size{};
   MPI_Comm win_comm;
   MPI_Datatype interval_datatype;
-  int size_comm;
-  int mpi_tag;
-  int *array;
-  int volatile value;
-  int volatile thread_end;
-  int volatile count_epoch;
-  int volatile count_fence;
-  int volatile count;
-  int volatile active_epoch;
-  int volatile from_sync;
+  int size_comm{};
+  int mpi_tag{};
+  std::unique_ptr<int[]> array;
+  int volatile value{};
+  int volatile thread_end{};
+  int volatile count_epoch{};
+  int volatile count_fence{};
+  int volatile count{};
+  int volatile active_epoch{};
+  int volatile from_sync{};
   parcoach::rma::IntervalViewContainer
   getIntersectingIntervals(parcoach::rma::Access const &I) const;
   parcoach::rma::IntervalViewContainer
@@ -87,7 +89,8 @@ void rma_analyzer_update_on_comm_send(parcoach::rma::Access LocalAccess,
 void rma_analyzer_save_interval_all_wins(parcoach::rma::Access Acc);
 
 /* Initialize the RMA analyzer */
-void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win);
+void rma_analyzer_start(void *base, MPI_Aint size, MPI_Comm comm, MPI_Win *win,
+                        int disp_unit);
 
 /* Free the resources used by the RMA analyzer */
 void rma_analyzer_stop(MPI_Win win);

@@ -54,12 +54,12 @@ CallInst *createInstrumentedCall(CallBase &CB) {
   DebugLoc Dbg = CB.getDebugLoc();
 
   Args.push_back(B.getInt32(Dbg ? Dbg.getLine() : 0));
-  Constant *Zero = ConstantInt::get(B.getInt8PtrTy(), 0);
   // FIXME: this creates one constant per call, even if the filename is the
   // same.
   // We should do a getOrInsertGlobal (where the name is the filename) to
   // reuse existing constant.
-  Args.push_back(Dbg ? B.CreateGlobalStringPtr(Dbg->getFilename()) : Zero);
+  StringRef Filename = Dbg ? Dbg->getFilename() : "?";
+  Args.push_back(B.CreateGlobalStringPtr(Filename));
 
   // We assume shouldInstrumentFunction is true and that getCalledFunction is
   // not null.

@@ -14,6 +14,10 @@ namespace {
 std::string const PARCOACH_BIN_NAME{"parcoach"};
 }
 
+bool isSourceFile(StringRef arg) {
+  return arg.endswith(".c") || arg.endswith(".cpp") || arg.endswith(".f90");
+}
+
 int main(int argc, char const **argv) {
   ++argv;
   --argc;
@@ -23,8 +27,10 @@ int main(int argc, char const **argv) {
 
   ArgList Argv;
   Argv.reserve(argc);
-  for (int i = 0; i < argc; ++i)
+
+  for (int i = 0; i < argc; ++i) {
     Argv.push_back(argv[i]);
+  }
 
   // Try to figure out our location, to help finding the main parcoach
   // executable.
@@ -65,7 +71,6 @@ int main(int argc, char const **argv) {
   if (!IRFile) {
     return OriginalResult;
   }
-
   // Create IR generation command line and run it.
   ArgList GenerateIRArgs =
       BuildEmitIRCommandLine(OriginalProgramArgs, IRFile->getName());
@@ -79,10 +84,28 @@ int main(int argc, char const **argv) {
     return Result;
   }
 
+  // This is a bit sloppy, but at the moment parcoach instrument the code if
+  // one of these two flags is set.
+  bool ShouldInstrument = llvm::any_of(Argv, [](StringRef Arg) {
+    return Arg == "-check=rma" || Arg == "-instrum-inter";
+  });
   // Create parcoach command line and run it.
+  auto OutputFile =
+      ShouldInstrument ? TempFileRAII::CreateIRFile() : std::nullopt;
+  if (ShouldInstrument && !OutputFile) {
+    return OriginalResult;
+  }
+
   ArgList ParcoachArgs =
-      BuildParcoachArgs(Argv, *ParcoachBin, IRFile->getName());
+      BuildParcoachArgs(Argv, *ParcoachBin, *IRFile, OutputFile);
   Result = Execute(ParcoachArgs);
+
+  if (ShouldInstrument) {
+    ArgList InstrArgs = BuildOriginalCommandLine(Argv, *FoundProgram);
+    std::replace_if(InstrArgs.begin(), InstrArgs.end(), isSourceFile,
+                    OutputFile->getName());
+    Result = Execute(InstrArgs);
+  }
 
   return OriginalResult;
 }

@@ -37,14 +37,18 @@ int Execute(ArgList const &Args) {
 }
 
 ArgList BuildParcoachArgs(ArgList const &Argv, StringRef ParcoachBin,
-                          StringRef IRFile) {
+                          TempFileRAII const &IRFile,
+                          std::optional<TempFileRAII> const &OutputFile) {
   ArgList ParcoachArgs = {ParcoachBin};
-
   auto ArgsPos = llvm::find(Argv, ARGS_ARG);
   if (ArgsPos != Argv.end()) {
     ParcoachArgs.insert(ParcoachArgs.end(), Argv.begin(), ArgsPos);
   }
-  ParcoachArgs.emplace_back(IRFile);
+  ParcoachArgs.emplace_back(IRFile.getName());
+  if (OutputFile) {
+    ParcoachArgs.emplace_back("-o");
+    ParcoachArgs.emplace_back(OutputFile->getName());
+  }
   return ParcoachArgs;
 }
 

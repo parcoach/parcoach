@@ -1,1 +1,1 @@
-PARCOACH: tests/MPI/basic/src/indirect_barrier.c: warning: MPI_Barrier line 5 possibly not called by all processes because of conditional(s) line(s)  30 (tests/MPI/basic/src/indirect_barrier.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/indirect_barrier.c: warning: MPI_Barrier line 5 possibly not called by all processes because of conditional(s) line(s)  30 (tests/MPI/basic/src/indirect_barrier.c) (Call Ordering Error)

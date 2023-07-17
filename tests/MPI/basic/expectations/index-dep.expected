@@ -1,1 +1,1 @@
-PARCOACH: tests/MPI/basic/src/index-dep.c: warning: MPI_Barrier line 15 possibly not called by all processes because of conditional(s) line(s)  14 (tests/MPI/basic/src/index-dep.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/index-dep.c: warning: MPI_Barrier line 15 possibly not called by all processes because of conditional(s) line(s)  14 (tests/MPI/basic/src/index-dep.c) (Call Ordering Error)

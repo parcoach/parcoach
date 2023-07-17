@@ -1,1 +1,1 @@
-PARCOACH: tests/MPI/basic/src/error2.c: warning: MPI_Barrier line 11 possibly not called by all processes because of conditional(s) line(s)  10 (tests/MPI/basic/src/error2.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/error2.c: warning: MPI_Barrier line 11 possibly not called by all processes because of conditional(s) line(s)  10 (tests/MPI/basic/src/error2.c) (Call Ordering Error)

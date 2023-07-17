@@ -1,1 +1,1 @@
-PARCOACH: third_party/MBI/gencodes/CollCallOrder_Barrier_none_nok.c: warning: MPI_Barrier line 57 possibly not called by all processes because of conditional(s) line(s)  56 (third_party/MBI/gencodes/CollCallOrder_Barrier_none_nok.c) (full-inter)
+PARCOACH: third_party/MBI/gencodes/CollCallOrder_Barrier_none_nok.c: warning: MPI_Barrier line 57 possibly not called by all processes because of conditional(s) line(s)  56 (third_party/MBI/gencodes/CollCallOrder_Barrier_none_nok.c) (Call Ordering Error)

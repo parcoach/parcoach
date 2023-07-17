@@ -1,1 +1,1 @@
-PARCOACH: tests/MPI/basic/src/mismatch_barrier5.c: warning: MPI_Barrier line 6 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/mismatch_barrier5.c) (full-inter)
+PARCOACH: tests/MPI/basic/src/mismatch_barrier5.c: warning: MPI_Barrier line 6 possibly not called by all processes because of conditional(s) line(s)  18 (tests/MPI/basic/src/mismatch_barrier5.c) (Call Ordering Error)

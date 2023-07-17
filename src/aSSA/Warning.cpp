@@ -29,7 +29,7 @@ std::string Warning::toString() const {
     OS << " " << Loc.Line;
     OS << " (" << Loc.Filename << ")";
   }
-  OS << " (full-inter)";
+  OS << " (Call Ordering Error)";
   return Res;
 }
 

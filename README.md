@@ -43,8 +43,7 @@ pipenv install
 pipenv shell
 mkdir build && cd build
 cmake .. -G Ninja
-ninja
-ctest
+ninja run-tests
 ```
 
 If you are using an installation of LLVM which is not in default paths,
@@ -52,6 +51,20 @@ you can instruct CMake to use a specific version of LLVM by using the following
 command:
 ```bash
 cmake .. -G Ninja -DLLVM_DIR=/path/to/llvm
+```
+
+### Build instructions with Guix
+
+PARCOACH has a Guix package through the [guix-hpc](https://gitlab.inria.fr/guix-hpc/guix-hpc) channel.
+You can also setup a development environment for the current main branch by
+using the manifest at the root of this repository:
+```bash
+guix shell --pure -m manifest.scm -- bash
+# This fixes MPI usage through Guix.
+export OMPI_MCA_plm_rsh_agent=`which false`
+mkdir build-guix && cd build-guix
+cmake .. -G Ninja
+ninja run-tests
 ```
 
 ## Usage

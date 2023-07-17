@@ -1,5 +1,7 @@
 # -*- Python -*-
 
+import os
+
 # Configuration file for the 'lit' test runner.
 
 config.substitutions.append(('%parcoach', '@PARCOACH_BIN@'))
@@ -8,6 +10,13 @@ config.substitutions.append(('%clangxx', '@CMAKE_CXX_COMPILER@'))
 config.substitutions.append(('%clang', '@CMAKE_C_COMPILER@'))
 config.substitutions.append(('%filecheck', '@FILECHECK_BIN@'))
 config.substitutions.append(('%not', '@NOT_BIN@'))
+
+# Because Guix sets this up
+config.environment['C_INCLUDE_PATH'] = os.environ.get('C_INCLUDE_PATH', '')
+config.environment['CPLUS_INCLUDE_PATH'] = os.environ.get('CPLUS_INCLUDE_PATH', '')
+# Because we need this when running mpi through Guix
+config.environment['OMPI_MCA_plm_rsh_agent'] = os.environ.get('OMPI_MCA_plm_rsh_agent', '')
+config.environment['OMPI_MCA_rmaps_base_mapping_policy'] = os.environ.get('OMPI_MCA_rmaps_base_mapping_policy', '')
 
 if @PARCOACH_ENABLE_COVERAGE@:
   config.environment['LLVM_PROFILE_FILE'] = '@PROFILE_FILE@'

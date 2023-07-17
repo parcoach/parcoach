@@ -1,5 +1,11 @@
 # PARCOACH changelog
 
+## 2.3.1
+
+### Packaging:
+
+  - guix: make PARCOACH work through Guix.
+
 ## 2.3.0
 
 ### General

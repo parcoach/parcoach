@@ -1,8 +1,16 @@
 # PARCOACH changelog
 
+## 2.3.2
+
+### General
+
+  - cli: `parcoachcc` now supports instrumenting file (ie: passing
+  `-instrum-inter` or `-check=rma` will make `parcoachcc` output the
+  instrumented object in the original command line output.
+
 ## 2.3.1
 
-### Packaging:
+### Packaging
 
   - guix: make PARCOACH work through Guix.
 

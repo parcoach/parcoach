@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.24)
 project(PARCOACH)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(CMakePolicy)
+include(GNUInstallDirs)
 include(Variables)
 include(ParcoachOptions)
 
@@ -72,5 +73,8 @@ set(CPACK_BINARY_TZ OFF)
 # they do want to generate the package.
 include(RPM)
 include(CPack)
+
+# Our CMake package stuff
+include(Package)
 
 configure_file(sonar-project.properties.in ${CMAKE_CURRENT_BINARY_DIR}/sonar-project.properties @ONLY)

@@ -58,6 +58,4 @@ call_llvm_helper(
   ${PARCOACH_BUILDTREE}
   )
 
-if(PARCOACH_ENABLE_RMA)
-  target_link_libraries(ParcoachPasses PRIVATE ParcoachRMA)
-endif()
+target_link_libraries(ParcoachPasses PRIVATE ParcoachRMA)

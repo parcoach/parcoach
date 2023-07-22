@@ -4,7 +4,6 @@
 #cmakedefine PARCOACH_ENABLE_MPI
 #cmakedefine PARCOACH_ENABLE_OPENMP
 #cmakedefine PARCOACH_ENABLE_CUDA
-#cmakedefine PARCOACH_ENABLE_RMA
 #cmakedefine ANDERSEN_ENABLE_OPTIMIZATIONS
 namespace parcoach {
 constexpr char ProgName[] = "PARCOACH";

@@ -11,9 +11,7 @@ enum class Paradigm {
 #ifdef PARCOACH_ENABLE_CUDA
   CUDA,
 #endif
-#ifdef PARCOACH_ENABLE_RMA
   RMA,
-#endif
 #ifdef PARCOACH_ENABLE_UPC
   UPC,
 #endif

@@ -110,13 +110,11 @@ void RegisterPasses(ModulePassManager &MPM) {
     MPM.addPass(EmitDG());
   }
 
-#ifdef PARCOACH_ENABLE_RMA
   if (Options::get().isActivated(Paradigm::RMA)) {
     // Add the RMA passes and that's it.
     MPM.addPass(rma::RMAInstrumentationPass());
     return;
   }
-#endif
   MPM.addPass(ShowPAInterResult());
   MPM.addPass(SonarSerializationPass());
   if (OptInstrumInter) {
@@ -128,10 +126,8 @@ void RegisterFunctionAnalyses(FunctionAnalysisManager &FAM) {
   AAManager AA;
   AA.registerFunctionAnalysis<BasicAA>();
   FAM.registerPass([&]() { return std::move(AA); });
-#ifdef PARCOACH_ENABLE_RMA
   FAM.registerPass([&]() { return rma::LocalConcurrencyAnalysis(); });
   FAM.registerPass([&]() { return rma::RMAStatisticsAnalysis(); });
-#endif
 }
 
 void RegisterModuleAnalyses(ModuleAnalysisManager &MAM) {

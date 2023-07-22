@@ -8,9 +8,7 @@ add_library(ParcoachInstrumentation SHARED)
 install(TARGETS ParcoachInstrumentation)
 
 add_subdirectory(mpi)
-if(PARCOACH_ENABLE_RMA)
-  add_subdirectory(rma)
-endif()
+add_subdirectory(rma)
 
 # FIXME
 #if (FALSE AND OpenMP_FOUND)

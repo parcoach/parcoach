@@ -11,8 +11,8 @@ FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 
-# RMA unit tests for instrumentation are only available if RMA and MPI are
-# enabled.
-if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_RMA AND PARCOACH_ENABLE_INSTRUMENTATION)
+# RMA unit tests for instrumentation are only available if instrumenation and
+# MPI are enabled.
+if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
   add_subdirectory(rma)
 endif()

@@ -51,6 +51,4 @@ if(PARCOACH_ENABLE_MBI_TESTS)
   add_subdirectory(MBI)
 endif()
 
-if(PARCOACH_ENABLE_RMA)
-  add_subdirectory(rma)
-endif()
+add_subdirectory(rma)

@@ -42,11 +42,8 @@ cl::opt<parcoach::Paradigm> ActivatedParadigm(
                    ,
                clEnumValN(parcoach::Paradigm::CUDA, "cuda", "Enable Cuda")
 #endif
-#ifdef PARCOACH_ENABLE_RMA
                    ,
-               clEnumValN(parcoach::Paradigm::RMA, "rma", "Enable MPI-RMA")
-#endif
-                   ),
+               clEnumValN(parcoach::Paradigm::RMA, "rma", "Enable MPI-RMA")),
     cl::cat(ParcoachCategory));
 
 } // namespace

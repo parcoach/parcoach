@@ -41,10 +41,7 @@ set(SHARED_HEADERS
   )
 add_sources_to_format(SOURCES ${SHARED_HEADERS})
 
-if(PARCOACH_ENABLE_RMA)
-  add_subdirectory(rma)
-endif()
-
+add_subdirectory(rma)
 add_subdirectory(aSSA)
 
 if(PARCOACH_ENABLE_INSTRUMENTATION)

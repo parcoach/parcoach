@@ -5,6 +5,7 @@
 (specifications->manifest
   (list "clang-toolchain@15"
         "llvm@15"
+        "flang@15"
         "cmake"
         "ninja"
         "bash"

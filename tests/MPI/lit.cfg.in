@@ -35,7 +35,9 @@ config.substitutions.append(('%mpicc', '@MPI_C_COMPILER@'))
 config.substitutions.append(('%mpifort', '@MPI_Fortran_COMPILER@ @CMAKE_Fortran_FLAGS@'))
 config.substitutions.append(('%mpiexec', '@MPIEXEC_EXECUTABLE@'))
 # FIXME: Change the lib when everything has moved to lit.
-config.substitutions.append(('%instr_flags', '-L@PARCOACH_LIB_DIR@ -l@PARCOACH_MPI_INSTR_LIB_NAME@'))
+config.substitutions.append(('%coll_instr_flags', '-L@PARCOACH_LIB_DIR@ -l@PARCOACH_COLL_INSTR_LIB_NAME@'))
+config.substitutions.append(('%rma_c_instr_flags', '-L@PARCOACH_LIB_DIR@ -l@PARCOACH_RMA_C_INSTR_LIB_NAME@'))
+config.substitutions.append(('%rma_fortran_instr_flags', '-L@PARCOACH_LIB_DIR@ -l@PARCOACH_RMA_Fortran_INSTR_LIB_NAME@'))
 config.substitutions.append(('%ld_lib_path', 'LD_LIBRARY_PATH=@PARCOACH_LIB_DIR@:$LD_LIBRARY_PATH'))
 
 # It's not quite possible to detect which MPI library is being used, so just

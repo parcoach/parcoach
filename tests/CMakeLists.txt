@@ -14,7 +14,14 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   enable_testing()
 endif()
 
-set(PARCOACH_MPI_INSTR_LIB_NAME ParcoachInstrumentation)
+set(PARCOACH_COLL_INSTR_LIB_NAME ParcoachCollDynamic_MPI_C)
+set(PARCOACH_RMA_C_INSTR_LIB_NAME ParcoachRMADynamic_MPI_C)
+set(PARCOACH_RMA_Fortran_INSTR_LIB_NAME ParcoachRMADynamic_MPI_Fortran)
+
+# Top-level target for all generated test files.
+add_custom_target(tests-dependencies ALL)
+add_custom_target(tests-ready DEPENDS tests-dependencies)
+
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   find_program(PARCOACH_BIN
     parcoach REQUIRED
@@ -24,8 +31,14 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     HINTS ${PARCOACH_INSTALL_DIR}/bin)
   if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
     set(PARCOACH_LIB_DIR ${PARCOACH_INSTALL_DIR}/lib)
-    find_library(PARCOACH_MPI_INSTR_LIB
-      ${PARCOACH_MPI_INSTR_LIB_NAME} REQUIRED
+    find_library(PARCOACH_COLL_INSTR_LIB
+      ${PARCOACH_COLL_INSTR_LIB_NAME} REQUIRED
+      HINTS ${PARCOACH_LIB_DIR})
+    find_library(PARCOACH_RMA_C_INSTR_LIB
+      ${PARCOACH_RMA_C_INSTR_LIB_NAME} REQUIRED
+      HINTS ${PARCOACH_LIB_DIR})
+    find_library(PARCOACH_RMA_Fortran_INSTR_LIB
+      ${PARCOACH_RMA_Fortran_INSTR_LIB_NAME} REQUIRED
       HINTS ${PARCOACH_LIB_DIR})
   endif()
   if(PARCOACH_ENABLE_FORTRAN)
@@ -36,9 +49,16 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 else()
   set(PARCOACH_BIN ${CMAKE_BINARY_DIR}/parcoach)
   set(PARCOACHCC_BIN ${CMAKE_BINARY_DIR}/parcoachcc)
+  add_dependencies(tests-ready parcoach parcoachcc)
   if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
-    set(PARCOACH_MPI_INSTR_LIB ${PARCOACH_MPI_INSTR_LIB_NAME})
+    set(PARCOACH_COLL_INSTR_LIB ${PARCOACH_COLL_INSTR_LIB_NAME})
+    set(PARCOACH_RMA_C_INSTR_LIB ${PARCOACH_RMA_C_INSTR_LIB_NAME})
+    set(PARCOACH_RMA_Fortran_INSTR_LIB ${PARCOACH_RMA_Fortran_INSTR_LIB_NAME})
     set(PARCOACH_LIB_DIR ${CMAKE_BINARY_DIR}/src/instrumentation)
+    add_dependencies(tests-ready ${PARCOACH_COLL_INSTR_LIB} ${PARCOACH_RMA_C_INSTR_LIB})
+    if(PARCOACH_ENABLE_FORTRAN)
+      add_dependencies(tests-ready ${PARCOACH_RMA_Fortran_INSTR_LIB})
+    endif()
   endif()
 endif()
 
@@ -79,11 +99,6 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in"
 # This sets up default configuration and substitutions for our lit tests.
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/default.cfg.in"
   ${DEFAULT_LIT_CONFIG} @ONLY)
-
-# Top-level target for all generated test files.
-add_custom_target(tests-dependencies ALL)
-add_custom_target(tests-ready
-  DEPENDS tests-dependencies ${PARCOACH_BIN} ${PARCOACHCC_BIN})
 
 set(EXTRA_ARGS_CTEST "")
 if(PARCOACH_DISABLE_INSTRUMENTATION_TESTS)

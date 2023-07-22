@@ -3,8 +3,7 @@ if(NOT MPI_FOUND)
 endif()
 
 add_sources_to_format(SOURCES MPI_DynamicCheck.c)
-add_library(MPI_DynamicCheck OBJECT MPI_DynamicCheck.c)
-set_property(TARGET MPI_DynamicCheck PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_link_libraries(MPI_DynamicCheck PRIVATE MPI::MPI_C)
-
-target_link_libraries(ParcoachInstrumentation MPI_DynamicCheck)
+add_library(ParcoachCollDynamic_MPI_C SHARED MPI_DynamicCheck.c)
+install(TARGETS ParcoachCollDynamic_MPI_C EXPORT ParcoachTargets_C COMPONENT Instrumentation_C)
+set_property(TARGET ParcoachCollDynamic_MPI_C PROPERTY POSITION_INDEPENDENT_CODE 1)
+target_link_libraries(ParcoachCollDynamic_MPI_C MPI::MPI_C)

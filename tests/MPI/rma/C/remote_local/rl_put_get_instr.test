@@ -3,6 +3,6 @@
 // RUN: c_file=$(echo %s | sed 's/_instr.test/.c/')
 // RUN: %mpicc -g -S -emit-llvm "$c_file" -o %t.ll
 // RUN: %parcoach -check=rma -o %t_instr.ll %t.ll
-// RUN: %mpicc %t_instr.ll %instr_flags -o %t.bin
+// RUN: %mpicc %t_instr.ll %rma_c_instr_flags -o %t.bin
 // RUN: %ld_lib_path %not %mpiexec -np 2 %t.bin 2>&1 | %filecheck %s
 // CHECK: Error when inserting memory access {{.*}}.c:{{38|43}} with {{.*}}.c:{{38|43}}

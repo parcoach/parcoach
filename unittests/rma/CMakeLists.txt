@@ -16,7 +16,7 @@ target_link_libraries(
   GTest::gtest_main
   GTest::gmock
   MPI::MPI_CXX
-  RMADynamic
+  ParcoachRMADynamic_MPI_C
 )
 
 gtest_discover_tests(unit_tests_rma)

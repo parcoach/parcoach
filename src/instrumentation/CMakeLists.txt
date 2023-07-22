@@ -4,8 +4,8 @@ set(CMAKE_CXX_CLANG_TIDY "")
 # Avoid including any C++ bindings.
 add_compile_definitions(OMPI_SKIP_MPICXX MPICH_SKIP_MPICXX)
 
-add_library(ParcoachInstrumentation SHARED)
-install(TARGETS ParcoachInstrumentation)
+# Make sure all instrumentation lib land in the same binary dir.
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(mpi)
 add_subdirectory(rma)

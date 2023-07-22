@@ -1,0 +1,27 @@
+@PACKAGE_INIT@
+
+# Handle components
+set(PARCOACH_AVAILABLE_COMPONENTS @PARCOACH_AVAILABLE_COMPONENTS@)
+
+if(NOT Parcoach_FIND_COMPONENTS)
+  set(Parcoach_FIND_COMPONENTS)
+endif()
+# We always find Analysis.
+list(PREPEND Parcoach_FIND_COMPONENTS Analysis)
+list(REMOVE_DUPLICATES Parcoach_FIND_COMPONENTS)
+
+include(CMakeFindDependencyMacro)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+include(ParcoachHelpers)
+
+foreach(Parcoach_COMPONENT IN LISTS Parcoach_FIND_COMPONENTS)
+  if(Parcoach_COMPONENT IN_LIST PARCOACH_AVAILABLE_COMPONENTS)
+    include("${CMAKE_CURRENT_LIST_DIR}/Config-${Parcoach_COMPONENT}.cmake")
+    set(Parcoach_${Parcoach_COMPONENT}_FOUND TRUE)
+  else()
+    message(STATUS "Component '${Parcoach_COMPONENT}' is not available.")
+    set(Parcoach_${Parcoach_COMPONENT}_FOUND FALSE)
+  endif()
+endforeach()
+
+check_required_components(Parcoach)

@@ -17,15 +17,17 @@ test-releases:
         export CC=clang
         export CXX=clang++
         export FC=flang-new
+        export Parcoach_DIR=/usr/lib/cmake/Parcoach
       else
         tar -xf packages/*-${TYPE}-Linux.tar.gz -C install
-        export PARCOACH_INSTALL_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))"
+        export Parcoach_DIR="$(dirname $(dirname $(find $PWD/install -name parcoach)))/lib/cmake/Parcoach"
         export LLVM_TOOLS_BINARY_DIR="$(dirname $(find /usr/lib -name FileCheck))"
         export FC=flang-new-15
       fi
     - mkdir build
     - cmake tests -G Ninja -B build
       -C caches/Tests-releases.cmake
+      -DParcoach_DIR=$Parcoach_DIR
       -DCMAKE_Fortran_FLAGS="-flang-experimental-exec"
       -DPARCOACH_VERSION_SUFFIX=$VERSION_SUFFIX
     - cmake --build build --target run-tests

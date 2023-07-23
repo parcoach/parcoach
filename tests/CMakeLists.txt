@@ -1,5 +1,5 @@
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-  cmake_minimum_required(VERSION 3.18)
+  cmake_minimum_required(VERSION 3.24)
   project(PARCOACH-tests)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/../cmake")
   include(CMakePolicy)
@@ -23,28 +23,19 @@ add_custom_target(tests-dependencies ALL)
 add_custom_target(tests-ready DEPENDS tests-dependencies)
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-  find_program(PARCOACH_BIN
-    parcoach REQUIRED
-    HINTS ${PARCOACH_INSTALL_DIR}/bin)
-  find_program(PARCOACHCC_BIN
-    parcoachcc REQUIRED
-    HINTS ${PARCOACH_INSTALL_DIR}/bin)
-  if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
-    set(PARCOACH_LIB_DIR ${PARCOACH_INSTALL_DIR}/lib)
-    find_library(PARCOACH_COLL_INSTR_LIB
-      ${PARCOACH_COLL_INSTR_LIB_NAME} REQUIRED
-      HINTS ${PARCOACH_LIB_DIR})
-    find_library(PARCOACH_RMA_C_INSTR_LIB
-      ${PARCOACH_RMA_C_INSTR_LIB_NAME} REQUIRED
-      HINTS ${PARCOACH_LIB_DIR})
-    find_library(PARCOACH_RMA_Fortran_INSTR_LIB
-      ${PARCOACH_RMA_Fortran_INSTR_LIB_NAME} REQUIRED
-      HINTS ${PARCOACH_LIB_DIR})
-  endif()
   if(PARCOACH_ENABLE_FORTRAN)
-    cmake_minimum_required(VERSION 3.24)
     enable_language(Fortran)
     message(STATUS "Using Fortran Compiler: ${CMAKE_Fortran_COMPILER}")
+  endif()
+  find_package(Parcoach ${PARCOACH_VERSION} EXACT REQUIRED
+    COMPONENTS Instrumentation_C Instrumentation_Fortran)
+  message(STATUS "Using PARCOACH_BIN: ${PARCOACH_BIN}")
+  message(STATUS "Using PARCOACHCC_BIN: ${PARCOACHCC_BIN}")
+  if(PARCOACH_ENABLE_MPI AND PARCOACH_ENABLE_INSTRUMENTATION)
+    set(PARCOACH_LIB_DIR ${Parcoach_DIR}/../..)
+    set(PARCOACH_COLL_INSTR_LIB Parcoach::${PARCOACH_COLL_INSTR_LIB_NAME})
+    set(PARCOACH_RMA_C_INSTR_LIB Parcoach::${PARCOACH_RMA_C_INSTR_LIB_NAME})
+    set(PARCOACH_RMA_Fortran_INSTR_LIB Parcoach::${PARCOACH_RMA_Fortran_INSTR_LIB_NAME})
   endif()
 else()
   set(PARCOACH_BIN ${CMAKE_BINARY_DIR}/parcoach)

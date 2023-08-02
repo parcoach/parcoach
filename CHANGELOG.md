@@ -1,12 +1,18 @@
 # PARCOACH changelog
 
-## 2.3.2
+## 2.4.0
 
 ### General
 
   - cli: `parcoachcc` now supports instrumenting file (ie: passing
   `-instrum-inter` or `-check=rma` will make `parcoachcc` output the
   instrumented object in the original command line output.
+
+### Packaging
+
+  - CMake: PARCOACH analyses and instrumentation libraries can now be found by
+  `find_package`. See https://gitlab.inria.fr/parcoach/parcoach-demo for an
+  example usage until the documentation is properly update.
 
 ## 2.3.1
 

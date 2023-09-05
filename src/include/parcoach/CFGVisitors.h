@@ -4,6 +4,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SCCIterator.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/ValueMap.h"
@@ -14,7 +15,8 @@ namespace parcoach {
 
 using BBToBBMap = llvm::DenseMap<llvm::BasicBlock *, llvm::BasicBlock *>;
 using BBToVectorBBMap =
-    llvm::DenseMap<llvm::BasicBlock *, llvm::SmallVector<llvm::BasicBlock *>>;
+    llvm::DenseMap<llvm::BasicBlock *,
+                   llvm::SmallSetVector<llvm::BasicBlock *, 8>>;
 enum class NodeState {
   UNVISITED = 0,
   PUSHED,
@@ -25,6 +27,7 @@ struct LoopAggretationInfo {
   BBToVectorBBMap LoopHeaderToSuccessors;
   BBToBBMap LoopHeaderToIncomingBlock;
   BBToBBMap LoopSuccessorToLoopHeader;
+  llvm::LoopInfo const *LI{};
   void clear();
 };
 
@@ -87,7 +90,7 @@ template <typename Derived> class LoopVisitor {
             Visited[BB] = NodeState::PUSHED;
             Queue.emplace_back(BB);
           } else {
-            LAI_.LoopHeaderToSuccessors[Start].emplace_back(BB);
+            LAI_.LoopHeaderToSuccessors[Start].insert(BB);
           }
         }
       };
@@ -113,6 +116,7 @@ public:
   void Visit(llvm::Function &F, llvm::FunctionAnalysisManager &FAM) {
     LAI_.clear();
     llvm::LoopInfo &LI = FAM.getResult<llvm::LoopAnalysis>(F);
+    LAI_.LI = &LI;
     for (llvm::Loop *L : LI) {
       Visit(*L, LI);
     }
@@ -135,6 +139,8 @@ public:
     auto const &PredsMap = Res.LoopSuccessorToLoopHeader;
     auto const &SuccsMap = Res.LoopHeaderToSuccessors;
     auto const &IncomingMap = Res.LoopHeaderToIncomingBlock;
+    assert(Res.LI && "LoopInfo should be populated");
+    auto const &LI = *Res.LI;
 
     std::deque<llvm::BasicBlock *> Queue;
 
@@ -182,13 +188,20 @@ public:
         // add it.
         EnqueueBB(IncomingMap.find(BB)->second);
       } else if (PredsMap.count(BB)) {
+        llvm::BasicBlock *Header = PredsMap.find(BB)->second;
         // This BB was a successor of a loop: we want its predecessors to be the
         // header loop itself.
-        EnqueueBB(PredsMap.find(BB)->second);
-        // We whould have been doing a 1 to 1 replacement, assert that.
-        // This will break if a block has a loop pred and a non loop pred,
-        // which should not happen.
-        assert(pred_size(BB) == 1 && "Unexpected pred size");
+        EnqueueBB(Header);
+        // As well as any other predecessors that may be something else than a
+        // loop.
+        assert(LI[Header] && "BB Must be in a loop if it's in PredsMap");
+        llvm::Loop const &L = *LI[Header];
+        auto EnqueuePred = [&](llvm::BasicBlock *Pred) {
+          if (!L.contains(Pred)) {
+            EnqueueBB(Pred);
+          }
+        };
+        llvm::for_each(llvm::predecessors(BB), EnqueuePred);
       } else {
         // Else just add all preds.
         llvm::for_each(llvm::predecessors(BB), EnqueueBB);

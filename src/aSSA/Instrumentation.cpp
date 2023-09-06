@@ -61,7 +61,7 @@ void insertCC(Instruction *I, Collective const *C, Function const &F,
   Value *StrPtrFilename = Builder.CreateGlobalStringPtr(File);
   // Set new function name, type and arguments
   FunctionType *FTy = FunctionType::get(Builder.getVoidTy(), Params, false);
-  int OpColor = C != nullptr ? (int)C->K : -1;
+  int OpColor = C != nullptr ? (int)C->K : (int)Collective::Kind::C_Last;
   std::array<Value *, NParams> CallArgs = {
       ConstantInt::get(I32Ty, OpColor), StrPtrName,
       ConstantInt::get(I32Ty, OpLine), StrPtrWarnings, StrPtrFilename};

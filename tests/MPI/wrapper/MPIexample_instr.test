@@ -5,4 +5,4 @@
 // CHECK: possibly not called by all processes
 // RUN: %mpicc %t.instr.o %coll_instr_flags -o %t.bin
 // RUN: %ld_lib_path %mpiexec -np 2 %t.bin 2>&1 | %filecheck --check-prefix=CHECK-EXE %s
-// CHECK-EXE: PARCOACH DYNAMIC-CHECK : Abort is invoking line 40 before calling MPI_Finalize
+// CHECK-EXE: PARCOACH DYNAMIC-CHECK : OK

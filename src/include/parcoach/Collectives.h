@@ -33,6 +33,7 @@ struct Collective {
 #include "CUDARegistry.def"
 #endif
 #undef COLLECTIVE
+    C_Last
   };
   std::string const Name;
   // Unique collective identifier

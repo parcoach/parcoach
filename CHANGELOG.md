@@ -2,6 +2,16 @@
 
 ## 2.4.1
 
+### General
+
+  - analyses: fixed the BFS loop algorithm to take into account the rare cases
+  where a BB could have predecessors both in loop and non loop.
+
+### Instrumentation
+
+  - collectives: fixed a bug where a valid program could be detected as
+  problematic because of a bogus collective id.
+
 ### Packaging
 
   - spack: create a spack repository and document its usage.

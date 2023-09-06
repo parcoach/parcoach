@@ -2,7 +2,56 @@
 
 **PARCOACH** automatically checks parallel applications to verify the correct use of collectives. This tool uses an inter-procedural control- and data-flow analysis to detect potential errors at compile-time.
 
-## Getting Started
+## Getting Started (for users)
+
+### Using Guix
+
+We maintain the parcoach package in the [guix-hpc](https://gitlab.inria.fr/guix-hpc/guix-hpc) channel; see [here](https://gitlab.inria.fr/guix-hpc/guix-hpc#how-does-it-work) for information about how to add a channel to Guix.
+
+Once the channel is added, you can use parcoach as any other Guix package, for instance if you want a shell with parcoach, OpenMPI, and clang 15 you would run:
+
+```bash
+guix shell openmpi parcoach clang@15
+```
+
+Check the "Usage" section for more information about how to run the tool on codes!
+
+### Using Docker
+
+You can use the docker image from our ["demo" repository](https://gitlab.inria.fr/parcoach/parcoach-demo), which include a ready to use parcoach, OpenMPI, and Clang:
+
+```bash
+docker run -it registry.gitlab.inria.fr/parcoach/parcoach-demo:2.4.1 bash
+```
+
+It will give you a shell, you may want to mount a local folder to start playing with your codes by passing `-v /local/path/to/folder:/path/in/docker` to the `docker run` invocation.
+
+### Using Spack
+
+We maintain a spack repository with the parcoach package right here, you just need to clone this repository, add the spack folder as a repository, then install parcoach.
+The detailed commands are below:
+
+```bash
+git clone https://gitlab.inria.fr/parcoach/parcoach.git
+spack repo add parcoach/spack
+spack install parcoach
+spack load parcoach
+```
+
+It should load both PARCOACH as well as the Clang/LLVM it's depending on.
+Check the "Usage" section for more information about how to run the tool on codes!
+
+### Using a release package
+
+All PARCOACH releases can be found [here](https://gitlab.inria.fr/parcoach/parcoach/-/releases).
+
+If you don't want to worry about installing too much dependencies we recommend taking the `static-Linux` release, it comes with everything bundled.
+Then you just need to install OpenMPI and Clang 15 on your system to start running the tool on codes.
+
+We recommend using Guix or spack: they are popular options for managing packages on clusters.
+If you don't use them on your personal computer then we recommend using the aforementioned docker image!
+
+## Getting Started (for developpers)
 
 These instructions will get you a copy of the project up and running on your local machine.
 
@@ -29,6 +78,12 @@ works, please take a look at the dedicated [README](ci/README.md).
 
 At the time of writing these lines, the two main dependencies are CMake >= 3.16
 and LLVM 15.
+
+#### Guix
+
+If you're using Guix, just use our manifest with `guix shell -m manifest.scm` ;)
+
+With this you don't even have to use pipenv in the next section as the python dependencies are in the manifest.
 
 ### Build instructions
 

@@ -1,5 +1,11 @@
 # PARCOACH changelog
 
+## 2.4.1
+
+### Packaging
+
+  - spack: create a spack repository and document its usage.
+
 ## 2.4.0
 
 ### General

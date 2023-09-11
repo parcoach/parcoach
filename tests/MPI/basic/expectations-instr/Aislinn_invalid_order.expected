@@ -1,3 +1,4 @@
 PARCOACH DYNAMIC-CHECK : Error detected on rank 0
-PARCOACH DYNAMIC-CHECK : see warnings about conditionals line MPI_Scatter line 16 possibly not called by all processes because of conditional(s) line(s)  15 (tests/MPI/basic/src/Aislinn_invalid_order.c) (Call Ordering Error)
 PARCOACH DYNAMIC-CHECK : Abort is invoking line 16 before calling MPI_Scatter in tests/MPI/basic/src/Aislinn_invalid_order.c
+PARCOACH DYNAMIC-CHECK : Rank 1, warnings for my collective: MPI_Gather line 20 possibly not called by all processes because of conditional(s) line(s)  19 (tests/MPI/basic/src/Aislinn_invalid_order.c) (Call Ordering Error)
+PARCOACH DYNAMIC-CHECK : Rank 0, warnings for my collective: MPI_Scatter line 16 possibly not called by all processes because of conditional(s) line(s)  15 (tests/MPI/basic/src/Aislinn_invalid_order.c) (Call Ordering Error)

@@ -1,3 +1,3 @@
 PARCOACH DYNAMIC-CHECK : Error detected on rank 0
 PARCOACH DYNAMIC-CHECK : Abort is invoking line 13 before calling MPI_Finalize in tests/MPI/basic/src/error2.c
-PARCOACH DYNAMIC-CHECK : see warnings  
+PARCOACH DYNAMIC-CHECK : Rank 1, warnings for my collective: MPI_Barrier line 11 possibly not called by all processes because of conditional(s) line(s)  10 (tests/MPI/basic/src/error2.c) (Call Ordering Error)

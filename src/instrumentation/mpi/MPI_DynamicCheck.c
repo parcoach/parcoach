@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/time.h>
 
 #include "mpi.h"
@@ -59,18 +60,24 @@ void check_collective_MPI(int OP_color, char const *OP_name, int OP_line,
     MPI_Reduce(&OP_color, &Res, 1, MPI_INT, Equalsop, 0, IniComm);
     MPI_Op_free(&Equalsop);
 
-    if (Rank == 0) {
-      if (Res == ~0) {
+    // Broadcast the result to everyone
+    MPI_Bcast(&Res, 1, MPI_INT, 0, IniComm);
+
+    if (Res == ~0) {
+      if (strlen(Warnings) > 2) {
+        printf("PARCOACH DYNAMIC-CHECK : Rank %d, warnings for my collective: "
+               "%s\n",
+               Rank, Warnings);
+      }
+      if (Rank == 0) {
         printf("PARCOACH DYNAMIC-CHECK : Error detected on rank %d\n"
                "PARCOACH DYNAMIC-CHECK : Abort is invoking line %d before "
-               "calling %s in %s\n"
-               "PARCOACH DYNAMIC-CHECK : see warnings about conditionals line "
-               "%s\n",
-               Rank, OP_line, OP_name, FileName, Warnings);
+               "calling %s in %s\n",
+               Rank, OP_line, OP_name, FileName);
         MPI_Abort(MPI_COMM_WORLD, 0);
-      } else {
-        printf("PARCOACH DYNAMIC-CHECK : OK\n");
       }
+    } else if (Rank == 0) {
+      printf("PARCOACH DYNAMIC-CHECK : OK\n");
     }
   }
 }
@@ -102,17 +109,24 @@ void check_collective_return(int OP_color, char const *OP_name, int OP_line,
     MPI_Reduce(&OP_color, &Res, 1, MPI_INT, Equalsop, 0, IniComm);
     MPI_Op_free(&Equalsop);
 
-    if (Rank == 0) {
-      if (Res == ~0) {
+    // Broadcast the result to everyone
+    MPI_Bcast(&Res, 1, MPI_INT, 0, IniComm);
+
+    if (Res == ~0) {
+      if (strlen(Warnings) > 2) {
+        printf("PARCOACH DYNAMIC-CHECK : Rank %d, warnings for my collective: "
+               "%s\n",
+               Rank, Warnings);
+      }
+      if (Rank == 0) {
         printf("PARCOACH DYNAMIC-CHECK : Error detected on rank %d\n"
                "PARCOACH DYNAMIC-CHECK : Abort is invoking line %d before "
-               "calling %s in %s\n"
-               "PARCOACH DYNAMIC-CHECK : see warnings %s\n",
-               Rank, OP_line, OP_name, FileName, Warnings);
+               "calling %s in %s\n",
+               Rank, OP_line, OP_name, FileName);
         MPI_Abort(MPI_COMM_WORLD, 0);
-      } else {
-        printf("PARCOACH DYNAMIC-CHECK : OK\n");
       }
+    } else if (Rank == 0) {
+      printf("PARCOACH DYNAMIC-CHECK : OK\n");
     }
   }
 }

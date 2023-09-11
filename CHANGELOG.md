@@ -1,5 +1,12 @@
 # PARCOACH changelog
 
+## 2.4.2
+
+### Instrumentation
+
+  - collectives: fixed a bug where only a subset of warnings were reported in
+  the output.
+
 ## 2.4.1
 
 ### General

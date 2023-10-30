@@ -12,7 +12,7 @@ set(PARCOACH_ENABLE_INSTRUMENTATION ON CACHE BOOL "")
 
 # This is overridable by the user, but it's actually useful to determine
 # target installation folders.
-set(PLAFRIM_PARCOACH_VERSION 2.0.0 CACHE STRING "")
+set(PLAFRIM_PARCOACH_VERSION 2.4.2 CACHE STRING "")
 set(PLAFRIM_MODULE_ROOT "/cm/shared/dev/modules/generic" CACHE STRING "")
 set(PLAFRIM_MODULE_NAME "tools/parcoach" CACHE STRING "")
 message(STATUS "Using plafrim cache for parcoach version ${PLAFRIM_PARCOACH_VERSION}")

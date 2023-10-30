@@ -12,6 +12,10 @@ if {![ is-loaded toolchains/llvm ]} {
    module load toolchains/llvm
 }
 
+if {![ is-loaded mpi/openmpi/4.1.5 ]} {
+   module load mpi/openmpi/4.1.5
+}
+
 proc ModulesHelp { } {
     global version
 
